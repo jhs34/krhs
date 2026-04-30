@@ -257,7 +257,7 @@ function AppContent() {
             setAdminInitialEditItem(null);
           }}
           notices={notices}
-          events={events}
+          events={events as any}
           documents={documents}
           initialTab={adminInitialTab}
           initialEditItem={adminInitialEditItem}
