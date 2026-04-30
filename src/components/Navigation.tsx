@@ -23,7 +23,7 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
       <div className="max-w-[1600px] w-full mx-auto px-6 md:px-12">
         <div className="flex justify-between items-center h-16">
           <Link to="/" className="flex items-center space-x-3">
-            <img src="./logo.png" className="w-[30px] h-auto brightness-0 invert opacity-90" alt="KRHS" />
+            <img src={`${import.meta.env.BASE_URL}logo.png`} className="w-[30px] h-auto brightness-0 invert opacity-90" alt="KRHS" />
             <span className="font-sans font-bold tracking-tight text-white/95 w-[130px] text-[22px] h-[33.2188px] ml-0 pl-0 pt-[3px]">KRHS Portal</span>
           </Link>
           <nav className="flex items-center space-x-10">
