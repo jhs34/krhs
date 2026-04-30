@@ -1,0 +1,38 @@
+{
+  "entities": {
+    "Notice": {
+      "title": "Notice",
+      "description": "A school notice or announcement.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Title of the notice." },
+        "content": { "type": "string", "description": "Details of the notice." },
+        "date": { "type": "string", "format": "date-time", "description": "Notice date (ISO string)." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp." }
+      },
+      "required": ["title", "content", "date", "createdAt"]
+    },
+    "AcademicEvent": {
+      "title": "AcademicEvent",
+      "description": "An event in the academic calendar.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "date", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/notices/{noticeId}": {
+      "schema": { "$ref": "#/entities/Notice" },
+      "description": "Collection of school notices."
+    },
+    "/events/{eventId}": {
+      "schema": { "$ref": "#/entities/AcademicEvent" },
+      "description": "Collection of academic calendar events."
+    }
+  }
+}

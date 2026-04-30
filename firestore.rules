@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitives
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { 
+      // Hardcoded admin email for solo app developer
+      return isSignedIn() && request.auth.token.email == 'hoya100304@gmail.com' && request.auth.token.email_verified == true; 
+    }
+
+    // Validation
+    function isValidNotice(data) {
+      let reqKeys = ['title', 'content', 'date', 'createdAt'];
+      return data.keys().hasAll(reqKeys) &&
+             data.keys().hasOnly(['title', 'content', 'date', 'createdAt', 'fileUrl', 'fileName', 'files']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.content is string && data.content.size() <= 10000 &&
+             data.date is string && data.date.size() <= 100 &&
+             data.createdAt is string && data.createdAt.size() <= 100 &&
+             (data.keys().hasAny(['fileUrl']) ? (data.fileUrl is string && data.fileUrl.size() <= 2000) : true) &&
+             (data.keys().hasAny(['fileName']) ? (data.fileName is string && data.fileName.size() <= 500) : true) &&
+             (data.keys().hasAny(['files']) ? (data.files is list && data.files.size() <= 10) : true);
+    }
+
+    function isValidEvent(data) {
+      return data.keys().hasAll(['title', 'description', 'date', 'endDate', 'createdAt']) &&
+             data.keys().hasOnly(['title', 'description', 'date', 'endDate', 'createdAt', 'color']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.description is string && data.description.size() <= 1000 &&
+             data.date is string && data.date.size() <= 100 &&
+             data.endDate is string && data.endDate.size() <= 100 &&
+             data.createdAt is string && data.createdAt.size() <= 100 &&
+             (data.keys().hasAny(['color']) ? (data.color is string && data.color.size() <= 50) : true);
+    }
+
+    function isValidDocument(data) {
+      return data.keys().hasAll(['title', 'description', 'createdAt']) &&
+             data.keys().hasOnly(['title', 'description', 'fileUrl', 'fileName', 'files', 'createdAt']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.description is string && data.description.size() <= 10000 &&
+             data.createdAt is string && data.createdAt.size() <= 100 &&
+             (data.keys().hasAny(['fileUrl']) ? (data.fileUrl is string && data.fileUrl.size() <= 2000) : true) &&
+             (data.keys().hasAny(['fileName']) ? (data.fileName is string && data.fileName.size() <= 500) : true) &&
+             (data.keys().hasAny(['files']) ? (data.files is list && data.files.size() <= 10) : true);
+    }
+
+    // Notice Collection
+    match /notices/{noticeId} {
+      allow read: if true; // Public access to notices
+      allow create: if isAdmin() && isValidId(noticeId) && isValidNotice(incoming());
+      allow update: if isAdmin() && isValidId(noticeId) && isValidNotice(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'date', 'fileUrl', 'fileName', 'files'])
+      );
+      allow delete: if isAdmin() && isValidId(noticeId);
+    }
+
+    // Academic Events Collection
+    match /events/{eventId} {
+      allow read: if true; // Public access to events
+      allow create: if isAdmin() && isValidId(eventId) && isValidEvent(incoming());
+      allow update: if isAdmin() && isValidId(eventId) && isValidEvent(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'date', 'endDate', 'color'])
+      );
+      allow delete: if isAdmin() && isValidId(eventId);
+    }
+
+    // Documents Collection
+    match /documents/{docId} {
+      allow read: if true; // Public access to documents
+      allow create: if isAdmin() && isValidId(docId) && isValidDocument(incoming());
+      allow update: if isAdmin() && isValidId(docId) && isValidDocument(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'fileUrl', 'fileName', 'files'])
+      );
+      allow delete: if isAdmin() && isValidId(docId);
+    }
+  }
+}
