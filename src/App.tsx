@@ -77,8 +77,10 @@ function HeroSection() {
       </div>
 
       {/* Scroll Indicator */}
-      <motion.a 
-        href="#dashboard" 
+      <motion.div 
+        onClick={() => {
+          document.getElementById('dashboard')?.scrollIntoView({ behavior: 'smooth' });
+        }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 0.8 }}
         transition={{ duration: 1, delay: 1 }}
@@ -91,7 +93,7 @@ function HeroSection() {
         >
           <ArrowDown className="w-5 h-5 text-white" strokeWidth={2} />
         </motion.div>
-      </motion.a>
+      </motion.div>
     </section>
   );
 }
