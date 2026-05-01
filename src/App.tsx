@@ -38,15 +38,15 @@ function HeroSection() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
-          className="flex items-center space-x-4"
+          className="flex items-center space-x-3 md:space-x-4"
         >
           <img 
             src={`${import.meta.env.BASE_URL}logo.png`} 
             alt="한국철도고등학교 로고" 
-            className="w-10 h-auto drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)] brightness-0 invert"
+            className="w-8 md:w-10 h-auto drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)] brightness-0 invert"
           />
-          <div className="flex items-baseline space-x-4">
-            <span className="font-sans font-bold text-2xl text-white tracking-tighter drop-shadow-md pt-[6px]">한국철도고등학교</span>
+          <div className="flex items-baseline space-x-2 md:space-x-4">
+            <span className="font-sans font-bold text-xl md:text-2xl text-white tracking-tighter drop-shadow-md pt-[6px]">한국철도고등학교</span>
             <span className="font-space font-medium text-[13px] text-white tracking-[0.2em] uppercase hidden sm:block">KOREA RAILROAD HIGH SCHOOL</span>
           </div>
         </motion.div>
@@ -60,17 +60,17 @@ function HeroSection() {
           transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
           className="text-center"
         >
-          <h2 className="text-white/80 font-space font-semibold text-sm md:text-base tracking-[0.3em] mb-6 uppercase drop-shadow-md">
+          <h2 className="text-white/80 font-space font-semibold text-[10px] sm:text-xs md:text-sm tracking-[0.2em] sm:tracking-[0.3em] mb-3 sm:mb-4 uppercase drop-shadow-md leading-relaxed px-2">
             Korea Railroad High School
           </h2>
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-white tracking-tighter leading-[1.1] font-sans drop-shadow-2xl mb-10">
+          <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black text-white tracking-tighter leading-[1.35] md:leading-[1.1] font-sans drop-shadow-2xl mb-6 md:mb-8 break-keep">
             입학부터 졸업까지,<br />
-            모든 순간을 <span className="relative inline-block px-4 py-1 ml-2">
+            모든 순간을 <span className="relative inline-block px-2 md:px-4 py-0.5 md:py-1 ml-1 md:ml-2 mt-2 sm:mt-0">
               <span className="relative z-10">완성하다</span>
               <span className="absolute inset-0 bg-gradient-to-r from-secondary to-primary transform -skew-x-6"></span>
             </span>
           </h1>
-          <p className="text-lg md:text-xl text-white/70 font-medium max-w-2xl mx-auto tracking-tight leading-relaxed">
+          <p className="text-sm sm:text-base md:text-lg text-white/70 font-medium max-w-2xl mx-auto tracking-tight leading-relaxed break-keep px-4">
             한국철도고등학교 학생들을 위한 지능형 학사 안내 터미널
           </p>
         </motion.div>
@@ -236,13 +236,13 @@ function AppContent() {
         </Routes>
       </main>
 
-      <footer className="bg-[#050a14] py-12 border-t border-white/5">
-        <div className="max-w-[1600px] w-full mx-auto px-6 md:px-12 flex flex-col md:flex-row justify-between items-center text-surface-dim text-sm font-sans">
-           <div className="mb-4 md:mb-0 flex items-center space-x-3">
-             <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-6 opacity-100 brightness-0 invert border-white" />
+      <footer className="bg-[#050a14] py-8 md:py-12 border-t border-white/5">
+        <div className="max-w-[1600px] w-full mx-auto px-4 md:px-12 flex flex-col md:flex-row justify-between items-center text-surface-dim text-xs md:text-sm font-sans gap-4 md:gap-0">
+           <div className="flex items-center space-x-2 md:space-x-3">
+             <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-5 md:w-6 opacity-100 brightness-0 invert border-white" />
              <span>&copy; 2026 KOREA RAILROAD HIGH SCHOOL</span>
            </div>
-           <div className="flex space-x-6 uppercase font-space tracking-widest text-xs">
+           <div className="flex space-x-4 md:space-x-6 uppercase font-space tracking-wider md:tracking-widest text-[10px] md:text-xs">
              <button onClick={() => setSiteInfoPopup({ title: '공지사항', content: '한국철도고등학교 학생들을 위한 지능형 학사 안내 터미널 관련 공지사항입니다.\n\n- (예시) 신규 업데이트가 있을 경우 여기에 안내됩니다.' })} className="hover:text-white transition-colors cursor-pointer text-left">공지사항</button>
              <button onClick={() => setSiteInfoPopup({ title: '업데이트', content: '시스템 업데이트 내역:\n\n- 디자인 리뉴얼\n- 메인 학사일정 바로가기 추가\n- 데이터베이스 연동 완료' })} className="hover:text-white transition-colors cursor-pointer text-left">업데이트</button>
              <button onClick={() => setSiteInfoPopup({ title: '문의하기', content: '개발자 연락처: hoya100304@gmail.com\n\n문의 사항이 있으시면 위 이메일로 연락주시기 바랍니다.' })} className="hover:text-white transition-colors cursor-pointer text-left">문의하기</button>

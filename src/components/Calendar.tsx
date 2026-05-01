@@ -14,6 +14,18 @@ interface CalendarProps {
 }
 
 export function Calendar({ currentDate, onDateChange, events, selectedDate, onSelectDate, onItemClick }: CalendarProps) {
+  const getContrastColor = (hexcolor?: string) => {
+    if (!hexcolor) return 'text-white';
+    let hex = hexcolor.replace("#", "");
+    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+    if (hex.length !== 6) return 'text-white';
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return (yiq >= 128) ? 'text-black' : 'text-white';
+  };
+
   const [direction, setDirection] = useState(0);
   const [popupDate, setPopupDate] = useState<Date | null>(null);
 
@@ -47,12 +59,12 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
   }) : [];
 
   return (
-    <div className="bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-8 relative">
-      <div className="flex justify-between items-center mb-8">
-        <h3 className="font-sans font-bold text-2xl text-white tracking-tight">
+    <div className="bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-4 md:p-8 relative">
+      <div className="flex justify-between items-center mb-4 md:mb-8">
+        <h3 className="font-sans font-bold text-lg md:text-2xl text-white tracking-tight">
           {format(currentDate, 'yyyy년 M월')}
         </h3>
-        <div className="flex space-x-2 items-center">
+        <div className="flex space-x-1 md:space-x-2 items-center">
           <button
             onClick={() => {
               const today = new Date();
@@ -60,28 +72,28 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
               onSelectDate(today);
               setPopupDate(null);
             }}
-            className="px-4 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-sm font-bold text-white hover:bg-white/10 transition-colors mr-2"
+            className="px-3 md:px-4 h-8 md:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xs md:text-sm font-bold text-white hover:bg-white/10 transition-colors mr-1 md:mr-2"
           >
             오늘
           </button>
           <button 
             onClick={prevMonth}
-            className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-colors"
+            className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-colors"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
           </button>
           <button 
             onClick={nextMonth}
-            className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-colors"
+            className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-colors"
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-2 mb-4">
+      <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2 md:mb-4">
         {weekDays.map(day => (
-          <div key={day} className="text-center text-surface-dim font-medium text-sm py-2">
+          <div key={day} className="text-center text-surface-dim font-medium text-xs md:text-sm py-1 md:py-2">
             {day}
           </div>
         ))}
@@ -96,7 +108,7 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: direction > 0 ? -20 : 20 }}
             transition={{ duration: 0.2 }}
-            className="grid grid-cols-7 gap-2"
+            className="grid grid-cols-7 gap-1 md:gap-2"
           >
             {days.map((day, i) => {
               const dayStart = startOfDay(day);
@@ -117,7 +129,7 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
                     if (dayEvents.length > 0) setPopupDate(day);
                   }}
                   className={`
-                    min-h-[150px] p-2 rounded-xl border flex flex-col items-start justify-start cursor-pointer transition-all relative group
+                    min-h-[40px] sm:min-h-[50px] md:min-h-[90px] lg:min-h-[120px] p-0.5 md:p-2 rounded-[4px] md:rounded-lg border flex flex-col items-center md:items-start justify-start cursor-pointer transition-all relative group overflow-hidden
                     ${!isCurrentMonth ? 'opacity-30' : 'opacity-100'}
                     ${isSelected 
                       ? 'border-white bg-white shadow-lg shadow-white/20 text-black' 
@@ -125,24 +137,43 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
                     }
                   `}
                 >
-                  <span className={`text-sm font-space mb-1 shrink-0 ${isSelected ? 'text-black font-extrabold' : 'text-white font-medium'}`}>
+                  <span className={`text-[7px] sm:text-[9px] md:text-xs lg:text-sm font-space shrink-0 mb-0.5 md:mb-1 ${isSelected ? 'text-black font-extrabold' : 'text-white font-medium'}`}>
                     {format(day, 'd')}
                   </span>
-                  <div className="w-full space-y-1">
-                    {dayEvents.slice(0, 3).map(event => (
-                      <div key={event.id} 
-                        className={`w-full text-left flex items-center px-1.5 py-1 rounded ${isSelected ? 'text-black mix-blend-multiply' : 'text-white'}`}
-                        style={{ backgroundColor: event.color ? (isSelected ? `${event.color}40` : `${event.color}20`) : (isSelected ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)') }}
-                      >
-                        {event.color && <div className="w-1.5 h-1.5 rounded-full shrink-0 mr-1.5" style={{ backgroundColor: event.color }} />}
-                        <span className={`truncate text-[10px] font-medium ${isSelected ? 'text-black' : 'text-white'}`}>{event.title}</span>
-                      </div>
-                    ))}
-                    {dayEvents.length > 3 && (
-                      <div className={`w-full text-left px-1.5 py-1 rounded text-[10px] font-bold ${isSelected ? 'text-black/60 hover:text-black' : 'text-white/50 hover:text-white'} transition-colors`}>
-                        + {dayEvents.length - 3}개 더보기
-                      </div>
-                    )}
+                  <div className="w-full mt-auto md:mt-0 mb-0.5 md:mb-0">
+                    {/* Mobile View */}
+                    <div className="block md:hidden w-full space-y-[1px]">
+                      {dayEvents.slice(0, 2).map(event => (
+                        <div key={event.id} 
+                          className={`w-full overflow-hidden text-center flex items-center justify-center px-0.5 py-[1px] rounded-[1px] ${isSelected ? 'mix-blend-multiply' : ''}`}
+                          style={{ backgroundColor: event.color || 'rgba(255,255,255,0.2)' }}
+                        >
+                          <span className={`block flex-1 min-w-0 truncate text-center text-[5px] leading-[6px] sm:text-[6px] sm:leading-[7px] font-bold ${isSelected ? 'text-black' : getContrastColor(event.color)} tracking-tighter`}>{event.title}</span>
+                        </div>
+                      ))}
+                      {dayEvents.length > 2 && (
+                        <div className={`w-full text-center px-0.5 py-[1px] rounded-[1px] text-[5px] leading-[6px] sm:text-[6px] sm:leading-[7px] font-bold ${isSelected ? 'text-black/60' : 'text-white/50'} tracking-tighter`}>
+                          + {dayEvents.length - 2}
+                        </div>
+                      )}
+                    </div>
+                    {/* Desktop View */}
+                    <div className="hidden md:block w-full space-y-[3px] lg:space-y-1.5">
+                      {dayEvents.slice(0, 3).map(event => (
+                        <div key={event.id} 
+                          className={`w-full overflow-hidden text-left flex items-center justify-start px-1.5 py-1 lg:px-2 lg:py-1.5 rounded-sm lg:rounded ${isSelected ? 'mix-blend-multiply' : ''}`}
+                          style={{ backgroundColor: event.color || 'rgba(255,255,255,0.2)' }}
+                        >
+                          {event.color && <div className="w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full shrink-0 mr-1.5 lg:mr-2" style={{ backgroundColor: isSelected ? 'rgba(0,0,0,0.5)' : (getContrastColor(event.color) === 'text-black' ? 'rgba(0,0,0,0.5)' : '#fff') }} />}
+                          <span className={`block flex-1 min-w-0 truncate text-left text-[9px] leading-[10px] lg:text-[11px] lg:leading-[14px] font-bold ${isSelected ? 'text-black' : getContrastColor(event.color)} tracking-tighter`}>{event.title}</span>
+                        </div>
+                      ))}
+                      {dayEvents.length > 3 && (
+                        <div className={`w-full text-left px-1.5 py-1 lg:px-2 lg:py-1.5 rounded-sm lg:rounded text-[9px] leading-[10px] lg:text-[11px] lg:leading-[14px] font-bold ${isSelected ? 'text-black/60 hover:bg-black/5' : 'text-white/50 hover:bg-white/5'} transition-colors tracking-tighter cursor-pointer`}>
+                          + {dayEvents.length - 3}개 더보기
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

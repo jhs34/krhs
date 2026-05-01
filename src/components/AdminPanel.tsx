@@ -182,39 +182,39 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0a1120] border border-white/10 w-full max-w-4xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col relative">
+      <div className="bg-[#0a1120] border border-white/10 w-full max-w-4xl max-h-[90vh] rounded-2xl md:rounded-3xl overflow-hidden flex flex-col relative shadow-2xl">
         {notification && (
-          <div className={`absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm font-bold shadow-lg z-50 flex items-center space-x-2 transition-all ${
+          <div className={`absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-xs md:text-sm font-bold shadow-lg z-50 flex items-center space-x-2 transition-all ${
             notification.type === 'success' ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'
           }`}>
             <span>{notification.message}</span>
             <button onClick={() => setNotification(null)} className="opacity-80 hover:opacity-100 ml-2">&times;</button>
           </div>
         )}
-        <div className="flex items-center justify-between p-6 border-b border-white/10 shrink-0">
-          <h2 className="text-2xl font-bold text-white">관리자 패널</h2>
-          <div className="flex space-x-4">
+        <div className="flex items-center justify-between p-4 md:p-6 border-b border-white/10 shrink-0">
+          <h2 className="text-lg md:text-2xl font-bold text-white">관리자 패널</h2>
+          <div className="flex space-x-2 md:space-x-4">
             <button
               onClick={() => setShowLogoutConfirm(true)}
-              className="px-4 py-2 text-sm text-white bg-red-600/80 hover:bg-red-600 rounded-lg transition-colors font-bold"
+              className="px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-white bg-red-600/80 hover:bg-red-600 rounded-lg transition-colors font-bold"
             >
               로그아웃
             </button>
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors font-bold"
+              className="px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors font-bold"
             >
               닫기
             </button>
           </div>
         </div>
 
-        <div className="flex flex-1 overflow-hidden min-h-0">
+        <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-0">
           {/* Sidebar */}
-          <div className="w-48 border-r border-white/10 flex flex-col p-4 space-y-2 shrink-0 overflow-y-auto">
+          <div className="w-full md:w-48 border-b md:border-b-0 md:border-r border-white/10 flex flex-row md:flex-col p-2 md:p-4 space-x-2 md:space-x-0 space-y-0 md:space-y-2 shrink-0 overflow-x-auto md:overflow-y-auto scrollbar-hide">
             <button
               onClick={() => setActiveTab('notices')}
-              className={`p-3 text-left rounded-xl transition-colors font-medium text-sm ${
+              className={`p-2 md:p-3 text-center md:text-left rounded-lg md:rounded-xl transition-colors font-medium text-xs md:text-sm whitespace-nowrap shrink-0 flex-1 md:flex-none ${
                 activeTab === 'notices' ? 'bg-white/20 text-white font-bold shadow-sm' : 'text-surface-dim hover:bg-white/5 hover:text-white'
               }`}
             >
@@ -222,7 +222,7 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
             </button>
             <button
               onClick={() => setActiveTab('events')}
-              className={`p-3 text-left rounded-xl transition-colors font-medium text-sm ${
+              className={`p-2 md:p-3 text-center md:text-left rounded-lg md:rounded-xl transition-colors font-medium text-xs md:text-sm whitespace-nowrap shrink-0 flex-1 md:flex-none ${
                 activeTab === 'events' ? 'bg-white/20 text-white font-bold shadow-sm' : 'text-surface-dim hover:bg-white/5 hover:text-white'
               }`}
             >
@@ -230,7 +230,7 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
             </button>
             <button
               onClick={() => setActiveTab('documents')}
-              className={`p-3 text-left rounded-xl transition-colors font-medium text-sm ${
+              className={`p-2 md:p-3 text-center md:text-left rounded-lg md:rounded-xl transition-colors font-medium text-xs md:text-sm whitespace-nowrap shrink-0 flex-1 md:flex-none ${
                 activeTab === 'documents' ? 'bg-white/20 text-white font-bold shadow-sm' : 'text-surface-dim hover:bg-white/5 hover:text-white'
               }`}
             >
@@ -239,35 +239,35 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
           </div>
 
           {/* Content */}
-          <div className="flex-1 flex flex-col overflow-y-auto p-6 bg-black/20">
+          <div className="flex-1 flex flex-col overflow-y-auto p-3 md:p-6 bg-black/20">
             {/* Form */}
-            <form onSubmit={handleSubmit} className="mb-8 p-6 bg-white/5 rounded-2xl border border-white/5 space-y-4 shrink-0">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-white">
+            <form onSubmit={handleSubmit} className="mb-4 md:mb-8 p-3 md:p-6 bg-white/5 rounded-xl md:rounded-2xl border border-white/5 space-y-2 md:space-y-4 shrink-0">
+              <div className="flex items-center justify-between mb-3 md:mb-4">
+                <h3 className="text-base md:text-lg font-bold text-white">
                   {editingId ? '수정하기' : '새로 추가하기'}
                 </h3>
                 {editingId && (
-                  <button type="button" onClick={resetForm} className="text-xs text-secondary-fixed-dim hover:underline">
+                  <button type="button" onClick={resetForm} className="text-[10px] md:text-xs text-secondary-fixed-dim hover:underline">
                     취소 (새로 추가로 돌아가기)
                   </button>
                 )}
               </div>
               
               <div className="flex flex-col space-y-1">
-                <label className="text-xs text-surface-dim">제목</label>
+                <label className="text-[10px] md:text-xs text-surface-dim">제목</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
-                  className="bg-black/40 border border-white/10 rounded-lg p-2.5 text-white text-sm focus:border-secondary-fixed-dim outline-none transition-colors"
+                  className="bg-black/40 border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors"
                 />
               </div>
 
               {activeTab === 'events' ? (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3 md:gap-4">
                   <div className="flex flex-col space-y-1">
-                    <label className="text-xs text-surface-dim">시작 날짜</label>
+                    <label className="text-[10px] md:text-xs text-surface-dim">시작 날짜</label>
                     <input
                       type="date"
                       value={date}
@@ -276,29 +276,29 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
                         if (e.target.value > endDate) setEndDate(e.target.value);
                       }}
                       required
-                      className="bg-black/40 border border-white/10 rounded-lg p-2.5 text-white text-sm focus:border-secondary-fixed-dim outline-none transition-colors [color-scheme:dark]"
+                      className="bg-black/40 border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors [color-scheme:dark]"
                     />
                   </div>
                   <div className="flex flex-col space-y-1">
-                    <label className="text-xs text-surface-dim">종료 날짜</label>
+                    <label className="text-[10px] md:text-xs text-surface-dim">종료 날짜</label>
                     <input
                       type="date"
                       value={endDate}
                       min={date}
                       onChange={(e) => setEndDate(e.target.value)}
                       required
-                      className="bg-black/40 border border-white/10 rounded-lg p-2.5 text-white text-sm focus:border-secondary-fixed-dim outline-none transition-colors [color-scheme:dark]"
+                      className="bg-black/40 border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors [color-scheme:dark]"
                     />
                   </div>
-                  <div className="flex flex-col space-y-2 mt-2 col-span-2">
-                    <label className="text-xs text-surface-dim">일정 색상</label>
-                    <div className="flex space-x-3">
+                  <div className="flex flex-col space-y-1 mt-1 md:mt-2 col-span-2">
+                    <label className="text-[10px] md:text-xs text-surface-dim">일정 색상</label>
+                    <div className="flex space-x-2 md:space-x-3">
                       {presetColors.map((c) => (
                         <button
                           key={c}
                           type="button"
                           onClick={() => setEventColor(c)}
-                          className={`w-8 h-8 rounded-full border-2 transition-transform ${eventColor === c ? 'border-white scale-110 shadow-lg' : 'border-transparent hover:scale-105'}`}
+                          className={`w-6 h-6 md:w-8 md:h-8 rounded-full border-2 transition-transform ${eventColor === c ? 'border-white scale-110 shadow-lg' : 'border-transparent hover:scale-105'}`}
                           style={{ backgroundColor: c }}
                         />
                       ))}
@@ -307,39 +307,38 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
                 </div>
               ) : activeTab === 'notices' ? (
                 <div className="flex flex-col space-y-1">
-                  <label className="text-xs text-surface-dim">날짜</label>
+                  <label className="text-[10px] md:text-xs text-surface-dim">날짜</label>
                   <input
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     required
-                    className="bg-black/40 border border-white/10 rounded-lg p-2.5 text-white text-sm focus:border-secondary-fixed-dim outline-none transition-colors max-w-xs [color-scheme:dark]"
+                    className="bg-black/40 border border-white/10 rounded-md md:rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors max-w-xs [color-scheme:dark]"
                   />
                 </div>
               ) : null}
               
               <div className="flex flex-col space-y-1">
-                <label className="text-xs text-surface-dim">내용 / 설명</label>
+                <label className="text-[10px] md:text-xs text-surface-dim">내용 / 설명</label>
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  rows={4}
-                  required
-                  className="bg-black/40 border border-white/10 rounded-lg p-2.5 text-white text-sm focus:border-secondary-fixed-dim outline-none transition-colors resize-none"
+                  rows={3}
+                  className="bg-black/40 border border-white/10 rounded-md md:rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors resize-none"
                 />
               </div>
 
               {(activeTab === 'notices' || activeTab === 'documents') && (
-                <div className="flex flex-col space-y-2 bg-black/20 p-4 rounded-xl border border-white/5">
-                  <label className="text-xs text-surface-dim">파일 첨부 {activeTab === 'documents' && <span className="text-red-400">*</span>}</label>
+                <div className="flex flex-col space-y-1 md:space-y-2 bg-black/20 p-3 md:p-4 rounded-xl border border-white/5">
+                  <label className="text-[10px] md:text-xs text-surface-dim">파일 첨부 {activeTab === 'documents' && <span className="text-red-400">*</span>}</label>
                   <input
                     type="file"
                     multiple
                     ref={fileInputRef}
                     onChange={onFileChange}
-                    className="text-sm text-surface-dim file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-white/10 file:text-white hover:file:bg-white/20"
+                    className="text-xs md:text-sm text-surface-dim file:mr-2 md:file:mr-4 file:py-1 md:file:py-2 file:px-2 md:file:px-4 file:rounded-md md:file:rounded-lg file:border-0 file:text-[10px] md:file:text-sm file:font-semibold file:bg-white/10 file:text-white hover:file:bg-white/20"
                   />
-                  {isUploading && <span className="text-xs text-yellow-400">업로드 중...</span>}
+                  {isUploading && <span className="text-[10px] md:text-xs text-yellow-400">업로드 중...</span>}
                   
                   {currentFiles.length > 0 && !isUploading && (
                     <div className="flex flex-col space-y-1 mt-2">
@@ -373,8 +372,8 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
               </div>
             </form>
 
-            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-              <h3 className="text-lg font-bold text-white mb-4">
+            <div className="shrink-0 pr-0 md:pr-2">
+              <h3 className="text-base md:text-lg font-bold text-white mb-3 md:mb-4">
                 등록된 {activeTab === 'notices' ? '공지사항' : activeTab === 'events' ? '학사일정' : '자료실'} 목록
               </h3>
               <ul className="space-y-3">

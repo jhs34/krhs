@@ -27,7 +27,15 @@ export function EventsPage({
 }: EventsPageProps) {
   
   const upcomingEvents = events
-    .filter(e => selectedDate ? isAfter(e.date, startOfDay(new Date(selectedDate.getTime() - 86400000))) : true)
+    .filter(e => {
+      const tMonth = currentDate.getMonth();
+      const tYear = currentDate.getFullYear();
+      const mStart = new Date(tYear, tMonth, 1);
+      const mEnd = new Date(tYear, tMonth + 1, 0, 23, 59, 59);
+      const eventStart = e.date;
+      const eventEnd = e.endDate || e.date;
+      return eventStart <= mEnd && eventEnd >= mStart;
+    })
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 
   return (
@@ -80,7 +88,7 @@ export function EventsPage({
                 <CalendarIcon className="w-6 h-6 text-white" strokeWidth={1.5} />
               </div>
               <h3 className="font-sans font-bold text-2xl text-white tracking-tight mb-2">
-                {selectedDate ? format(selectedDate, 'M월 d일') + ' 이후 일정' : '전체 일정'}
+                {format(currentDate, 'yyyy년 M월')} 일정
               </h3>
             </div>
           </div>

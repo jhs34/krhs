@@ -58,28 +58,6 @@ export function NoticesPage({ notices, isAdmin, onItemClick, onEditItem }: Notic
                   <span className="block text-lg text-white font-medium group-hover:text-tertiary-fixed-dim transition-colors line-clamp-2 leading-relaxed">
                     {notice.title}
                   </span>
-                  {notice.content && (
-                    <span className="block text-sm text-surface-dim mt-2 line-clamp-2 whitespace-pre-wrap">
-                       {notice.content}
-                    </span>
-                  )}
-                  {notice.files?.length ? (
-                    <div className="flex flex-wrap gap-2 mt-4 text-xs text-surface-dim">
-                      {notice.files.map((file, idx) => (
-                        <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1.5 hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5" onClick={(e) => e.stopPropagation()}>
-                          <FileText className="w-3 h-3 shrink-0" />
-                          <span className="truncate max-w-[200px]">{file.name}</span>
-                        </a>
-                      ))}
-                    </div>
-                  ) : notice.fileName && (
-                    <div className="flex flex-wrap gap-2 mt-4 text-xs text-surface-dim">
-                      <a href={notice.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1.5 hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5" onClick={(e) => e.stopPropagation()}>
-                        <FileText className="w-3 h-3 shrink-0" />
-                        <span className="truncate max-w-[200px]">{notice.fileName}</span>
-                      </a>
-                    </div>
-                  )}
                 </div>
               </div>
               {isAdmin && (
