@@ -24,10 +24,20 @@ export function ItemDetailPopup({ item, type, isAdmin, onClose, onEdit }: ItemDe
   else if (isNotice) content = item.content;
   else if (isDocument) content = item.description;
 
-  const files = item.files || [];
-  if (item.fileUrl && files.length === 0) {
-    files.push({ url: item.fileUrl, name: item.fileName || '첨부파일' });
-  }
+  const renderContentWithLinks = (text: string) => {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return text.split(urlRegex).map((part, i) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:text-sky-300 hover:underline break-all">
+            {part}
+          </a>
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -84,34 +94,7 @@ export function ItemDetailPopup({ item, type, isAdmin, onClose, onEdit }: ItemDe
         <div className="p-6 overflow-y-auto custom-scrollbar flex-grow">
           {content && (
             <div className="text-surface-dim text-base leading-relaxed whitespace-pre-wrap mb-8">
-              {content}
-            </div>
-          )}
-
-          {files.length > 0 && (
-            <div className="mt-6 border-t border-white/10 pt-6">
-              <h3 className="text-sm font-bold text-white mb-3 flex items-center">
-                <FileText className="w-4 h-4 mr-2 text-surface-dim" />첨부파일
-              </h3>
-              <div className="grid gap-2">
-                {files.map((file: any, idx: number) => (
-                  <a 
-                    key={idx} 
-                    href={file.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="flex items-center p-3 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 transition-colors group"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-surface-dim/10 flex items-center justify-center mr-3 shrink-0">
-                      <FileText className="w-4 h-4 text-surface-dim group-hover:text-white transition-colors" />
-                    </div>
-                    <span className="text-sm text-surface-dim group-hover:text-white transition-colors truncate flex-1 font-space">
-                      {file.name}
-                    </span>
-                    <ArrowRight className="w-4 h-4 text-surface-dim/30 group-hover:text-white opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
-                  </a>
-                ))}
-              </div>
+              {renderContentWithLinks(content)}
             </div>
           )}
         </div>

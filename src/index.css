@@ -83,3 +83,19 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }
+
+@keyframes marquee-pingpong {
+  0%, 15% { transform: translateX(0); }
+  85%, 100% { transform: translateX(min(0px, calc(100cqw - 100%))); }
+}
+
+.marquee-container {
+  container-type: inline-size;
+}
+
+.marquee-text {
+  display: flex;
+  white-space: nowrap;
+  animation: marquee-pingpong 4s ease-in-out infinite alternate;
+  width: max-content;
+}

@@ -59,8 +59,9 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
   }) : [];
 
   return (
-    <div className="bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-4 md:p-8 relative">
-      <div className="flex justify-between items-center mb-4 md:mb-8">
+    <>
+      <div className="bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-4 md:p-8 relative">
+        <div className="flex justify-between items-center mb-4 md:mb-8">
         <h3 className="font-sans font-bold text-lg md:text-2xl text-white tracking-tight">
           {format(currentDate, 'yyyy년 M월')}
         </h3>
@@ -137,7 +138,7 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
                     }
                   `}
                 >
-                  <span className={`text-[7px] sm:text-[9px] md:text-xs lg:text-sm font-space shrink-0 mb-0.5 md:mb-1 ${isSelected ? 'text-black font-extrabold' : 'text-white font-medium'}`}>
+                  <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-space shrink-0 mb-0.5 md:mb-1 ${isSelected ? 'text-black font-extrabold' : 'text-white font-medium'}`}>
                     {format(day, 'd')}
                   </span>
                   <div className="w-full mt-auto md:mt-0 mb-0.5 md:mb-0">
@@ -148,11 +149,13 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
                           className={`w-full overflow-hidden text-center flex items-center justify-center px-0.5 py-[1px] rounded-[1px] ${isSelected ? 'mix-blend-multiply' : ''}`}
                           style={{ backgroundColor: event.color || 'rgba(255,255,255,0.2)' }}
                         >
-                          <span className={`block flex-1 min-w-0 truncate text-center text-[5px] leading-[6px] sm:text-[6px] sm:leading-[7px] font-bold ${isSelected ? 'text-black' : getContrastColor(event.color)} tracking-tighter`}>{event.title}</span>
+                          <div className="w-full overflow-hidden marquee-container flex justify-center">
+                            <span className={`marquee-text font-bold text-[6px] leading-[7px] sm:text-[7px] sm:leading-[8px] ${isSelected ? 'text-black' : getContrastColor(event.color)} tracking-tighter`}>{event.title}</span>
+                          </div>
                         </div>
                       ))}
                       {dayEvents.length > 2 && (
-                        <div className={`w-full text-center px-0.5 py-[1px] rounded-[1px] text-[5px] leading-[6px] sm:text-[6px] sm:leading-[7px] font-bold ${isSelected ? 'text-black/60' : 'text-white/50'} tracking-tighter`}>
+                        <div className={`w-full text-center px-0.5 py-[1px] rounded-[1px] text-[6px] leading-[7px] sm:text-[7px] sm:leading-[8px] font-bold ${isSelected ? 'text-black/60' : 'text-white/50'} tracking-tighter`}>
                           + {dayEvents.length - 2}
                         </div>
                       )}
@@ -165,7 +168,9 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
                           style={{ backgroundColor: event.color || 'rgba(255,255,255,0.2)' }}
                         >
                           {event.color && <div className="w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full shrink-0 mr-1.5 lg:mr-2" style={{ backgroundColor: isSelected ? 'rgba(0,0,0,0.5)' : (getContrastColor(event.color) === 'text-black' ? 'rgba(0,0,0,0.5)' : '#fff') }} />}
-                          <span className={`block flex-1 min-w-0 truncate text-left text-[9px] leading-[10px] lg:text-[11px] lg:leading-[14px] font-bold ${isSelected ? 'text-black' : getContrastColor(event.color)} tracking-tighter`}>{event.title}</span>
+                          <div className="flex-1 min-w-0 overflow-hidden marquee-container">
+                            <span className={`marquee-text font-bold text-[9px] leading-[10px] lg:text-[11px] lg:leading-[14px] ${isSelected ? 'text-black' : getContrastColor(event.color)} tracking-tighter`}>{event.title}</span>
+                          </div>
                         </div>
                       ))}
                       {dayEvents.length > 3 && (
@@ -181,6 +186,7 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
           </motion.div>
         </AnimatePresence>
       </div>
+    </div>
 
       {/* Date Detail Popup Modal */}
       <AnimatePresence>
@@ -190,7 +196,7 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setPopupDate(null)}
-            className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 rounded-3xl"
+            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
           >
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }}
@@ -237,6 +243,6 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }

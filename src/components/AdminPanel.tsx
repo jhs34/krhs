@@ -1,8 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Notice, FirestoreEvent, SchoolDocument, addNotice, updateNotice, deleteNotice, addEvent, updateEvent, deleteEvent, addDocument, updateDocument, deleteDocument } from '../services/firestore';
-import { logout, storage } from '../firebase';
+import { logout } from '../firebase';
 import { format } from 'date-fns';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Edit2, Trash2 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -25,7 +24,6 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
   const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [eventColor, setEventColor] = useState('#64ffda'); // A default cyan color matching the secondary theme
-  const [isUploading, setIsUploading] = useState(false);
   
   const presetColors = [
     '#ef4444', // red
@@ -39,9 +37,6 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
     '#ffffff', // white
   ];
   
-  // File state
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [currentFiles, setCurrentFiles] = useState<Array<{url: string, name: string}>>([]);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
   // Reset form when tab changes
@@ -57,8 +52,6 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
     setDate(format(new Date(), 'yyyy-MM-dd'));
     setEndDate(format(new Date(), 'yyyy-MM-dd'));
     setEventColor('#64ffda');
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    setCurrentFiles([]);
   };
 
   const safeParseDate = (dString: string | undefined | null) => {
@@ -78,14 +71,8 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
     } else if (type === 'notice') {
       setContent(item.content);
       setDate(safeParseDate(item.date));
-      const files = item.files ? [...item.files] : [];
-      if (item.fileUrl && files.length === 0) files.push({ url: item.fileUrl, name: item.fileName || '첨부파일' });
-      setCurrentFiles(files);
     } else if (type === 'document') {
       setContent(item.description);
-      const files = item.files ? [...item.files] : [];
-      if (item.fileUrl && files.length === 0) files.push({ url: item.fileUrl, name: item.fileName || '첨부파일' });
-      setCurrentFiles(files);
     }
   };
 
@@ -95,48 +82,13 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
     }
   }, [initialEditItem, initialTab]);
 
-  const handleUploadFiles = async (files: FileList) => {
-    setIsUploading(true);
-    try {
-      const newFiles = [...currentFiles];
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const fileRef = ref(storage, `uploads/${Date.now()}_${file.name}`);
-        await uploadBytes(fileRef, file);
-        const url = await getDownloadURL(fileRef);
-        newFiles.push({ url, name: file.name });
-      }
-      setCurrentFiles(newFiles);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      setNotification({ message: '파일이 성공적으로 업로드되었습니다.', type: 'success' });
-    } catch (error) {
-      console.error("File upload failed", error);
-      setNotification({ message: '파일 업로드에 실패했습니다. (권한 오류 등)', type: 'error' });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      handleUploadFiles(e.target.files);
-    }
-  };
-
-  const removeFile = (index: number) => {
-    setCurrentFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title) return;
     
     if (activeTab === 'events' && (!date || !endDate)) return;
     if (activeTab === 'notices' && !date) return;
-    if (activeTab === 'documents' && currentFiles.length === 0 && !editingId) {
-      setNotification({ message: '자료실에는 반드시 파일을 하나 이상 첨부해야 합니다.', type: 'error' });
-      return;
-    }
+    if (activeTab === 'documents' && !title) return;
 
     try {
       if (activeTab === 'notices') {
@@ -144,7 +96,6 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
           title,
           content,
           date: new Date(date).toISOString(),
-          files: currentFiles
         };
         if (editingId) await updateNotice(editingId, payload);
         else await addNotice(payload);
@@ -162,7 +113,6 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
         const payload: Omit<SchoolDocument, 'id' | 'createdAt'> = {
           title,
           description: content,
-          files: currentFiles
         };
         if (editingId) await updateDocument(editingId, payload);
         else await addDocument(payload);
@@ -328,44 +278,10 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
                 />
               </div>
 
-              {(activeTab === 'notices' || activeTab === 'documents') && (
-                <div className="flex flex-col space-y-1 md:space-y-2 bg-black/20 p-3 md:p-4 rounded-xl border border-white/5">
-                  <label className="text-[10px] md:text-xs text-surface-dim">파일 첨부 {activeTab === 'documents' && <span className="text-red-400">*</span>}</label>
-                  <input
-                    type="file"
-                    multiple
-                    ref={fileInputRef}
-                    onChange={onFileChange}
-                    className="text-xs md:text-sm text-surface-dim file:mr-2 md:file:mr-4 file:py-1 md:file:py-2 file:px-2 md:file:px-4 file:rounded-md md:file:rounded-lg file:border-0 file:text-[10px] md:file:text-sm file:font-semibold file:bg-white/10 file:text-white hover:file:bg-white/20"
-                  />
-                  {isUploading && <span className="text-[10px] md:text-xs text-yellow-400">업로드 중...</span>}
-                  
-                  {currentFiles.length > 0 && !isUploading && (
-                    <div className="flex flex-col space-y-1 mt-2">
-                      <span className="text-xs text-surface-dim mb-1">첨부된 파일:</span>
-                      {currentFiles.map((f, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-xs text-green-400 bg-white/5 p-1.5 rounded-md px-3">
-                          <span className="truncate max-w-[200px]">{f.name}</span>
-                          <button 
-                            type="button" 
-                            onClick={() => removeFile(idx)} 
-                            className="text-red-400 hover:text-red-300 px-2 font-bold"
-                          >
-                            X
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={isUploading}
-                  className={`px-6 py-2.5 rounded-lg font-bold text-sm text-white transition-colors
-                    ${isUploading ? 'bg-secondary/50 cursor-not-allowed' : 'bg-secondary hover:bg-secondary/80'}`}
+                  className="px-6 py-2.5 rounded-lg font-bold text-sm text-white transition-colors bg-secondary hover:bg-secondary/80"
                 >
                   {editingId ? '수정 완료' : '추가하기'}
                 </button>

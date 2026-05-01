@@ -7,7 +7,9 @@ export interface Notice {
   content: string;
   date: string;
   createdAt: string;
-  fileUrl?: string; // Kept for backward compatibility
+  link?: string;
+  // Kept for backward compatibility
+  fileUrl?: string;
   fileName?: string;
   files?: Array<{ url: string; name: string }>;
 }
@@ -26,7 +28,9 @@ export interface SchoolDocument {
   id: string;
   title: string;
   description: string;
-  fileUrl?: string; // Kept for backward compatibility
+  link?: string;
+  // Kept for backward compatibility
+  fileUrl?: string;
   fileName?: string;
   files?: Array<{ url: string; name: string }>;
   createdAt: string;
