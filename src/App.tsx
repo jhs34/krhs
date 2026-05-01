@@ -23,7 +23,7 @@ function HeroSection() {
       <div className="absolute inset-0 z-0 bg-[#0f172a]">
         <div 
           className="absolute inset-0 bg-cover bg-center opacity-70"
-          style={{ backgroundImage: `url('${import.meta.env.BASE_URL}bg.png')`, filter: 'blur(12px)', transform: 'scale(1.05)' }}
+          style={{ backgroundImage: "url('/bg.png')", filter: 'blur(12px)', transform: 'scale(1.05)' }}
         ></div>
         <div className="absolute inset-0 bg-[#001f3f]/70 mix-blend-multiply"></div>
         <div className="absolute inset-0 bg-primary/60"></div>
@@ -41,7 +41,7 @@ function HeroSection() {
           className="flex items-center space-x-4"
         >
           <img 
-            src={`${import.meta.env.BASE_URL}logo.png`} 
+            src="/logo.png" 
             alt="한국철도고등학교 로고" 
             className="w-10 h-auto drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)] brightness-0 invert"
           />
@@ -239,7 +239,7 @@ function AppContent() {
       <footer className="bg-[#050a14] py-12 border-t border-white/5">
         <div className="max-w-[1600px] w-full mx-auto px-6 md:px-12 flex flex-col md:flex-row justify-between items-center text-surface-dim text-sm font-sans">
            <div className="mb-4 md:mb-0 flex items-center space-x-3">
-             <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-6 opacity-100 brightness-0 invert border-white" />
+             <img src="/logo.png" alt="Logo" className="w-6 opacity-100 brightness-0 invert border-white" />
              <span>&copy; 2026 KOREA RAILROAD HIGH SCHOOL</span>
            </div>
            <div className="flex space-x-6 uppercase font-space tracking-widest text-xs">
