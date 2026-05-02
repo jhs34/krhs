@@ -149,8 +149,8 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
                           className={`w-full overflow-hidden text-center flex items-center justify-center px-0.5 py-[1px] rounded-[1px] ${isSelected ? 'mix-blend-multiply' : ''}`}
                           style={{ backgroundColor: event.color || 'rgba(255,255,255,0.2)' }}
                         >
-                          <div className="w-full overflow-hidden marquee-container flex justify-center">
-                            <span className={`marquee-text font-bold text-[6px] leading-[7px] sm:text-[7px] sm:leading-[8px] ${isSelected ? 'text-black' : getContrastColor(event.color)} tracking-tighter`}>{event.title}</span>
+                          <div className="w-full overflow-hidden marquee-container block">
+                            <span className={`marquee-text justify-center font-bold text-[6px] leading-[7px] sm:text-[7px] sm:leading-[8px] ${isSelected ? 'text-black' : getContrastColor(event.color)} tracking-tighter`}>{event.title}</span>
                           </div>
                         </div>
                       ))}
@@ -169,7 +169,7 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
                         >
                           {event.color && <div className="w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full shrink-0 mr-1.5 lg:mr-2" style={{ backgroundColor: isSelected ? 'rgba(0,0,0,0.5)' : (getContrastColor(event.color) === 'text-black' ? 'rgba(0,0,0,0.5)' : '#fff') }} />}
                           <div className="flex-1 min-w-0 overflow-hidden marquee-container">
-                            <span className={`marquee-text font-bold text-[9px] leading-[10px] lg:text-[11px] lg:leading-[14px] ${isSelected ? 'text-black' : getContrastColor(event.color)} tracking-tighter`}>{event.title}</span>
+                            <span className={`marquee-text justify-start font-bold text-[9px] leading-[10px] lg:text-[11px] lg:leading-[14px] ${isSelected ? 'text-black' : getContrastColor(event.color)} tracking-tighter`}>{event.title}</span>
                           </div>
                         </div>
                       ))}

@@ -4,17 +4,20 @@ import { logout } from '../firebase';
 import { format } from 'date-fns';
 import { Edit2, Trash2 } from 'lucide-react';
 
+import { SiteInfo, updateSiteInfo } from '../services/firestore';
+
 interface AdminPanelProps {
   onClose: () => void;
   notices: Notice[];
   events: FirestoreEvent[];
   documents: SchoolDocument[];
-  initialTab?: 'notices' | 'events' | 'documents';
+  siteInfos?: SiteInfo[];
+  initialTab?: 'notices' | 'events' | 'documents' | 'siteInfo';
   initialEditItem?: any;
 }
 
-export function AdminPanel({ onClose, notices, events, documents, initialTab = 'notices', initialEditItem = null }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'notices' | 'events' | 'documents'>(initialTab);
+export function AdminPanel({ onClose, notices, events, documents, siteInfos = [], initialTab = 'notices', initialEditItem = null }: AdminPanelProps) {
+  const [activeTab, setActiveTab] = useState<'notices' | 'events' | 'documents' | 'siteInfo'>(initialTab);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -82,9 +85,18 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
     }
   }, [initialEditItem, initialTab]);
 
+  useEffect(() => {
+    if (activeTab === 'siteInfo') {
+      const selectedId = editingId || 'announcements';
+      const info = siteInfos.find(i => i.id === selectedId);
+      setContent(info ? info.content : '');
+      setTitle(selectedId === 'announcements' ? '공지사항' : selectedId === 'updates' ? '업데이트' : '문의하기');
+    }
+  }, [activeTab, editingId, siteInfos]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title) return;
+    if (activeTab !== 'siteInfo' && !title) return;
     
     if (activeTab === 'events' && (!date || !endDate)) return;
     if (activeTab === 'notices' && !date) return;
@@ -116,12 +128,24 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
         };
         if (editingId) await updateDocument(editingId, payload);
         else await addDocument(payload);
+      } else if (activeTab === 'siteInfo') {
+        const idToSave = editingId || 'announcements';
+        await updateSiteInfo(idToSave, content);
       }
-      resetForm();
+      if (activeTab !== 'siteInfo') resetForm();
       setNotification({ message: '성공적으로 저장되었습니다.', type: 'success' });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setNotification({ message: '저장 중 오류가 발생했습니다.', type: 'error' });
+      let errorMessage = '저장 중 오류가 발생했습니다.';
+      try {
+        if (err.message) {
+          const parsed = JSON.parse(err.message);
+          errorMessage = `저장 실패: ${parsed.error}`;
+        }
+      } catch (e) {
+        if (err.message) errorMessage = `저장 실패: ${err.message}`;
+      }
+      setNotification({ message: errorMessage, type: 'error' });
     }
   };
 
@@ -186,6 +210,17 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
             >
               자료실 관리
             </button>
+            <button
+              onClick={() => {
+                setActiveTab('siteInfo');
+                setEditingId('announcements');
+              }}
+              className={`p-2 md:p-3 text-center md:text-left rounded-lg md:rounded-xl transition-colors font-medium text-xs md:text-sm whitespace-nowrap shrink-0 flex-1 md:flex-none ${
+                activeTab === 'siteInfo' ? 'bg-white/20 text-white font-bold shadow-sm' : 'text-surface-dim hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              기타 정보 관리
+            </button>
           </div>
 
           {/* Content */}
@@ -194,25 +229,40 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
             <form onSubmit={handleSubmit} className="mb-4 md:mb-8 p-3 md:p-6 bg-white/5 rounded-xl md:rounded-2xl border border-white/5 space-y-2 md:space-y-4 shrink-0">
               <div className="flex items-center justify-between mb-3 md:mb-4">
                 <h3 className="text-base md:text-lg font-bold text-white">
-                  {editingId ? '수정하기' : '새로 추가하기'}
+                  {activeTab === 'siteInfo' ? '기타 정보 수정' : editingId ? '수정하기' : '새로 추가하기'}
                 </h3>
-                {editingId && (
+                {(editingId && activeTab !== 'siteInfo') && (
                   <button type="button" onClick={resetForm} className="text-[10px] md:text-xs text-secondary-fixed-dim hover:underline">
                     취소 (새로 추가로 돌아가기)
                   </button>
                 )}
               </div>
               
-              <div className="flex flex-col space-y-1">
-                <label className="text-[10px] md:text-xs text-surface-dim">제목</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
-                  className="bg-black/40 border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors"
-                />
-              </div>
+              {activeTab === 'siteInfo' ? (
+                <div className="flex flex-col space-y-1">
+                  <label className="text-[10px] md:text-xs text-surface-dim">수정할 항목</label>
+                  <select
+                    value={editingId || 'announcements'}
+                    onChange={(e) => setEditingId(e.target.value)}
+                    className="bg-black/40 border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors"
+                  >
+                    <option value="announcements">공지사항</option>
+                    <option value="updates">업데이트</option>
+                    <option value="contact">문의하기</option>
+                  </select>
+                </div>
+              ) : (
+                <div className="flex flex-col space-y-1">
+                  <label className="text-[10px] md:text-xs text-surface-dim">제목</label>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    required
+                    className="bg-black/40 border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors"
+                  />
+                </div>
+              )}
 
               {activeTab === 'events' ? (
                 <div className="grid grid-cols-2 gap-3 md:gap-4">
@@ -273,7 +323,7 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  rows={3}
+                  rows={activeTab === 'siteInfo' ? 8 : 3}
                   className="bg-black/40 border border-white/10 rounded-md md:rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors resize-none"
                 />
               </div>
@@ -283,16 +333,17 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
                   type="submit"
                   className="px-6 py-2.5 rounded-lg font-bold text-sm text-white transition-colors bg-secondary hover:bg-secondary/80"
                 >
-                  {editingId ? '수정 완료' : '추가하기'}
+                  {activeTab === 'siteInfo' ? '저장하기' : editingId ? '수정 완료' : '추가하기'}
                 </button>
               </div>
             </form>
 
-            <div className="shrink-0 pr-0 md:pr-2">
-              <h3 className="text-base md:text-lg font-bold text-white mb-3 md:mb-4">
-                등록된 {activeTab === 'notices' ? '공지사항' : activeTab === 'events' ? '학사일정' : '자료실'} 목록
-              </h3>
-              <ul className="space-y-3">
+            {(activeTab !== 'siteInfo') && (
+              <div className="shrink-0 pr-0 md:pr-2">
+                <h3 className="text-base md:text-lg font-bold text-white mb-3 md:mb-4">
+                  등록된 {activeTab === 'notices' ? '공지사항' : activeTab === 'events' ? '학사일정' : '자료실'} 목록
+                </h3>
+                <ul className="space-y-3">
                 {activeTab === 'notices' && notices.map(notice => (
                   <li key={notice.id} className="bg-white/5 border border-white/5 p-4 rounded-xl flex items-center justify-between">
                     <div className="flex-1 min-w-0 mr-4">
@@ -348,8 +399,9 @@ export function AdminPanel({ onClose, notices, events, documents, initialTab = '
                     </li>
                   );
                 })}
-              </ul>
-            </div>
+                </ul>
+              </div>
+            )}
 
           </div>
         </div>

@@ -98,4 +98,5 @@ body {
   white-space: nowrap;
   animation: marquee-pingpong 4s ease-in-out infinite alternate;
   width: max-content;
+  min-width: 100%;
 }

@@ -55,6 +55,13 @@ service cloud.firestore {
              (data.keys().hasAny(['files']) ? (data.files is list && data.files.size() <= 10) : true);
     }
 
+    function isValidSiteInfo(data) {
+      return data.keys().hasAll(['content', 'updatedAt']) &&
+             data.keys().hasOnly(['content', 'updatedAt']) &&
+             data.content is string && data.content.size() <= 10000 &&
+             data.updatedAt is string && data.updatedAt.size() <= 100;
+    }
+
     // Notice Collection
     match /notices/{noticeId} {
       allow read: if true; // Public access to notices
@@ -83,6 +90,16 @@ service cloud.firestore {
         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'fileUrl', 'fileName', 'files'])
       );
       allow delete: if isAdmin() && isValidId(docId);
+    }
+
+    // Site Info Collection
+    match /siteInfo/{infoId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidId(infoId) && isValidSiteInfo(incoming());
+      allow update: if isAdmin() && isValidId(infoId) && isValidSiteInfo(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['content', 'updatedAt'])
+      );
+      allow delete: if isAdmin() && isValidId(infoId);
     }
   }
 }

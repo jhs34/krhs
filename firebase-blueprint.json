@@ -23,6 +23,16 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "description", "date", "createdAt"]
+    },
+    "SiteInfo": {
+      "title": "SiteInfo",
+      "description": "Global site information like announcements, updates, contact.",
+      "type": "object",
+      "properties": {
+        "content": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["content", "updatedAt"]
     }
   },
   "firestore": {
@@ -33,6 +43,10 @@
     "/events/{eventId}": {
       "schema": { "$ref": "#/entities/AcademicEvent" },
       "description": "Collection of academic calendar events."
+    },
+    "/siteInfo/{infoId}": {
+      "schema": { "$ref": "#/entities/SiteInfo" },
+      "description": "Global information snippets."
     }
   }
 }

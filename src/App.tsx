@@ -13,7 +13,7 @@ import { ItemDetailPopup } from './components/ItemDetailPopup';
 import { SiteInfoPopup } from './components/SiteInfoPopup';
 import { AcademicEvent } from './types';
 import { loginWithGoogle, logout, auth } from './firebase';
-import { subscribeToEvents, subscribeToNotices, subscribeToDocuments, FirestoreEvent, Notice, SchoolDocument } from './services/firestore';
+import { subscribeToEvents, subscribeToNotices, subscribeToDocuments, subscribeToSiteInfo, FirestoreEvent, Notice, SchoolDocument, SiteInfo } from './services/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 
 function HeroSection() {
@@ -33,10 +33,10 @@ function HeroSection() {
       </div>
 
       {/* Top Header - Logo */}
-      <header className="relative z-10 w-full pt-10 px-6 md:px-12 max-w-[1600px] w-full mx-auto">
+      <header className="relative z-50 w-full pt-10 px-6 md:px-12 max-w-[1600px] w-full mx-auto">
         <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: -20, filter: 'blur(10px)' }}
+          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           transition={{ duration: 0.8, ease: "easeOut" }}
           className="flex items-center space-x-3 md:space-x-4"
         >
@@ -55,8 +55,8 @@ function HeroSection() {
       {/* Center Text Editorial Style */}
       <div className="relative z-10 flex flex-col items-center justify-center flex-grow px-4 max-w-[1600px] w-full mx-auto">
         <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 30, filter: 'blur(15px)' }}
+          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
           className="text-center"
         >
@@ -64,14 +64,11 @@ function HeroSection() {
             Korea Railroad High School
           </h2>
           <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black text-white tracking-tighter leading-[1.35] md:leading-[1.1] font-sans drop-shadow-2xl mb-6 md:mb-8 break-keep">
-            입학부터 졸업까지,<br />
-            모든 순간을 <span className="relative inline-block px-2 md:px-4 py-0.5 md:py-1 ml-1 md:ml-2 mt-2 sm:mt-0">
-              <span className="relative z-10">완성하다</span>
-              <span className="absolute inset-0 bg-gradient-to-r from-secondary to-primary transform -skew-x-6"></span>
-            </span>
+            한국철도고등학교<br />
+            <span className="block mt-2 sm:mt-4 text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-b from-white to-blue-200 text-transparent bg-clip-text">방문을 환영합니다.</span>
           </h1>
           <p className="text-sm sm:text-base md:text-lg text-white/70 font-medium max-w-2xl mx-auto tracking-tight leading-relaxed break-keep px-4">
-            한국철도고등학교 학생들을 위한 지능형 학사 안내 터미널
+            KRHS Portal
           </p>
         </motion.div>
       </div>
@@ -81,8 +78,8 @@ function HeroSection() {
         onClick={() => {
           document.getElementById('dashboard')?.scrollIntoView({ behavior: 'smooth' });
         }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.8 }}
+        initial={{ opacity: 0, filter: 'blur(10px)' }}
+        animate={{ opacity: 0.8, filter: 'blur(0px)' }}
         transition={{ duration: 1, delay: 1 }}
         className="relative z-10 flex flex-col items-center pb-12 group cursor-pointer hover:opacity-100 transition-opacity"
       >
@@ -104,6 +101,7 @@ function AppContent() {
   const [events, setEvents] = useState<AcademicEvent[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [documents, setDocuments] = useState<SchoolDocument[]>([]);
+  const [siteInfos, setSiteInfos] = useState<SiteInfo[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [hasAuthChecked, setHasAuthChecked] = useState(false);
@@ -153,11 +151,16 @@ function AppContent() {
       setDocuments(data);
     });
 
+    const unsubscribeSiteInfos = subscribeToSiteInfo((data) => {
+      setSiteInfos(data);
+    });
+
     return () => {
       unsubscribeAuth();
       unsubscribeEvents();
       unsubscribeNotices();
       unsubscribeDocs();
+      unsubscribeSiteInfos();
     };
   }, []);
 
@@ -177,8 +180,21 @@ function AppContent() {
     setIsAdminModalOpen(true);
   };
 
+  const getSiteInfoContent = (id: string, defaultContent: string) => {
+    const info = siteInfos.find(i => i.id === id);
+    return info && info.content.trim() ? info.content : defaultContent;
+  };
+
   return (
     <div className="min-h-screen flex flex-col relative selection:bg-secondary selection:text-white bg-background">
+      {/* Tilt-shift blur overlays */}
+      <div className="pointer-events-none fixed inset-x-0 top-0 h-40 z-40 backdrop-blur-[4px] [mask-image:linear-gradient(to_bottom,black,transparent)]" />
+      <div className="pointer-events-none fixed inset-x-0 top-0 h-24 z-40 backdrop-blur-[8px] [mask-image:linear-gradient(to_bottom,black,transparent)]" />
+      <div className="pointer-events-none fixed inset-x-0 top-0 h-10 z-40 backdrop-blur-[12px] [mask-image:linear-gradient(to_bottom,black,transparent)]" />
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 h-40 z-40 backdrop-blur-[4px] [mask-image:linear-gradient(to_top,black,transparent)]" />
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 h-24 z-40 backdrop-blur-[8px] [mask-image:linear-gradient(to_top,black,transparent)]" />
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 h-10 z-40 backdrop-blur-[12px] [mask-image:linear-gradient(to_top,black,transparent)]" />
+
       {isHome && <HeroSection />}
       
       <Navigation 
@@ -236,16 +252,16 @@ function AppContent() {
         </Routes>
       </main>
 
-      <footer className="bg-[#050a14] py-8 md:py-12 border-t border-white/5">
+      <footer className="relative z-50 bg-[#050a14] py-8 md:py-12 border-t border-white/5">
         <div className="max-w-[1600px] w-full mx-auto px-4 md:px-12 flex flex-col md:flex-row justify-between items-center text-surface-dim text-xs md:text-sm font-sans gap-4 md:gap-0">
            <div className="flex items-center space-x-2 md:space-x-3">
              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-5 md:w-6 opacity-100 brightness-0 invert border-white" />
              <span>&copy; 2026 KOREA RAILROAD HIGH SCHOOL</span>
            </div>
            <div className="flex space-x-4 md:space-x-6 uppercase font-space tracking-wider md:tracking-widest text-[10px] md:text-xs">
-             <button onClick={() => setSiteInfoPopup({ title: '공지사항', content: '한국철도고등학교 학생들을 위한 지능형 학사 안내 터미널 관련 공지사항입니다.\n\n- (예시) 신규 업데이트가 있을 경우 여기에 안내됩니다.' })} className="hover:text-white transition-colors cursor-pointer text-left">공지사항</button>
-             <button onClick={() => setSiteInfoPopup({ title: '업데이트', content: '시스템 업데이트 내역:\n\n- 디자인 리뉴얼\n- 메인 학사일정 바로가기 추가\n- 데이터베이스 연동 완료' })} className="hover:text-white transition-colors cursor-pointer text-left">업데이트</button>
-             <button onClick={() => setSiteInfoPopup({ title: '문의하기', content: '개발자 연락처: hoya100304@gmail.com\n\n문의 사항이 있으시면 위 이메일로 연락주시기 바랍니다.' })} className="hover:text-white transition-colors cursor-pointer text-left">문의하기</button>
+             <button onClick={() => setSiteInfoPopup({ title: '공지사항', content: getSiteInfoContent('announcements', '한국철도고등학교 학생들을 위한 지능형 학사 안내 터미널 관련 공지사항입니다.\n\n- (예시) 신규 업데이트가 있을 경우 여기에 안내됩니다.') })} className="hover:text-white transition-colors cursor-pointer text-left">공지사항</button>
+             <button onClick={() => setSiteInfoPopup({ title: '업데이트', content: getSiteInfoContent('updates', '시스템 업데이트 내역:\n\n- 디자인 리뉴얼\n- 메인 학사일정 바로가기 추가\n- 데이터베이스 연동 완료') })} className="hover:text-white transition-colors cursor-pointer text-left">업데이트</button>
+             <button onClick={() => setSiteInfoPopup({ title: '문의하기', content: getSiteInfoContent('contact', '개발자 연락처: hoya100304@gmail.com\n\n문의 사항이 있으시면 위 이메일로 연락주시기 바랍니다.') })} className="hover:text-white transition-colors cursor-pointer text-left">문의하기</button>
            </div>
         </div>
       </footer>
@@ -259,7 +275,8 @@ function AppContent() {
           notices={notices}
           events={events as any}
           documents={documents}
-          initialTab={adminInitialTab}
+          siteInfos={siteInfos}
+          initialTab={adminInitialTab as any}
           initialEditItem={adminInitialEditItem}
         />
       )}

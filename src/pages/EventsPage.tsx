@@ -41,8 +41,8 @@ export function EventsPage({
   return (
     <div className="max-w-[1600px] w-full mx-auto px-6 md:px-12 flex flex-col space-y-12">
       <motion.div 
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: 40, filter: 'blur(10px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
         transition={{ duration: 0.8 }}
       >
         <div className="flex items-center space-x-3 mb-4">
@@ -60,8 +60,8 @@ export function EventsPage({
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
+          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           transition={{ duration: 0.8, delay: 0.2 }}
           className="xl:col-span-8 w-full"
         >
@@ -76,8 +76,8 @@ export function EventsPage({
         </motion.div>
 
         <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
+          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           transition={{ duration: 0.8, delay: 0.3 }}
           className="xl:col-span-4 relative min-h-[500px]"
         >

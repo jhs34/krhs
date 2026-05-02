@@ -14,8 +14,8 @@ export function NoticesPage({ notices, isAdmin, onItemClick, onEditItem }: Notic
   return (
     <div className="max-w-[1600px] w-full mx-auto px-6 md:px-12 flex flex-col space-y-12">
       <motion.div 
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: 40, filter: 'blur(10px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
         transition={{ duration: 0.8 }}
       >
         <div className="flex items-center space-x-3 mb-4">
@@ -32,8 +32,8 @@ export function NoticesPage({ notices, isAdmin, onItemClick, onEditItem }: Notic
       </motion.div>
 
       <motion.div 
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
         transition={{ duration: 0.8, delay: 0.2 }}
         className="bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-8"
       >

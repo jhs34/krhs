@@ -1,5 +1,11 @@
-import { collection, onSnapshot, query, addDoc, doc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, doc, updateDoc, deleteDoc, orderBy, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
+
+export interface SiteInfo {
+  id: string; // 'announcements', 'updates', 'contact'
+  content: string;
+  updatedAt: string;
+}
 
 export interface Notice {
   id: string;
@@ -107,4 +113,17 @@ export const updateDocument = async (id: string, data: Omit<SchoolDocument, 'id'
 export const deleteDocument = async (id: string) => {
   try { await deleteDoc(doc(db, 'documents', id)); } 
   catch (error) { handleFirestoreError(error, OperationType.DELETE, `documents/${id}`); }
+};
+
+export const subscribeToSiteInfo = (callback: (infos: SiteInfo[]) => void) => {
+  const q = query(collection(db, 'siteInfo'));
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as SiteInfo));
+  }, (error) => handleFirestoreError(error, OperationType.LIST, 'siteInfo'));
+};
+
+export const updateSiteInfo = async (id: string, content: string) => {
+  try {
+    await setDoc(doc(db, 'siteInfo', id), { content, updatedAt: new Date().toISOString() }, { merge: true });
+  } catch (error) { handleFirestoreError(error, OperationType.WRITE, `siteInfo/${id}`); }
 };

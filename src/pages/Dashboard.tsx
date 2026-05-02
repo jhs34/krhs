@@ -37,8 +37,8 @@ export function Dashboard({
     <div className="max-w-[1600px] w-full mx-auto px-6 md:px-12 flex flex-col space-y-24">
       {/* Section 1: Dashboard Header */}
       <motion.div 
-        initial={{ opacity: 0, y: 40 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: 40, filter: 'blur(10px)' }}
+        whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.8 }}
         className="flex flex-col md:flex-row md:items-end justify-between border-b border-surface/10 pb-12 gap-8"
@@ -67,8 +67,8 @@ export function Dashboard({
         
         {/* Massive Card: Schedule */}
         <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
+          whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8 }}
           className="xl:col-span-8 bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden group hover:border-white/10 transition-colors p-6 md:p-10 lg:p-12"
@@ -143,8 +143,8 @@ export function Dashboard({
           
           {/* Notices */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
+            whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.8, delay: 0.2 }}
             className="bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-6 md:p-8 flex-grow"
@@ -184,15 +184,15 @@ export function Dashboard({
                   )}
                 </li>
               )) : (
-                <li className="text-sm text-surface-dim">등록된 공지사항이 없습니다.</li>
+                <li className="text-sm text-surface-dim text-center py-4">등록된 공지사항이 없습니다.</li>
               )}
             </ul>
           </motion.div>
           
           {/* Documents */}
           <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
+            whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.8, delay: 0.3 }}
             className="bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-6 md:p-8"
@@ -254,8 +254,8 @@ export function Dashboard({
       </div>
       
       <motion.div 
-        initial={{ opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
+        whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.8 }}
         className="w-full -mt-2 lg:-mt-6 relative z-20"

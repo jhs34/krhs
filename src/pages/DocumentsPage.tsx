@@ -14,8 +14,8 @@ export function DocumentsPage({ documents, isAdmin, onItemClick, onEditItem }: D
   return (
     <div className="max-w-[1600px] w-full mx-auto px-6 md:px-12 flex flex-col space-y-12">
       <motion.div 
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: 40, filter: 'blur(10px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
         transition={{ duration: 0.8 }}
       >
         <div className="flex items-center space-x-3 mb-4">
@@ -34,8 +34,8 @@ export function DocumentsPage({ documents, isAdmin, onItemClick, onEditItem }: D
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {documents.length > 0 ? documents.map((doc, idx) => (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 20, filter: 'blur(10px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
             transition={{ duration: 0.5, delay: idx * 0.05 }}
             key={doc.id}
             onClick={() => onItemClick(doc, 'document')}

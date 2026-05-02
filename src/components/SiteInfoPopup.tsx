@@ -8,6 +8,22 @@ interface SiteInfoPopupProps {
   onClose: () => void;
 }
 
+const renderTextWithLinks = (text: string) => {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  
+  return parts.map((part, index) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:text-sky-300 hover:underline break-all">
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 export function SiteInfoPopup({ title, content, onClose }: SiteInfoPopupProps) {
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -27,7 +43,7 @@ export function SiteInfoPopup({ title, content, onClose }: SiteInfoPopupProps) {
         
         <div className="p-6 overflow-y-auto custom-scrollbar flex-grow">
           <div className="text-surface-dim text-base leading-relaxed whitespace-pre-wrap">
-            {content}
+            {renderTextWithLinks(content)}
           </div>
         </div>
       </motion.div>
