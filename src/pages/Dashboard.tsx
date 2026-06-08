@@ -34,7 +34,7 @@ export function Dashboard({
   events
 }: DashboardProps) {
   return (
-    <div className="max-w-[1600px] w-full mx-auto px-6 md:px-12 flex flex-col space-y-24">
+    <div className="max-w-7xl w-full mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 flex flex-col space-y-10 sm:space-y-16 md:space-y-24">
       {/* Section 1: Dashboard Header */}
       <motion.div 
         initial={{ opacity: 0, y: 40, filter: 'blur(10px)' }}
@@ -63,15 +63,16 @@ export function Dashboard({
       </motion.div>
 
       {/* Dashboard Grid - Editorial Layout */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+      <div id="dashboard-grid" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-8">
         
         {/* Massive Card: Schedule */}
         <motion.div 
+          id="upcoming-schedule"
           initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
           whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8 }}
-          className="xl:col-span-8 bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden group hover:border-white/10 transition-colors p-6 md:p-10 lg:p-12"
+          className="sm:col-span-2 xl:col-span-12 bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden group hover:border-white/10 transition-colors p-6 md:p-10 lg:p-12"
         >
           <div className="flex items-start justify-between mb-8">
             <div>
@@ -138,17 +139,15 @@ export function Dashboard({
           </ul>
         </motion.div>
 
-        {/* Side Column: Checklist & Notices */}
-        <div className="xl:col-span-4 flex flex-col space-y-8">
-          
-          {/* Notices */}
-          <motion.div
-            initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
-            whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-6 md:p-8 flex-grow"
-          >
+        {/* Notices */}
+        <motion.div
+          id="notices-section"
+          initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
+          whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+          className="sm:col-span-1 xl:col-span-6 bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-6 md:p-8 flex-grow flex flex-col justify-between"
+        >
             <div className="flex items-start justify-between mb-4 md:mb-6">
               <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-tertiary-fixed-dim/10 border border-tertiary-fixed-dim/20 flex items-center justify-center text-tertiary-fixed-dim">
                 <Bell className="w-5 h-5 md:w-6 md:h-6" strokeWidth={1.5} />
@@ -191,11 +190,12 @@ export function Dashboard({
           
           {/* Documents */}
           <motion.div 
+            id="documents-section"
             initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
             whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-6 md:p-8"
+            className="sm:col-span-1 xl:col-span-6 bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-6 md:p-8 flex flex-col justify-between"
           >
             <div className="flex items-start justify-between mb-4 md:mb-6">
               <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white">
@@ -250,7 +250,6 @@ export function Dashboard({
             </div>
           </motion.div>
 
-        </div>
       </div>
       
       <motion.div 

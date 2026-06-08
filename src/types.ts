@@ -5,4 +5,5 @@ export interface AcademicEvent {
   title: string;
   description: string;
   color?: string;
+  isHoliday?: boolean;
 }

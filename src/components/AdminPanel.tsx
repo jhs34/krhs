@@ -27,6 +27,7 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
   const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [eventColor, setEventColor] = useState('#64ffda'); // A default cyan color matching the secondary theme
+  const [isHoliday, setIsHoliday] = useState(false);
   
   const presetColors = [
     '#ef4444', // red
@@ -55,6 +56,7 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
     setDate(format(new Date(), 'yyyy-MM-dd'));
     setEndDate(format(new Date(), 'yyyy-MM-dd'));
     setEventColor('#64ffda');
+    setIsHoliday(false);
   };
 
   const safeParseDate = (dString: string | undefined | null) => {
@@ -71,6 +73,7 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
       setDate(safeParseDate(item.date));
       setEndDate(safeParseDate(item.endDate || item.date));
       setEventColor(item.color || '#64ffda');
+      setIsHoliday(item.isHoliday || false);
     } else if (type === 'notice') {
       setContent(item.content);
       setDate(safeParseDate(item.date));
@@ -118,6 +121,7 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
           date: new Date(date).toISOString(),
           endDate: new Date(endDate).toISOString(),
           color: eventColor,
+          isHoliday,
         };
         if (editingId) await updateEvent(editingId, payload);
         else await addEvent(payload);
@@ -303,6 +307,18 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
                         />
                       ))}
                     </div>
+                  </div>
+                  <div className="flex items-center space-x-2 mt-2 md:mt-3 col-span-2">
+                    <input
+                      type="checkbox"
+                      id="isHoliday"
+                      checked={isHoliday}
+                      onChange={(e) => setIsHoliday(e.target.checked)}
+                      className="w-4 h-4 rounded border-white/10 bg-black/40 text-secondary focus:ring-secondary/30 focus:ring-offset-0 focus:ring-2 outline-none cursor-pointer"
+                    />
+                    <label htmlFor="isHoliday" className="text-xs md:text-sm text-white font-medium cursor-pointer select-none">
+                      공휴일로 지정 (달력에서 날짜를 빨간색으로 표시)
+                    </label>
                   </div>
                 </div>
               ) : activeTab === 'notices' ? (

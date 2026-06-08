@@ -22,7 +22,7 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
 
   return (
     <div id="dashboard" className="glass-panel-dark text-white sticky top-0 z-50 border-white/5 transition-all duration-300">
-      <div className="max-w-[1600px] w-full mx-auto px-4 md:px-12">
+      <div className="max-w-7xl w-full mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32">
         <div className="flex justify-between items-center h-16">
           <Link to="/" className="flex items-center space-x-2 md:space-x-3 shrink-0 mr-4">
             <img src={`${import.meta.env.BASE_URL}logo.png`} className="w-[24px] md:w-[30px] h-auto brightness-0 invert opacity-90" alt="KRHS" />

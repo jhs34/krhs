@@ -52,17 +52,17 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
   const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
 
   const popupDateEvents = popupDate ? events.filter(e => {
-    const eStart = startOfDay(e.date);
-    const eEnd = e.endDate ? startOfDay(e.endDate) : eStart;
-    const dpStart = startOfDay(popupDate);
-    return dpStart.getTime() >= eStart.getTime() && dpStart.getTime() <= eEnd.getTime();
+    const eStartStr = format(e.date, 'yyyy-MM-dd');
+    const eEndStr = e.endDate ? format(e.endDate, 'yyyy-MM-dd') : eStartStr;
+    const targetStr = format(popupDate, 'yyyy-MM-dd');
+    return targetStr >= eStartStr && targetStr <= eEndStr;
   }) : [];
 
   return (
     <>
-      <div className="bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-4 md:p-8 relative">
-        <div className="flex justify-between items-center mb-4 md:mb-8">
-        <h3 className="font-sans font-bold text-lg md:text-2xl text-white tracking-tight">
+      <div className="bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-4 md:p-5 lg:p-6 relative">
+        <div className="flex justify-between items-center mb-3 md:mb-5">
+        <h3 className="font-sans font-bold text-lg md:text-xl lg:text-2xl text-white tracking-tight">
           {format(currentDate, 'yyyy년 M월')}
         </h3>
         <div className="flex space-x-1 md:space-x-2 items-center">
@@ -92,9 +92,14 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2 md:mb-4">
-        {weekDays.map(day => (
-          <div key={day} className="text-center text-surface-dim font-medium text-xs md:text-sm py-1 md:py-2">
+      <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2 md:mb-3">
+        {weekDays.map((day, idx) => (
+          <div 
+            key={day} 
+            className={`text-center font-medium text-xs md:text-sm py-0.5 md:py-1 ${
+              idx === 0 ? 'text-red-400' : idx === 6 ? 'text-blue-400' : 'text-surface-dim'
+            }`}
+          >
             {day}
           </div>
         ))}
@@ -109,80 +114,230 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: direction > 0 ? -20 : 20 }}
             transition={{ duration: 0.2 }}
-            className="grid grid-cols-7 gap-1 md:gap-2"
+            className="flex flex-col space-y-1.5 md:space-y-2.5"
           >
-            {days.map((day, i) => {
-              const dayStart = startOfDay(day);
-              const dayEvents = events.filter(e => {
-                const eStart = startOfDay(e.date);
-                const eEnd = e.endDate ? startOfDay(e.endDate) : eStart;
-                return dayStart.getTime() >= eStart.getTime() && dayStart.getTime() <= eEnd.getTime();
-              });
-              const isSelected = selectedDate && isSameDay(day, selectedDate);
-              const isCurrentMonth = isSameMonth(day, monthStart);
-              const maxDisplay = 4;
-              
-              return (
-                <div 
-                  key={day.toString()} 
-                  onClick={() => {
-                    onSelectDate(day);
-                    if (dayEvents.length > 0) setPopupDate(day);
-                  }}
-                  className={`
-                    min-h-[40px] sm:min-h-[50px] md:min-h-[90px] lg:min-h-[120px] p-0.5 md:p-2 rounded-[4px] md:rounded-lg border flex flex-col items-center md:items-start justify-start cursor-pointer transition-all relative group overflow-hidden
-                    ${!isCurrentMonth ? 'opacity-30' : 'opacity-100'}
-                    ${isSelected 
-                      ? 'border-white bg-white shadow-lg shadow-white/20 text-black' 
-                      : 'border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/20 text-white'
+            {(() => {
+              const weeks: Date[][] = [];
+              for (let i = 0; i < days.length; i += 7) {
+                weeks.push(days.slice(i, i + 7));
+              }
+
+              return weeks.map((week, weekIdx) => {
+                const wStartStr = format(week[0], 'yyyy-MM-dd');
+                const wEndStr = format(week[6], 'yyyy-MM-dd');
+                const weekDateStrings = week.map(d => format(d, 'yyyy-MM-dd'));
+
+                // Filter events intersecting with this week using pure ISO dates list
+                const weekEvents = events.filter(e => {
+                  const eStartStr = format(e.date, 'yyyy-MM-dd');
+                  const eEndStr = e.endDate ? format(e.endDate, 'yyyy-MM-dd') : eStartStr;
+                  return eStartStr <= wEndStr && eEndStr >= wStartStr;
+                });
+
+                // Sort: longer duration first, then earlier start time
+                const sortedEvents = [...weekEvents].sort((a, b) => {
+                  const aStartStr = format(a.date, 'yyyy-MM-dd');
+                  const aEndStr = a.endDate ? format(a.endDate, 'yyyy-MM-dd') : aStartStr;
+                  const bStartStr = format(b.date, 'yyyy-MM-dd');
+                  const bEndStr = b.endDate ? format(b.endDate, 'yyyy-MM-dd') : bStartStr;
+
+                  const aDays = Math.round((new Date(aEndStr).getTime() - new Date(aStartStr).getTime()) / (24 * 60 * 60 * 1000));
+                  const bDays = Math.round((new Date(bEndStr).getTime() - new Date(bStartStr).getTime()) / (24 * 60 * 60 * 1000));
+                  
+                  if (aDays !== bDays) return bDays - aDays;
+                  return aStartStr.localeCompare(bStartStr);
+                });
+
+                // Grid Slot Assignment
+                const slots: (AcademicEvent | null)[][] = [];
+                const positionedEvents: { event: AcademicEvent; startIdx: number; endIdx: number; slot: number }[] = [];
+
+                sortedEvents.forEach(event => {
+                  const eStartStr = format(event.date, 'yyyy-MM-dd');
+                  const eEndStr = event.endDate ? format(event.endDate, 'yyyy-MM-dd') : eStartStr;
+                  
+                  let startIdx = 0;
+                  let endIdx = 6;
+                  
+                  for (let i = 0; i < 7; i++) {
+                    if (weekDateStrings[i] >= eStartStr) {
+                      startIdx = i;
+                      break;
                     }
-                  `}
-                >
-                  <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-space shrink-0 mb-0.5 md:mb-1 ${isSelected ? 'text-black font-extrabold' : 'text-white font-medium'}`}>
-                    {format(day, 'd')}
-                  </span>
-                  <div className="w-full mt-auto md:mt-0 mb-0.5 md:mb-0">
-                    {/* Mobile View */}
-                    <div className="block md:hidden w-full space-y-[1px]">
-                      {dayEvents.slice(0, 2).map(event => (
-                        <div key={event.id} 
-                          className={`w-full overflow-hidden text-center flex items-center justify-center px-0.5 py-[1px] rounded-[1px] ${isSelected ? 'mix-blend-multiply' : ''}`}
-                          style={{ backgroundColor: event.color || 'rgba(255,255,255,0.2)' }}
-                        >
-                          <div className="w-full overflow-hidden marquee-container block">
-                            <span className={`marquee-text justify-center font-bold text-[6px] leading-[7px] sm:text-[7px] sm:leading-[8px] ${isSelected ? 'text-black' : getContrastColor(event.color)} tracking-tighter`}>{event.title}</span>
+                  }
+                  
+                  for (let i = 6; i >= 0; i--) {
+                    if (weekDateStrings[i] <= eEndStr) {
+                      endIdx = i;
+                      break;
+                    }
+                  }
+                  
+                  startIdx = Math.max(0, Math.min(6, startIdx));
+                  endIdx = Math.max(0, Math.min(6, endIdx));
+
+                  let assignedSlot = 0;
+                  while (true) {
+                    if (!slots[assignedSlot]) {
+                      slots[assignedSlot] = Array(7).fill(null);
+                    }
+                    
+                    let isSlotFree = true;
+                    for (let d = startIdx; d <= endIdx; d++) {
+                      if (slots[assignedSlot][d] !== null) {
+                        isSlotFree = false;
+                        break;
+                      }
+                    }
+                    
+                    if (isSlotFree) {
+                      for (let d = startIdx; d <= endIdx; d++) {
+                        slots[assignedSlot][d] = event;
+                      }
+                      positionedEvents.push({ event, startIdx, endIdx, slot: assignedSlot });
+                      break;
+                    }
+                    assignedSlot++;
+                  }
+                });
+
+                const maxSlot = positionedEvents.length > 0 ? Math.max(...positionedEvents.map(p => p.slot)) : -1;
+                const maxVisibleSlots = 2; // Show 2 layers of horizontal banner slots
+
+                const getHiddenCount = (day: Date) => {
+                  const dayStr = format(day, 'yyyy-MM-dd');
+                  return weekEvents.filter(e => {
+                    const eStartStr = format(e.date, 'yyyy-MM-dd');
+                    const eEndStr = e.endDate ? format(e.endDate, 'yyyy-MM-dd') : eStartStr;
+                    if (dayStr >= eStartStr && dayStr <= eEndStr) {
+                      const pe = positionedEvents.find(p => p.event.id === e.id);
+                      return pe && pe.slot >= maxVisibleSlots;
+                    }
+                    return false;
+                  }).length;
+                };
+
+                return (
+                  <div key={weekIdx} className="relative w-full">
+                    {/* Background Grid Cells */}
+                    <div className="grid grid-cols-7 gap-1 md:gap-2">
+                      {week.map((day) => {
+                        const isSelected = selectedDate && isSameDay(day, selectedDate);
+                        const isCurrentMonth = isSameMonth(day, monthStart);
+                        const hiddenCount = getHiddenCount(day);
+
+                        const dayStr = format(day, 'yyyy-MM-dd');
+                        const dayEvents = events.filter(e => {
+                          const eStartStr = format(e.date, 'yyyy-MM-dd');
+                          const eEndStr = e.endDate ? format(e.endDate, 'yyyy-MM-dd') : eStartStr;
+                          return dayStr >= eStartStr && dayStr <= eEndStr;
+                        });
+
+                        const dayWeekIdx = day.getDay();
+                        const isSunday = dayWeekIdx === 0;
+                        const isSaturday = dayWeekIdx === 6;
+                        const hasHoliday = dayEvents.some(e => e.isHoliday);
+
+                        let dateColorClass = 'text-white';
+                        if (hasHoliday || isSunday) {
+                          dateColorClass = 'text-red-400';
+                        } else if (isSaturday) {
+                          dateColorClass = 'text-blue-400';
+                        }
+
+                        return (
+                          <div 
+                            key={day.toString()} 
+                            onClick={() => {
+                              onSelectDate(day);
+                              if (dayEvents.length > 0) setPopupDate(day);
+                            }}
+                            className={`
+                              min-h-[58px] sm:min-h-[64px] md:min-h-[82px] lg:min-h-[94px] xl:min-h-[105px] p-0.5 md:p-1.5 rounded-[4px] md:rounded-lg border flex flex-col items-center md:items-start justify-start cursor-pointer transition-all relative
+                              ${!isCurrentMonth ? 'opacity-30' : 'opacity-100'}
+                              ${isSelected 
+                                ? 'border-white bg-white/10 text-white shadow-md shadow-white/5' 
+                                : 'border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/20 text-white'
+                              }
+                            `}
+                          >
+                            <span className={`text-[8px] sm:text-[10px] md:text-xs font-space shrink-0 mb-1 px-1 sm:px-1.5 py-[1px] md:py-0.5 rounded-full ${
+                              isSelected 
+                                ? 'bg-white text-black font-extrabold' 
+                                : `${dateColorClass} font-medium`
+                            }`}>
+                              {format(day, 'd')}
+                            </span>
+                            
+                            {/* Counter of hidden schedules */}
+                            {hiddenCount > 0 && (
+                              <div className="absolute bottom-0.5 md:bottom-1 right-0.5 md:right-1.5 pointer-events-none">
+                                <span className={`text-[6px] sm:text-[7.5px] md:text-[9px] font-bold ${isSelected ? 'text-white' : 'text-surface-dim/75'} tracking-tighter`}>
+                                  + {hiddenCount}개
+                                </span>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ))}
-                      {dayEvents.length > 2 && (
-                        <div className={`w-full text-center px-0.5 py-[1px] rounded-[1px] text-[6px] leading-[7px] sm:text-[7px] sm:leading-[8px] font-bold ${isSelected ? 'text-black/60' : 'text-white/50'} tracking-tighter`}>
-                          + {dayEvents.length - 2}
-                        </div>
-                      )}
+                        );
+                      })}
                     </div>
-                    {/* Desktop View */}
-                    <div className="hidden md:block w-full space-y-[3px] lg:space-y-1.5">
-                      {dayEvents.slice(0, 3).map(event => (
-                        <div key={event.id} 
-                          className={`w-full overflow-hidden text-left flex items-center justify-start px-1.5 py-1 lg:px-2 lg:py-1.5 rounded-sm lg:rounded ${isSelected ? 'mix-blend-multiply' : ''}`}
-                          style={{ backgroundColor: event.color || 'rgba(255,255,255,0.2)' }}
-                        >
-                          {event.color && <div className="w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full shrink-0 mr-1.5 lg:mr-2" style={{ backgroundColor: isSelected ? 'rgba(0,0,0,0.5)' : (getContrastColor(event.color) === 'text-black' ? 'rgba(0,0,0,0.5)' : '#fff') }} />}
-                          <div className="flex-1 min-w-0 overflow-hidden marquee-container">
-                            <span className={`marquee-text justify-start font-bold text-[9px] leading-[10px] lg:text-[11px] lg:leading-[14px] ${isSelected ? 'text-black' : getContrastColor(event.color)} tracking-tighter`}>{event.title}</span>
+
+                    {/* Continuous Overlay Banner Grid Layer */}
+                    <div className="absolute inset-x-0 top-6 sm:top-[28px] md:top-8 lg:top-[38px] xl:top-[42px] bottom-0.5 md:bottom-1 pointer-events-none flex flex-col space-y-[2px] md:space-y-1 overflow-hidden select-none">
+                      {Array.from({ length: Math.min(maxVisibleSlots, maxSlot + 1) }).map((_, slotIdx) => {
+                        const slotEvents = positionedEvents.filter(p => p.slot === slotIdx);
+                        return (
+                          <div key={slotIdx} className="grid grid-cols-7 grid-rows-1 gap-1 md:gap-2 px-[2px] md:px-[4px]">
+                            {slotEvents.map(({ event, startIdx, endIdx }) => {
+                              const color = event.color || '#3b82f6';
+                              const contrastClass = getContrastColor(color);
+                              const isMultiDay = (endIdx - startIdx) > 0;
+                              
+                              const gridColStart = startIdx + 1;
+                              const gridColEnd = endIdx + 2;
+                              
+                              const isStartOfEvent = format(event.date, 'yyyy-MM-dd') >= format(week[0], 'yyyy-MM-dd');
+                              const isEndOfEvent = event.endDate ? (format(event.endDate, 'yyyy-MM-dd') <= format(week[6], 'yyyy-MM-dd')) : true;
+
+                              return (
+                                <div
+                                  key={event.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onSelectDate(event.date);
+                                    setPopupDate(event.date);
+                                  }}
+                                  className={`
+                                    pointer-events-auto h-[12px] sm:h-[15px] md:h-[18px] lg:h-[20px] shrink-0 flex items-center justify-start cursor-pointer transition-all select-none overflow-hidden hover:brightness-110 active:scale-[0.98] shadow-sm
+                                    ${isStartOfEvent ? 'rounded-l-sm pl-1 sm:pl-1.5 md:pl-2' : 'rounded-l-none pl-1 md:pl-1.5'}
+                                    ${isEndOfEvent ? 'rounded-r-sm pr-1 sm:pr-1.5 md:pr-2' : 'rounded-r-none pr-1 md:pr-1.5'}
+                                  `}
+                                  style={{ 
+                                    gridColumn: `${gridColStart} / ${gridColEnd}`,
+                                    gridRow: '1',
+                                    backgroundColor: color,
+                                  }}
+                                  title={`${event.title}${event.description ? ': ' + event.description : ''}`}
+                                >
+                                  <div className="w-full flex items-center min-w-0">
+                                    {isMultiDay && isStartOfEvent && (
+                                      <div className={`w-0.5 h-0.5 sm:w-1 sm:h-1 md:w-1.5 md:h-1.5 rounded-full shrink-0 mr-1 md:mr-1.5 bg-current ${contrastClass}`} />
+                                    )}
+                                    <span className={`font-bold font-sans text-[6px] sm:text-[7.5px] md:text-[9.5px] leading-none truncate ${contrastClass} tracking-tighter`}>
+                                      {event.title}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                        </div>
-                      ))}
-                      {dayEvents.length > 3 && (
-                        <div className={`w-full text-left px-1.5 py-1 lg:px-2 lg:py-1.5 rounded-sm lg:rounded text-[9px] leading-[10px] lg:text-[11px] lg:leading-[14px] font-bold ${isSelected ? 'text-black/60 hover:bg-black/5' : 'text-white/50 hover:bg-white/5'} transition-colors tracking-tighter cursor-pointer`}>
-                          + {dayEvents.length - 3}개 더보기
-                        </div>
-                      )}
+                        );
+                      })}
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </motion.div>
         </AnimatePresence>
       </div>

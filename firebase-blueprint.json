@@ -20,7 +20,10 @@
         "title": { "type": "string" },
         "description": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "endDate": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "color": { "type": "string" },
+        "isHoliday": { "type": "boolean" }
       },
       "required": ["title", "description", "date", "createdAt"]
     },

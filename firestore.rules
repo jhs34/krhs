@@ -21,35 +21,36 @@ service cloud.firestore {
 
     // Validation
     function isValidNotice(data) {
-      let reqKeys = ['title', 'content', 'date', 'createdAt'];
+      let reqKeys = ['title', 'content', 'date'];
       return data.keys().hasAll(reqKeys) &&
              data.keys().hasOnly(['title', 'content', 'date', 'createdAt', 'fileUrl', 'fileName', 'files']) &&
              data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
              data.content is string && data.content.size() <= 10000 &&
              data.date is string && data.date.size() <= 100 &&
-             data.createdAt is string && data.createdAt.size() <= 100 &&
+             (data.keys().hasAny(['createdAt']) ? (data.createdAt is string && data.createdAt.size() <= 100) : true) &&
              (data.keys().hasAny(['fileUrl']) ? (data.fileUrl is string && data.fileUrl.size() <= 2000) : true) &&
              (data.keys().hasAny(['fileName']) ? (data.fileName is string && data.fileName.size() <= 500) : true) &&
              (data.keys().hasAny(['files']) ? (data.files is list && data.files.size() <= 10) : true);
     }
 
     function isValidEvent(data) {
-      return data.keys().hasAll(['title', 'description', 'date', 'endDate', 'createdAt']) &&
-             data.keys().hasOnly(['title', 'description', 'date', 'endDate', 'createdAt', 'color']) &&
+      return data.keys().hasAll(['title', 'description', 'date']) &&
+             data.keys().hasOnly(['title', 'description', 'date', 'endDate', 'createdAt', 'color', 'isHoliday']) &&
              data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
              data.description is string && data.description.size() <= 1000 &&
              data.date is string && data.date.size() <= 100 &&
-             data.endDate is string && data.endDate.size() <= 100 &&
-             data.createdAt is string && data.createdAt.size() <= 100 &&
-             (data.keys().hasAny(['color']) ? (data.color is string && data.color.size() <= 50) : true);
+             (data.keys().hasAny(['endDate']) ? (data.endDate is string && data.endDate.size() <= 100) : true) &&
+             (data.keys().hasAny(['createdAt']) ? (data.createdAt is string && data.createdAt.size() <= 100) : true) &&
+             (data.keys().hasAny(['color']) ? (data.color is string && data.color.size() <= 50) : true) &&
+             (data.keys().hasAny(['isHoliday']) ? (data.isHoliday is bool) : true);
     }
 
     function isValidDocument(data) {
-      return data.keys().hasAll(['title', 'description', 'createdAt']) &&
+      return data.keys().hasAll(['title', 'description']) &&
              data.keys().hasOnly(['title', 'description', 'fileUrl', 'fileName', 'files', 'createdAt']) &&
              data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
              data.description is string && data.description.size() <= 10000 &&
-             data.createdAt is string && data.createdAt.size() <= 100 &&
+             (data.keys().hasAny(['createdAt']) ? (data.createdAt is string && data.createdAt.size() <= 100) : true) &&
              (data.keys().hasAny(['fileUrl']) ? (data.fileUrl is string && data.fileUrl.size() <= 2000) : true) &&
              (data.keys().hasAny(['fileName']) ? (data.fileName is string && data.fileName.size() <= 500) : true) &&
              (data.keys().hasAny(['files']) ? (data.files is list && data.files.size() <= 10) : true);
@@ -77,7 +78,7 @@ service cloud.firestore {
       allow read: if true; // Public access to events
       allow create: if isAdmin() && isValidId(eventId) && isValidEvent(incoming());
       allow update: if isAdmin() && isValidId(eventId) && isValidEvent(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'date', 'endDate', 'color'])
+        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'date', 'endDate', 'color', 'isHoliday'])
       );
       allow delete: if isAdmin() && isValidId(eventId);
     }

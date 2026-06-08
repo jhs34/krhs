@@ -28,6 +28,7 @@ export interface FirestoreEvent {
   endDate: string;
   createdAt: string;
   color?: string;
+  isHoliday?: boolean;
 }
 
 export interface SchoolDocument {

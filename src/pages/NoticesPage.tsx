@@ -12,7 +12,7 @@ interface NoticesPageProps {
 
 export function NoticesPage({ notices, isAdmin, onItemClick, onEditItem }: NoticesPageProps) {
   return (
-    <div className="max-w-[1600px] w-full mx-auto px-6 md:px-12 flex flex-col space-y-12">
+    <div className="max-w-7xl w-full mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 flex flex-col space-y-6 sm:space-y-12">
       <motion.div 
         initial={{ opacity: 0, y: 40, filter: 'blur(10px)' }}
         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}

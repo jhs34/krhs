@@ -33,7 +33,7 @@ function HeroSection() {
       </div>
 
       {/* Top Header - Logo */}
-      <header className="relative z-50 w-full pt-10 px-6 md:px-12 max-w-[1600px] w-full mx-auto">
+      <header className="relative z-50 w-full pt-10 px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 max-w-7xl w-full mx-auto">
         <motion.div 
           initial={{ opacity: 0, y: -20, filter: 'blur(10px)' }}
           animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -53,7 +53,7 @@ function HeroSection() {
       </header>
 
       {/* Center Text Editorial Style */}
-      <div className="relative z-10 flex flex-col items-center justify-center flex-grow px-4 max-w-[1600px] w-full mx-auto">
+      <div className="relative z-10 flex flex-col items-center justify-center flex-grow px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 max-w-7xl w-full mx-auto">
         <motion.div 
           initial={{ opacity: 0, y: 30, filter: 'blur(15px)' }}
           animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -132,7 +132,8 @@ function AppContent() {
           description: e.description,
           date: validDate,
           endDate: validEndDate,
-          color: e.color
+          color: e.color,
+          isHoliday: e.isHoliday || false
         };
       }));
     });
@@ -253,7 +254,7 @@ function AppContent() {
       </main>
 
       <footer className="relative z-50 bg-[#050a14] py-8 md:py-12 border-t border-white/5">
-        <div className="max-w-[1600px] w-full mx-auto px-4 md:px-12 flex flex-col md:flex-row justify-between items-center text-surface-dim text-xs md:text-sm font-sans gap-4 md:gap-0">
+        <div className="max-w-7xl w-full mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 flex flex-col md:flex-row justify-between items-center text-surface-dim text-xs md:text-sm font-sans gap-4 md:gap-0">
            <div className="flex items-center space-x-2 md:space-x-3">
              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-5 md:w-6 opacity-100 brightness-0 invert border-white" />
              <span>&copy; 2026 KOREA RAILROAD HIGH SCHOOL</span>

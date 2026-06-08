@@ -34,6 +34,29 @@
   --color-outline-variant: #c4c6cf;
 }
 
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+@media (max-width: 1024px) {
+  html {
+    font-size: 14.5px; /* ~90% scale */
+  }
+}
+
+@media (max-width: 768px) {
+  html {
+    font-size: 13.5px; /* ~84% scale */
+  }
+}
+
+@media (max-width: 480px) {
+  html {
+    font-size: 12.8px; /* ~80% scale on mobile */
+  }
+}
+
 body {
   @apply bg-background text-on-surface font-sans antialiased;
   /* Subtle technical background pattern */
