@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, FileText, Bell, Edit2 } from 'lucide-react';
+import { Calendar as CalendarIcon, FileText, Bell, Edit2, Search, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { AcademicEvent } from '../types';
 import { Notice, SchoolDocument } from '../services/firestore';
@@ -18,6 +19,7 @@ interface DashboardProps {
   selectedDate: Date | null;
   onSelectDate: (date: Date) => void;
   events: AcademicEvent[];
+  onAddEventClick?: (date: Date) => void;
 }
 
 export function Dashboard({
@@ -31,8 +33,70 @@ export function Dashboard({
   onDateChange,
   selectedDate,
   onSelectDate,
-  events
+  events,
+  onAddEventClick
 }: DashboardProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const today = new Date();
+
+  const filteredEvents = searchQuery.trim()
+    ? events
+        .filter(e => !e.isArchived)
+        .filter(e => 
+          e.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+          (e.description && e.description.toLowerCase().includes(searchQuery.toLowerCase()))
+        )
+        .sort((a, b) => {
+          const diffA = Math.abs(a.date.getTime() - today.getTime());
+          const diffB = Math.abs(b.date.getTime() - today.getTime());
+          return diffA - diffB;
+        })
+    : [];
+
+  const filteredNotices = searchQuery.trim()
+    ? notices
+        .filter(n => 
+          n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+          (n.content && n.content.toLowerCase().includes(searchQuery.toLowerCase()))
+        )
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    : [];
+
+  const hasResults = filteredEvents.length > 0 || filteredNotices.length > 0;
+
+  const getDDayInfo = (eventDate: Date) => {
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const eventStart = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+    
+    const diffTime = eventStart.getTime() - todayStart.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return {
+        text: 'D-Day',
+        className: 'bg-red-500/20 text-red-400 border-red-500/30'
+      };
+    } else if (diffDays > 0) {
+      if (diffDays <= 7) {
+        return {
+          text: `D-${diffDays}`,
+          className: 'bg-secondary/20 text-[#a78bfa] border-secondary/30'
+        };
+      }
+      return {
+        text: `D-${diffDays}`,
+        className: 'bg-white/10 text-white border-white/15'
+      };
+    } else {
+      return {
+        text: `D+${Math.abs(diffDays)}`,
+        className: 'bg-white/5 text-surface-dim/50 border-white/5'
+      };
+    }
+  };
+
   return (
     <div className="max-w-7xl w-full mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 flex flex-col space-y-10 sm:space-y-16 md:space-y-24">
       {/* Section 1: Dashboard Header */}
@@ -43,7 +107,7 @@ export function Dashboard({
         transition={{ duration: 0.8 }}
         className="flex flex-col md:flex-row md:items-end justify-between border-b border-surface/10 pb-12 gap-8"
       >
-        <div>
+        <div className="flex-grow">
           <div className="flex items-center space-x-3 mb-4">
             <span className="status-chip text-[8px] bg-secondary/20 text-white border border-secondary/30">
               SYSTEM READY
@@ -60,7 +124,152 @@ export function Dashboard({
             복잡한 공지와 일정, 이제 흩어진 정보를 찾지 마세요.<br className="hidden sm:block" /> 하나의 포털에서 완벽하게 연결됩니다.
           </p>
         </div>
+
+        {/* Search input container aligned with header bottom on desktop */}
+        <div className="w-full md:w-80 lg:w-[400px] shrink-0">
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-surface-dim group-focus-within:text-white transition-colors">
+              <Search className="w-5 h-5 opacity-70" strokeWidth={2} />
+            </div>
+            <input
+              type="text"
+              placeholder="일정, 공지사항 키워드 검색..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-11 pr-10 py-3 bg-white/5 hover:bg-white/10 focus:bg-[#0a1120] text-sm text-white outline-none rounded-2xl border border-white/10 focus:border-secondary-fixed-dim/40 transition-all font-sans placeholder:text-surface-dim/50 shadow-inner"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-3.5 flex items-center text-surface-dim hover:text-white transition-colors"
+                title="검색어 지우기"
+              >
+                <X className="w-4 h-4" strokeWidth={2.5} />
+              </button>
+            )}
+          </div>
+        </div>
       </motion.div>
+
+      {/* Search Results Panel */}
+      {searchQuery.trim() && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[#0a1120] rounded-[24px] border border-white/10 overflow-hidden p-6 md:p-8 lg:p-10 space-y-8"
+        >
+          <div className="flex items-center justify-between border-b border-white/5 pb-4">
+            <div className="flex items-center space-x-3">
+              <span className="status-chip text-[8px] bg-secondary/20 text-white border border-secondary/30">
+                SEARCH TERMINAL
+              </span>
+              <h3 className="font-sans font-bold text-base md:text-lg text-white">
+                &lsquo;<span className="text-secondary-fixed-dim">{searchQuery}</span>&rsquo; 검색 결과 (총 {filteredEvents.length + filteredNotices.length}건)
+              </h3>
+            </div>
+            <button
+              onClick={() => setSearchQuery('')}
+              className="text-xs text-surface-dim hover:text-white transition-colors cursor-pointer"
+            >
+              검색 닫기
+            </button>
+          </div>
+
+          {!hasResults ? (
+            <div className="text-center py-12 text-surface-dim">
+              <Search className="w-8 h-8 mx-auto mb-3 opacity-30 text-white" />
+              <p className="text-sm font-medium">검색 결과가 없습니다.</p>
+              <p className="text-xs opacity-75 mt-1">다른 키워드로 다시 검색해보세요.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Event Results */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2 text-white font-bold text-sm uppercase tracking-wider opacity-80 border-b border-white/15 pb-2">
+                  <CalendarIcon className="w-4 h-4 text-secondary-fixed-dim" />
+                  <span>학사 일정 ({filteredEvents.length})</span>
+                </div>
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {filteredEvents.length > 0 ? (
+                    filteredEvents.map(event => (
+                      <div
+                        key={event.id}
+                        onClick={() => onItemClick(event, 'event')}
+                        className="p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 cursor-pointer transition-colors flex items-center justify-between group"
+                      >
+                        <div className="flex-1 min-w-0 pr-4">
+                          <span className="text-xs text-surface-dim flex items-center gap-2 flex-wrap font-space mb-1">
+                            <span>
+                              {format(event.date, 'yyyy.MM.dd')}
+                              {event.endDate && event.date.getTime() !== event.endDate.getTime() && ` ~ ${format(event.endDate, 'yyyy.MM.dd')}`}
+                            </span>
+                            {(() => {
+                              const dday = getDDayInfo(event.date);
+                              return (
+                                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-space font-bold border ${dday.className}`}>
+                                  {dday.text}
+                                </span>
+                              );
+                            })()}
+                          </span>
+                          <span className="text-white font-medium group-hover:text-secondary-fixed-dim transition-colors block truncate">
+                            {event.title}
+                          </span>
+                          {event.description && (
+                            <span className="text-xs text-surface-dim block truncate mt-1">
+                              {event.description}
+                            </span>
+                          )}
+                        </div>
+                        {event.color && (
+                          <div className="w-3 h-3 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: event.color }} />
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-surface-dim py-4 text-center">일치하는 학사 일정이 없습니다.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Notice Results */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2 text-white font-bold text-sm uppercase tracking-wider opacity-80 border-b border-white/15 pb-2">
+                  <Bell className="w-4 h-4 text-tertiary-fixed-dim" />
+                  <span>공지사항 ({filteredNotices.length})</span>
+                </div>
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {filteredNotices.length > 0 ? (
+                    filteredNotices.map(notice => (
+                      <div
+                        key={notice.id}
+                        onClick={() => onItemClick(notice, 'notice')}
+                        className="p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 cursor-pointer transition-colors flex flex-col justify-between group"
+                      >
+                        <div className="flex items-start justify-between min-w-0">
+                          <span className="text-xs text-surface-dim block font-space mb-1">
+                            {format(new Date(notice.date), 'yyyy.MM.dd')}
+                          </span>
+                        </div>
+                        <span className="text-white font-medium group-hover:text-tertiary-fixed-dim transition-colors block truncate">
+                          {notice.title}
+                        </span>
+                        {notice.content && (
+                          <span className="text-xs text-surface-dim block truncate mt-1">
+                            {notice.content}
+                          </span>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-surface-dim py-4 text-center">일치하는 공지사항이 없습니다.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
 
       {/* Dashboard Grid - Editorial Layout */}
       <div id="dashboard-grid" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-8">
@@ -94,14 +303,22 @@ export function Dashboard({
                 className="flex flex-col md:flex-row md:items-center p-6 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors group/item border border-white/5 cursor-pointer relative"
                 onClick={() => onItemClick(event, 'event')}
               >
-                <div className="flex flex-col items-start md:items-center mr-8 mb-4 md:mb-0 w-24 shrink-0">
-                  <span className="text-sm font-space font-bold text-white tracking-widest uppercase">{format(event.date, 'MMM')}</span>
-                  <div className="flex flex-col items-center">
-                    <span className="text-4xl font-space font-bold text-white leading-none mb-1">{format(event.date, 'dd')}</span>
+                <div className="flex flex-row items-center gap-3 md:gap-4 mr-8 mb-4 md:mb-0 shrink-0">
+                  <div className="flex flex-col items-center w-14 sm:w-16 shrink-0">
+                    <span className="text-xs sm:text-sm font-space font-bold text-white tracking-widest uppercase">{format(event.date, 'MMM')}</span>
+                    <span className="text-3xl sm:text-4xl font-space font-bold text-white leading-none mb-0.5">{format(event.date, 'dd')}</span>
                     {event.endDate && event.date.getTime() !== event.endDate.getTime() && (
-                      <span className="text-xs font-space text-surface-dim font-bold">~ {format(event.endDate, 'MMM dd')}</span>
+                      <span className="text-[10px] sm:text-xs font-space text-surface-dim font-bold text-center">~ {format(event.endDate, 'dd')}</span>
                     )}
                   </div>
+                  {(() => {
+                    const dday = getDDayInfo(event.date);
+                    return (
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] md:text-xs font-space font-bold border shrink-0 transition-colors ${dday.className}`}>
+                        {dday.text}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div className="flex-grow flex items-start pr-8 min-w-0">
                   {event.color && <div className="w-2.5 h-2.5 rounded-full mt-2 mr-3 md:mr-4 shrink-0 shadow-sm" style={{ backgroundColor: event.color }} />}
@@ -183,7 +400,14 @@ export function Dashboard({
                   )}
                 </li>
               )) : (
-                <li className="text-sm text-surface-dim text-center py-4">등록된 공지사항이 없습니다.</li>
+                <motion.li 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="text-sm text-surface-dim text-center py-4 list-none"
+                >
+                  등록된 공지사항이 없습니다.
+                </motion.li>
               )}
             </ul>
           </motion.div>
@@ -245,7 +469,14 @@ export function Dashboard({
                   )}
                 </div>
               )) : (
-                <div className="text-sm text-surface-dim text-center py-4">등록된 문서가 없습니다.</div>
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="text-sm text-surface-dim text-center py-4"
+                >
+                  등록된 문서가 없습니다.
+                </motion.div>
               )}
             </div>
           </motion.div>
@@ -266,6 +497,8 @@ export function Dashboard({
           selectedDate={selectedDate} 
           onSelectDate={onSelectDate} 
           onItemClick={onItemClick}
+          isAdmin={isAdmin}
+          onAddEventClick={onAddEventClick}
         />
       </motion.div>
     </div>

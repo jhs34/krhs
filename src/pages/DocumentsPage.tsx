@@ -102,9 +102,14 @@ export function DocumentsPage({ documents, isAdmin, onItemClick, onEditItem }: D
             )}
           </motion.div>
         )) : (
-          <div className="col-span-full py-12 text-center text-surface-dim bg-[#0a1120] rounded-3xl border border-white/5">
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="col-span-full py-12 text-center text-surface-dim bg-[#0a1120]/60 rounded-3xl border border-white/5 shadow-inner"
+          >
             등록된 문서가 없습니다.
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

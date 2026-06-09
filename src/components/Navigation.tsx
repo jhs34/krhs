@@ -18,6 +18,7 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
     { name: '학사일정', path: '/events' },
     { name: '공지사항', path: '/notices' },
     { name: '자료실', path: '/documents' },
+    { name: '보관함', path: '/archive' },
   ];
 
   return (

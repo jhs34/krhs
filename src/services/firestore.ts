@@ -18,6 +18,9 @@ export interface Notice {
   fileUrl?: string;
   fileName?: string;
   files?: Array<{ url: string; name: string }>;
+  isArchived?: boolean;
+  archivedAt?: string;
+  validUntil?: string;
 }
 
 export interface FirestoreEvent {
@@ -29,6 +32,8 @@ export interface FirestoreEvent {
   createdAt: string;
   color?: string;
   isHoliday?: boolean;
+  isArchived?: boolean;
+  archivedAt?: string;
 }
 
 export interface SchoolDocument {
@@ -41,6 +46,8 @@ export interface SchoolDocument {
   fileName?: string;
   files?: Array<{ url: string; name: string }>;
   createdAt: string;
+  isArchived?: boolean;
+  archivedAt?: string;
 }
 
 export const subscribeToNotices = (callback: (notices: Notice[]) => void) => {

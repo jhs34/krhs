@@ -6,4 +6,6 @@ export interface AcademicEvent {
   description: string;
   color?: string;
   isHoliday?: boolean;
+  isArchived?: boolean;
+  archivedAt?: string;
 }

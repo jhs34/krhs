@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, startOfDay } from 'date-fns';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AcademicEvent } from '../types';
 
@@ -11,9 +11,20 @@ interface CalendarProps {
   selectedDate: Date | null;
   onSelectDate: (date: Date) => void;
   onItemClick?: (item: any, type: 'notice' | 'event' | 'document') => void;
+  isAdmin?: boolean;
+  onAddEventClick?: (date: Date) => void;
 }
 
-export function Calendar({ currentDate, onDateChange, events, selectedDate, onSelectDate, onItemClick }: CalendarProps) {
+export function Calendar({ 
+  currentDate, 
+  onDateChange, 
+  events, 
+  selectedDate, 
+  onSelectDate, 
+  onItemClick,
+  isAdmin = false,
+  onAddEventClick
+}: CalendarProps) {
   const getContrastColor = (hexcolor?: string) => {
     if (!hexcolor) return 'text-white';
     let hex = hexcolor.replace("#", "");
@@ -217,6 +228,8 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
                   }).length;
                 };
 
+                const weekHiddenCounts = week.map(day => getHiddenCount(day));
+
                 return (
                   <div key={weekIdx} className="relative w-full">
                     {/* Background Grid Cells */}
@@ -250,7 +263,7 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
                             key={day.toString()} 
                             onClick={() => {
                               onSelectDate(day);
-                              if (dayEvents.length > 0) setPopupDate(day);
+                              setPopupDate(day);
                             }}
                             className={`
                               min-h-[58px] sm:min-h-[64px] md:min-h-[82px] lg:min-h-[94px] xl:min-h-[105px] p-0.5 md:p-1.5 rounded-[4px] md:rounded-lg border flex flex-col items-center md:items-start justify-start cursor-pointer transition-all relative
@@ -269,14 +282,7 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
                               {format(day, 'd')}
                             </span>
                             
-                            {/* Counter of hidden schedules */}
-                            {hiddenCount > 0 && (
-                              <div className="absolute bottom-0.5 md:bottom-1 right-0.5 md:right-1.5 pointer-events-none">
-                                <span className={`text-[6px] sm:text-[7.5px] md:text-[9px] font-bold ${isSelected ? 'text-white' : 'text-surface-dim/75'} tracking-tighter`}>
-                                  + {hiddenCount}개
-                                </span>
-                              </div>
-                            )}
+                            {/* Counter of hidden schedules removed as they are now rendered inside slot 1 next to the second event */}
                           </div>
                         );
                       })}
@@ -287,49 +293,227 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
                       {Array.from({ length: Math.min(maxVisibleSlots, maxSlot + 1) }).map((_, slotIdx) => {
                         const slotEvents = positionedEvents.filter(p => p.slot === slotIdx);
                         return (
-                          <div key={slotIdx} className="grid grid-cols-7 grid-rows-1 gap-1 md:gap-2 px-[2px] md:px-[4px]">
-                            {slotEvents.map(({ event, startIdx, endIdx }) => {
-                              const color = event.color || '#3b82f6';
-                              const contrastClass = getContrastColor(color);
-                              const isMultiDay = (endIdx - startIdx) > 0;
-                              
-                              const gridColStart = startIdx + 1;
-                              const gridColEnd = endIdx + 2;
-                              
-                              const isStartOfEvent = format(event.date, 'yyyy-MM-dd') >= format(week[0], 'yyyy-MM-dd');
-                              const isEndOfEvent = event.endDate ? (format(event.endDate, 'yyyy-MM-dd') <= format(week[6], 'yyyy-MM-dd')) : true;
+                          <div key={slotIdx} className="grid grid-cols-7 grid-rows-1 gap-1 md:gap-2">
+                            {(() => {
+                              if (slotIdx === 0) {
+                                // Slot 0: standard continuous overlay banners
+                                return slotEvents.map(({ event, startIdx, endIdx }) => {
+                                  const color = event.color || '#3b82f6';
+                                  const contrastClass = getContrastColor(color);
+                                  const isMultiDay = (endIdx - startIdx) > 0;
+                                  
+                                  const gridColStart = startIdx + 1;
+                                  const gridColEnd = endIdx + 2;
+                                  
+                                  const isStartOfEvent = format(event.date, 'yyyy-MM-dd') >= format(week[0], 'yyyy-MM-dd');
+                                  const isEndOfEvent = event.endDate ? (format(event.endDate, 'yyyy-MM-dd') <= format(week[6], 'yyyy-MM-dd')) : true;
 
-                              return (
-                                <div
-                                  key={event.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onSelectDate(event.date);
-                                    setPopupDate(event.date);
-                                  }}
-                                  className={`
-                                    pointer-events-auto h-[12px] sm:h-[15px] md:h-[18px] lg:h-[20px] shrink-0 flex items-center justify-start cursor-pointer transition-all select-none overflow-hidden hover:brightness-110 active:scale-[0.98] shadow-sm
-                                    ${isStartOfEvent ? 'rounded-l-sm pl-1 sm:pl-1.5 md:pl-2' : 'rounded-l-none pl-1 md:pl-1.5'}
-                                    ${isEndOfEvent ? 'rounded-r-sm pr-1 sm:pr-1.5 md:pr-2' : 'rounded-r-none pr-1 md:pr-1.5'}
-                                  `}
-                                  style={{ 
-                                    gridColumn: `${gridColStart} / ${gridColEnd}`,
-                                    gridRow: '1',
-                                    backgroundColor: color,
-                                  }}
-                                  title={`${event.title}${event.description ? ': ' + event.description : ''}`}
-                                >
-                                  <div className="w-full flex items-center min-w-0">
-                                    {isMultiDay && isStartOfEvent && (
-                                      <div className={`w-0.5 h-0.5 sm:w-1 sm:h-1 md:w-1.5 md:h-1.5 rounded-full shrink-0 mr-1 md:mr-1.5 bg-current ${contrastClass}`} />
-                                    )}
-                                    <span className={`font-bold font-sans text-[6px] sm:text-[7.5px] md:text-[9.5px] leading-none truncate ${contrastClass} tracking-tighter`}>
-                                      {event.title}
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })}
+                                  return (
+                                    <div
+                                      key={event.id}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onSelectDate(event.date);
+                                        setPopupDate(event.date);
+                                      }}
+                                      className={`
+                                        pointer-events-auto h-[12px] sm:h-[15px] md:h-[18px] lg:h-[20px] shrink-0 flex items-center justify-start cursor-pointer transition-all select-none overflow-hidden hover:brightness-110 active:scale-[0.98] shadow-sm
+                                        ${isStartOfEvent ? 'rounded-l-sm pl-1 sm:pl-1.5 md:pl-2 ml-[3px] md:ml-[4px]' : 'rounded-l-none pl-1 md:pl-1.5'}
+                                        ${isEndOfEvent ? 'rounded-r-sm pr-1 sm:pr-1.5 md:pr-2 mr-[3px] md:mr-[4px]' : 'rounded-r-none pr-1 md:pr-1.5'}
+                                      `}
+                                      style={{ 
+                                        gridColumn: `${gridColStart} / ${gridColEnd}`,
+                                        gridRow: '1',
+                                        backgroundColor: color,
+                                      }}
+                                      title={`${event.title}${event.description ? ': ' + event.description : ''}`}
+                                    >
+                                      <div className="w-full flex items-center min-w-0">
+                                        {isMultiDay && isStartOfEvent && (
+                                          <div className={`w-0.5 h-0.5 sm:w-1 sm:h-1 md:w-1.5 md:h-1.5 rounded-full shrink-0 mr-1 md:mr-1.5 bg-current ${contrastClass}`} />
+                                        )}
+                                        <span className={`font-bold font-sans text-[6px] sm:text-[7.5px] md:text-[9.5px] leading-none truncate ${contrastClass} tracking-tighter`}>
+                                          {event.title}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                });
+                              } else {
+                                // Slot 1: Special treatment for hidden schedules
+                                const renderedElements: React.ReactNode[] = [];
+
+                                // 1. Support existing slot 1 events (potentially split if they intersect hidden counts)
+                                slotEvents.forEach(({ event, startIdx, endIdx }) => {
+                                  const color = event.color || '#3b82f6';
+                                  const contrastClass = getContrastColor(color);
+                                  const isMultiDay = (endIdx - startIdx) > 0;
+                                  
+                                  // Check if has intersection with any day that has hidden events
+                                  let hasHiddenIntersection = false;
+                                  for (let d = startIdx; d <= endIdx; d++) {
+                                    if (weekHiddenCounts[d] > 0) {
+                                      hasHiddenIntersection = true;
+                                      break;
+                                    }
+                                  }
+
+                                  if (!hasHiddenIntersection) {
+                                    // No intersection -> Render normally as one continuous block
+                                    const gridColStart = startIdx + 1;
+                                    const gridColEnd = endIdx + 2;
+                                    const isStartOfEvent = format(event.date, 'yyyy-MM-dd') >= format(week[0], 'yyyy-MM-dd');
+                                    const isEndOfEvent = event.endDate ? (format(event.endDate, 'yyyy-MM-dd') <= format(week[6], 'yyyy-MM-dd')) : true;
+
+                                    renderedElements.push(
+                                      <div
+                                        key={event.id}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onSelectDate(event.date);
+                                          setPopupDate(event.date);
+                                        }}
+                                        className={`
+                                          pointer-events-auto h-[12px] sm:h-[15px] md:h-[18px] lg:h-[20px] shrink-0 flex items-center justify-start cursor-pointer transition-all select-none overflow-hidden hover:brightness-110 active:scale-[0.98] shadow-sm
+                                          ${isStartOfEvent ? 'rounded-l-sm pl-1 sm:pl-1.5 md:pl-2 ml-[3px] md:ml-[4px]' : 'rounded-l-none pl-1 md:pl-1.5'}
+                                          ${isEndOfEvent ? 'rounded-r-sm pr-1 sm:pr-1.5 md:pr-2 mr-[3px] md:mr-[4px]' : 'rounded-r-none pr-1 md:pr-1.5'}
+                                        `}
+                                        style={{ 
+                                          gridColumn: `${gridColStart} / ${gridColEnd}`,
+                                          gridRow: '1',
+                                          backgroundColor: color,
+                                        }}
+                                        title={`${event.title}${event.description ? ': ' + event.description : ''}`}
+                                      >
+                                        <div className="w-full flex items-center min-w-0">
+                                          {isMultiDay && isStartOfEvent && (
+                                            <div className={`w-0.5 h-0.5 sm:w-1 sm:h-1 md:w-1.5 md:h-1.5 rounded-full shrink-0 mr-1 md:mr-1.5 bg-current ${contrastClass}`} />
+                                          )}
+                                          <span className={`font-bold font-sans text-[6px] sm:text-[7.5px] md:text-[9.5px] leading-none truncate ${contrastClass} tracking-tighter`}>
+                                            {event.title}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  } else {
+                                    // Split this event day-by-day so we can shorten and show "+N" on the day of overflow
+                                    for (let d = startIdx; d <= endIdx; d++) {
+                                      const day = week[d];
+                                      const hiddenCount = weekHiddenCounts[d];
+
+                                      if (hiddenCount > 0) {
+                                        // This day has hidden events in slot 1 - shorten text and show +N badge on the right
+                                        renderedElements.push(
+                                          <div
+                                            key={`${event.id}-split-${d}`}
+                                            style={{
+                                              gridColumn: `${d + 1} / ${d + 2}`,
+                                              gridRow: '1',
+                                            }}
+                                            className="pointer-events-none flex flex-row items-center gap-0.5 md:gap-1 w-full h-[12px] sm:h-[15px] md:h-[18px] lg:h-[20px] min-w-0 px-[3px] md:px-[4px]"
+                                          >
+                                            <div
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                onSelectDate(day);
+                                                setPopupDate(day);
+                                              }}
+                                              className={`
+                                                pointer-events-auto flex-grow h-[12px] sm:h-[15px] md:h-[18px] lg:h-[20px] flex items-center justify-start cursor-pointer transition-all select-none overflow-hidden hover:brightness-110 active:scale-[0.98] shadow-sm rounded-sm px-1 min-w-0
+                                              `}
+                                              style={{
+                                                backgroundColor: color,
+                                              }}
+                                              title={`${event.title}${event.description ? ': ' + event.description : ''}`}
+                                            >
+                                              <span className={`font-bold font-sans text-[6px] sm:text-[7px] md:text-[8.5px] leading-none truncate ${contrastClass} tracking-tighter`}>
+                                                {event.title}
+                                              </span>
+                                            </div>
+                                            
+                                            <div
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                onSelectDate(day);
+                                                setPopupDate(day);
+                                              }}
+                                              className="pointer-events-auto h-[12px] sm:h-[15px] md:h-[18px] lg:h-[20px] shrink-0 flex items-center justify-center bg-zinc-700/80 border border-zinc-650/30 hover:bg-zinc-600 hover:border-zinc-500 rounded-[3px] px-1 font-black font-sans text-white text-[7px] sm:text-[8px] md:text-[9.5px] leading-none transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-md select-none"
+                                              title={`${hiddenCount}개의 일정이 더 있습니다 (클릭 시 확인)`}
+                                            >
+                                              +{hiddenCount}
+                                            </div>
+                                          </div>
+                                        );
+                                      } else {
+                                        // This day doesn't have hidden events, render simple single-day block nicely
+                                        renderedElements.push(
+                                          <div
+                                            key={`${event.id}-split-${d}`}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onSelectDate(day);
+                                              setPopupDate(day);
+                                            }}
+                                            className={`
+                                              pointer-events-auto h-[12px] sm:h-[15px] md:h-[18px] lg:h-[20px] shrink-0 flex items-center justify-start cursor-pointer transition-all select-none overflow-hidden hover:brightness-110 active:scale-[0.98] shadow-sm px-0.5
+                                              ${d === startIdx ? 'rounded-l-sm pl-1 sm:pl-1.5 md:pl-2 ml-[3px] md:ml-[4px]' : 'rounded-l-none pl-1 md:pl-1.5'}
+                                              ${d === endIdx ? 'rounded-r-sm pr-1 sm:pr-1.5 md:pr-2 mr-[3px] md:mr-[4px]' : 'rounded-r-none pr-1 md:pr-1.5'}
+                                            `}
+                                            style={{
+                                              gridColumn: `${d + 1} / ${d + 2}`,
+                                              gridRow: '1',
+                                              backgroundColor: color,
+                                            }}
+                                            title={`${event.title}${event.description ? ': ' + event.description : ''}`}
+                                          >
+                                            <div className="w-full flex items-center min-w-0">
+                                              {isMultiDay && d === startIdx && (
+                                                <div className={`w-0.5 h-0.5 sm:w-1 sm:h-1 md:w-1.5 md:h-1.5 rounded-full shrink-0 mr-1 md:mr-1.5 bg-current ${contrastClass}`} />
+                                              )}
+                                              <span className={`font-bold font-sans text-[6px] sm:text-[7.5px] md:text-[9.5px] leading-none truncate ${contrastClass} tracking-tighter`}>
+                                                {event.title}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        );
+                                      }
+                                    }
+                                  }
+                                });
+
+                                // 2. Support days with hidden events but NO event in slot 1 at all!
+                                week.forEach((day, d) => {
+                                  const hasSlot1Event = slotEvents.some(p => p.startIdx <= d && d <= p.endIdx);
+                                  const hiddenCount = weekHiddenCounts[d];
+                                  if (hiddenCount > 0 && !hasSlot1Event) {
+                                    renderedElements.push(
+                                      <div
+                                        key={`standalone-badge-${d}`}
+                                        style={{
+                                          gridColumn: `${d + 1} / ${d + 2}`,
+                                          gridRow: '1',
+                                        }}
+                                        className="pointer-events-none flex flex-row items-center justify-end w-full h-[12px] sm:h-[15px] md:h-[18px] lg:h-[20px] min-w-0 pr-[3px] md:pr-[4px]"
+                                      >
+                                        <div
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onSelectDate(day);
+                                            setPopupDate(day);
+                                          }}
+                                          className="pointer-events-auto h-[12px] sm:h-[15px] md:h-[18px] lg:h-[20px] shrink-0 flex items-center justify-center bg-zinc-700/80 border border-zinc-650/30 hover:bg-zinc-600 hover:border-zinc-500 rounded-[3px] px-1 font-black font-sans text-white text-[7px] sm:text-[8px] md:text-[9.5px] leading-none transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-md select-none"
+                                          title={`${hiddenCount}개의 일정이 더 있습니다 (클릭 시 확인)`}
+                                        >
+                                          +{hiddenCount}
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+                                });
+
+                                return renderedElements;
+                              }
+                            })()}
                           </div>
                         );
                       })}
@@ -365,34 +549,70 @@ export function Calendar({ currentDate, onDateChange, events, selectedDate, onSe
                   <span className="text-white font-space text-xs font-bold tracking-widest uppercase mb-1">{format(popupDate, 'MMMM yyyy')}</span>
                   <span className="text-white font-sans text-2xl font-bold">{format(popupDate, 'd일 EEEE')}</span>
                 </div>
-                <button onClick={() => setPopupDate(null)} className="p-2 rounded-full bg-white/5 border border-white/10 text-surface-dim hover:text-white hover:bg-white/10 transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center space-x-2">
+                  {isAdmin && (
+                    <button 
+                      onClick={() => {
+                        if (onAddEventClick) {
+                          onAddEventClick(popupDate);
+                          setPopupDate(null);
+                        }
+                      }}
+                      title="일정 추가"
+                      className="p-2 rounded-full bg-secondary-fixed-dim/10 border border-secondary-fixed-dim/20 text-white hover:bg-secondary-fixed-dim/20 transition-colors"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  )}
+                  <button onClick={() => setPopupDate(null)} className="p-2 rounded-full bg-white/5 border border-white/10 text-surface-dim hover:text-white hover:bg-white/10 transition-colors">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
               <div className="p-5 overflow-y-auto custom-scrollbar flex-grow space-y-4">
-                {popupDateEvents.map(event => (
-                  <div 
-                    key={event.id} 
-                    className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col cursor-pointer hover:bg-white/10 transition-colors"
-                    onClick={() => {
-                      if (onItemClick) {
-                        setPopupDate(null);
-                        onItemClick(event, 'event');
-                      }
-                    }}
-                  >
-                    <div className="flex items-center mb-2">
-                      <div className="w-2.5 h-2.5 rounded-full mr-3 shadow-sm shrink-0" style={{ backgroundColor: event.color || 'rgba(255,255,255,0.5)' }} />
-                      <span className="text-white font-bold">{event.title}</span>
-                    </div>
-                    <span className="text-surface-dim text-sm pl-[22px] leading-relaxed whitespace-pre-wrap">{event.description}</span>
-                    {event.endDate && event.date.getTime() !== event.endDate.getTime() && (
-                      <span className="text-xs font-space text-surface-dim/60 pl-[22px] mt-2 bg-white/5 w-fit px-2 py-0.5 rounded">
-                        {format(event.date, 'MMM d')} ~ {format(event.endDate, 'MMM d')}
-                      </span>
+                {popupDateEvents.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center py-12 px-4 border border-dashed border-white/10 rounded-2xl bg-white/[0.02]">
+                    <p className="text-surface-dim text-sm font-medium mb-4">등록된 학사일정이 없습니다.</p>
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          if (onAddEventClick) {
+                            onAddEventClick(popupDate);
+                            setPopupDate(null);
+                          }
+                        }}
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex items-center space-x-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>일정 등록</span>
+                      </button>
                     )}
                   </div>
-                ))}
+                ) : (
+                  popupDateEvents.map(event => (
+                    <div 
+                      key={event.id} 
+                      className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col cursor-pointer hover:bg-white/10 transition-colors"
+                      onClick={() => {
+                        if (onItemClick) {
+                          setPopupDate(null);
+                          onItemClick(event, 'event');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center mb-2">
+                        <div className="w-2.5 h-2.5 rounded-full mr-3 shadow-sm shrink-0" style={{ backgroundColor: event.color || 'rgba(255,255,255,0.5)' }} />
+                        <span className="text-white font-bold">{event.title}</span>
+                      </div>
+                      <span className="text-surface-dim text-sm pl-[22px] leading-relaxed whitespace-pre-wrap">{event.description}</span>
+                      {event.endDate && event.date.getTime() !== event.endDate.getTime() && (
+                        <span className="text-xs font-space text-surface-dim/60 pl-[22px] mt-2 bg-white/5 w-fit px-2 py-0.5 rounded">
+                          {format(event.date, 'MMM d')} ~ {format(event.endDate, 'MMM d')}
+                        </span>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             </motion.div>
           </motion.div>

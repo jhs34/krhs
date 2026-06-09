@@ -14,20 +14,80 @@ interface AdminPanelProps {
   siteInfos?: SiteInfo[];
   initialTab?: 'notices' | 'events' | 'documents' | 'siteInfo';
   initialEditItem?: any;
+  initialEventDate?: Date | null;
 }
 
-export function AdminPanel({ onClose, notices, events, documents, siteInfos = [], initialTab = 'notices', initialEditItem = null }: AdminPanelProps) {
+export function AdminPanel({ 
+  onClose, 
+  notices, 
+  events, 
+  documents, 
+  siteInfos = [], 
+  initialTab = 'notices', 
+  initialEditItem = null,
+  initialEventDate = null
+}: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<'notices' | 'events' | 'documents' | 'siteInfo'>(initialTab);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: 'notices' | 'events' | 'documents'; title: string } | null>(null);
+
+  const getDeleteTitle = (id: string, type: 'notices' | 'events' | 'documents') => {
+    if (type === 'notices') {
+      return notices.find(n => n.id === id)?.title || '공지사항';
+    } else if (type === 'events') {
+      return events.find(e => e.id === id)?.title || '학사일정';
+    } else if (type === 'documents') {
+      return documents.find(d => d.id === id)?.title || '자료실';
+    }
+    return '';
+  };
+
+  const triggerDeleteConfirm = (id: string, type: 'notices' | 'events' | 'documents') => {
+    const itemTitle = getDeleteTitle(id, type);
+    setDeleteTarget({ id, type, title: itemTitle });
+  };
+
+  const executeDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      if (deleteTarget.type === 'notices') {
+        await deleteNotice(deleteTarget.id);
+      } else if (deleteTarget.type === 'events') {
+        await deleteEvent(deleteTarget.id);
+      } else if (deleteTarget.type === 'documents') {
+        await deleteDocument(deleteTarget.id);
+      }
+      
+      if (editingId === deleteTarget.id) {
+        resetForm();
+      }
+      setNotification({ message: '성공적으로 삭제되었습니다.', type: 'success' });
+    } catch (err: any) {
+      console.error(err);
+      setNotification({ message: '삭제 중 오류가 발생했습니다.', type: 'error' });
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
 
   // Form states
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  const [date, setDate] = useState(() => 
+    initialEventDate 
+      ? format(initialEventDate, 'yyyy-MM-dd') 
+      : format(new Date(), 'yyyy-MM-dd')
+  );
+  const [endDate, setEndDate] = useState(() => 
+    initialEventDate 
+      ? format(initialEventDate, 'yyyy-MM-dd') 
+      : format(new Date(), 'yyyy-MM-dd')
+  );
   const [eventColor, setEventColor] = useState('#64ffda'); // A default cyan color matching the secondary theme
   const [isHoliday, setIsHoliday] = useState(false);
+  const [isArchived, setIsArchived] = useState(false);
+  const [validUntil, setValidUntil] = useState('');
   
   const presetColors = [
     '#ef4444', // red
@@ -53,10 +113,12 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
     setEditingId(null);
     setTitle('');
     setContent('');
-    setDate(format(new Date(), 'yyyy-MM-dd'));
-    setEndDate(format(new Date(), 'yyyy-MM-dd'));
+    setDate(initialEventDate ? format(initialEventDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
+    setEndDate(initialEventDate ? format(initialEventDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
     setEventColor('#64ffda');
     setIsHoliday(false);
+    setIsArchived(false);
+    setValidUntil('');
   };
 
   const safeParseDate = (dString: string | undefined | null) => {
@@ -68,6 +130,7 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
   const handleEdit = (item: any, type: 'notice' | 'event' | 'document') => {
     setEditingId(item.id);
     setTitle(item.title);
+    setIsArchived(item.isArchived || false);
     if (type === 'event') {
       setContent(item.description);
       setDate(safeParseDate(item.date));
@@ -77,10 +140,18 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
     } else if (type === 'notice') {
       setContent(item.content);
       setDate(safeParseDate(item.date));
+      setValidUntil(item.validUntil ? safeParseDate(item.validUntil) : '');
     } else if (type === 'document') {
       setContent(item.description);
     }
   };
+
+  useEffect(() => {
+    if (initialEventDate && !editingId) {
+      setDate(format(initialEventDate, 'yyyy-MM-dd'));
+      setEndDate(format(initialEventDate, 'yyyy-MM-dd'));
+    }
+  }, [initialEventDate, editingId]);
 
   useEffect(() => {
     if (initialEditItem) {
@@ -111,6 +182,9 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
           title,
           content,
           date: new Date(date).toISOString(),
+          isArchived,
+          archivedAt: isArchived ? (notices.find(n => n.id === editingId)?.archivedAt || new Date().toISOString()) : '',
+          validUntil: validUntil ? new Date(validUntil).toISOString() : '',
         };
         if (editingId) await updateNotice(editingId, payload);
         else await addNotice(payload);
@@ -122,6 +196,8 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
           endDate: new Date(endDate).toISOString(),
           color: eventColor,
           isHoliday,
+          isArchived,
+          archivedAt: isArchived ? (events.find(e => e.id === editingId)?.archivedAt || new Date().toISOString()) : '',
         };
         if (editingId) await updateEvent(editingId, payload);
         else await addEvent(payload);
@@ -129,6 +205,8 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
         const payload: Omit<SchoolDocument, 'id' | 'createdAt'> = {
           title,
           description: content,
+          isArchived,
+          archivedAt: isArchived ? (documents.find(d => d.id === editingId)?.archivedAt || new Date().toISOString()) : '',
         };
         if (editingId) await updateDocument(editingId, payload);
         else await addDocument(payload);
@@ -322,17 +400,43 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
                   </div>
                 </div>
               ) : activeTab === 'notices' ? (
-                <div className="flex flex-col space-y-1">
-                  <label className="text-[10px] md:text-xs text-surface-dim">날짜</label>
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    required
-                    className="bg-black/40 border border-white/10 rounded-md md:rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors max-w-xs [color-scheme:dark]"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                  <div className="flex flex-col space-y-1">
+                    <label className="text-[10px] md:text-xs text-surface-dim">날짜</label>
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      required
+                      className="bg-black/40 border border-white/10 rounded-md md:rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors w-full [color-scheme:dark]"
+                    />
+                  </div>
+                  <div className="flex flex-col space-y-1">
+                    <label className="text-[10px] md:text-xs text-surface-dim">유효 기간 (지나면 자동 보관함 이동 - 선택사항)</label>
+                    <input
+                      type="date"
+                      value={validUntil}
+                      onChange={(e) => setValidUntil(e.target.value)}
+                      className="bg-black/40 border border-white/10 rounded-md md:rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors w-full [color-scheme:dark]"
+                    />
+                  </div>
                 </div>
               ) : null}
+              
+              {activeTab !== 'siteInfo' && (
+                <div className="flex items-center space-x-2 p-3 bg-white/5 border border-white/5 rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="isArchived"
+                    checked={isArchived}
+                    onChange={(e) => setIsArchived(e.target.checked)}
+                    className="w-4 h-4 rounded border-white/10 bg-black/40 text-secondary focus:ring-secondary/30 focus:ring-offset-0 focus:ring-2 outline-none cursor-pointer"
+                  />
+                  <label htmlFor="isArchived" className="text-xs md:text-sm text-white font-medium cursor-pointer select-none">
+                    보관함으로 이동 (체크 시 일반 검색 및 기존 목록에서 제외되며 보관함에 저징됨)
+                  </label>
+                </div>
+              )}
               
               <div className="flex flex-col space-y-1">
                 <label className="text-[10px] md:text-xs text-surface-dim">내용 / 설명</label>
@@ -344,13 +448,24 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
                 />
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-lg font-bold text-sm text-white transition-colors bg-secondary hover:bg-secondary/80"
+                  className="px-6 py-2.5 rounded-lg font-bold text-sm text-white transition-colors bg-secondary hover:bg-secondary/80 w-full sm:w-auto text-center"
                 >
                   {activeTab === 'siteInfo' ? '저장하기' : editingId ? '수정 완료' : '추가하기'}
                 </button>
+                
+                {(editingId && activeTab !== 'siteInfo') && (
+                  <button
+                    type="button"
+                    onClick={() => triggerDeleteConfirm(editingId, activeTab)}
+                    className="px-4 py-2.5 rounded-lg font-bold text-sm text-red-400 border border-red-500/30 hover:bg-red-500/10 hover:border-red-500/50 transition-colors flex items-center justify-center space-x-1.5 w-full sm:w-auto"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>이 항목 삭제하기</span>
+                  </button>
+                )}
               </div>
             </form>
 
@@ -370,7 +485,7 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
                       <button onClick={() => handleEdit(notice, 'notice')} className="text-surface-dim hover:text-white p-2 bg-white/5 rounded-lg">
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => deleteNotice(notice.id)} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg">
+                      <button onClick={() => triggerDeleteConfirm(notice.id, 'notices')} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -389,7 +504,7 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
                       <button onClick={() => handleEdit(event, 'event')} className="text-surface-dim hover:text-white p-2 bg-white/5 rounded-lg">
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => deleteEvent(event.id)} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg">
+                      <button onClick={() => triggerDeleteConfirm(event.id, 'events')} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -408,7 +523,7 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
                         <button onClick={() => handleEdit(doc, 'document')} className="text-surface-dim hover:text-white p-2 bg-white/5 rounded-lg">
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button onClick={() => deleteDocument(doc.id)} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg">
+                        <button onClick={() => triggerDeleteConfirm(doc.id, 'documents')} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -440,6 +555,41 @@ export function AdminPanel({ onClose, notices, events, documents, siteInfos = []
                   className="flex-1 py-3 rounded-xl font-bold text-sm bg-red-600/90 hover:bg-red-600 text-white transition-colors shadow-lg shadow-red-900/20"
                 >
                   로그아웃
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Delete Confirmation Modal */}
+        {deleteTarget && (
+          <div className="absolute inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md rounded-2xl md:rounded-3xl">
+            <div className="bg-[#0a1120] border border-white/20 w-full max-w-md p-6 rounded-2xl flex flex-col items-center shadow-2xl relative">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4 text-red-500">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg md:text-xl font-bold text-white mb-2 text-center">정말 삭제하시겠습니까?</h3>
+              <div className="w-full bg-white/5 border border-white/5 rounded-xl p-3 mb-4 text-center">
+                <p className="text-xs text-surface-dim mb-0.5">삭제 대상 이름</p>
+                <p className="text-sm text-white font-bold truncate">{deleteTarget.title}</p>
+              </div>
+              <p className="text-xs md:text-sm text-surface-dim mb-6 text-center">
+                이 작업은 되돌릴 수 없으며, 해당 데이터가 데이터베이스에서 영구적으로 완전히 삭제됩니다.
+              </p>
+              <div className="flex w-full space-x-3">
+                <button 
+                  type="button"
+                  onClick={() => setDeleteTarget(null)}
+                  className="flex-1 py-2.5 md:py-3 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/20 text-white transition-colors"
+                >
+                  취소
+                </button>
+                <button 
+                  type="button"
+                  onClick={executeDelete}
+                  className="flex-1 py-2.5 md:py-3 rounded-xl font-bold text-sm bg-red-600/90 hover:bg-red-600 text-white transition-colors shadow-lg shadow-red-900/20"
+                >
+                  삭제하기
                 </button>
               </div>
             </div>

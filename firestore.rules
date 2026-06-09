@@ -23,37 +23,46 @@ service cloud.firestore {
     function isValidNotice(data) {
       let reqKeys = ['title', 'content', 'date'];
       return data.keys().hasAll(reqKeys) &&
-             data.keys().hasOnly(['title', 'content', 'date', 'createdAt', 'fileUrl', 'fileName', 'files']) &&
+             data.keys().hasOnly(['title', 'content', 'date', 'createdAt', 'fileUrl', 'fileName', 'files', 'isArchived', 'archivedAt', 'validUntil', 'link']) &&
              data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
              data.content is string && data.content.size() <= 10000 &&
              data.date is string && data.date.size() <= 100 &&
              (data.keys().hasAny(['createdAt']) ? (data.createdAt is string && data.createdAt.size() <= 100) : true) &&
              (data.keys().hasAny(['fileUrl']) ? (data.fileUrl is string && data.fileUrl.size() <= 2000) : true) &&
              (data.keys().hasAny(['fileName']) ? (data.fileName is string && data.fileName.size() <= 500) : true) &&
-             (data.keys().hasAny(['files']) ? (data.files is list && data.files.size() <= 10) : true);
+             (data.keys().hasAny(['files']) ? (data.files is list && data.files.size() <= 10) : true) &&
+             (data.keys().hasAny(['isArchived']) ? (data.isArchived is bool) : true) &&
+             (data.keys().hasAny(['archivedAt']) ? (data.archivedAt is string && data.archivedAt.size() <= 100) : true) &&
+             (data.keys().hasAny(['validUntil']) ? (data.validUntil is string && data.validUntil.size() <= 100) : true) &&
+             (data.keys().hasAny(['link']) ? (data.link is string && data.link.size() <= 2000) : true);
     }
 
     function isValidEvent(data) {
-      return data.keys().hasAll(['title', 'description', 'date']) &&
-             data.keys().hasOnly(['title', 'description', 'date', 'endDate', 'createdAt', 'color', 'isHoliday']) &&
+      return data.keys().hasAll(['title', 'date']) &&
+             data.keys().hasOnly(['title', 'description', 'date', 'endDate', 'createdAt', 'color', 'isHoliday', 'isArchived', 'archivedAt']) &&
              data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
-             data.description is string && data.description.size() <= 1000 &&
              data.date is string && data.date.size() <= 100 &&
+             (data.keys().hasAny(['description']) ? (data.description is string && data.description.size() <= 1000) : true) &&
              (data.keys().hasAny(['endDate']) ? (data.endDate is string && data.endDate.size() <= 100) : true) &&
              (data.keys().hasAny(['createdAt']) ? (data.createdAt is string && data.createdAt.size() <= 100) : true) &&
              (data.keys().hasAny(['color']) ? (data.color is string && data.color.size() <= 50) : true) &&
-             (data.keys().hasAny(['isHoliday']) ? (data.isHoliday is bool) : true);
+             (data.keys().hasAny(['isHoliday']) ? (data.isHoliday is bool) : true) &&
+             (data.keys().hasAny(['isArchived']) ? (data.isArchived is bool) : true) &&
+             (data.keys().hasAny(['archivedAt']) ? (data.archivedAt is string && data.archivedAt.size() <= 100) : true);
     }
 
     function isValidDocument(data) {
-      return data.keys().hasAll(['title', 'description']) &&
-             data.keys().hasOnly(['title', 'description', 'fileUrl', 'fileName', 'files', 'createdAt']) &&
+      return data.keys().hasAll(['title']) &&
+             data.keys().hasOnly(['title', 'description', 'fileUrl', 'fileName', 'files', 'createdAt', 'isArchived', 'archivedAt', 'link']) &&
              data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
-             data.description is string && data.description.size() <= 10000 &&
+             (data.keys().hasAny(['description']) ? (data.description is string && data.description.size() <= 10000) : true) &&
              (data.keys().hasAny(['createdAt']) ? (data.createdAt is string && data.createdAt.size() <= 100) : true) &&
              (data.keys().hasAny(['fileUrl']) ? (data.fileUrl is string && data.fileUrl.size() <= 2000) : true) &&
              (data.keys().hasAny(['fileName']) ? (data.fileName is string && data.fileName.size() <= 500) : true) &&
-             (data.keys().hasAny(['files']) ? (data.files is list && data.files.size() <= 10) : true);
+             (data.keys().hasAny(['files']) ? (data.files is list && data.files.size() <= 10) : true) &&
+             (data.keys().hasAny(['isArchived']) ? (data.isArchived is bool) : true) &&
+             (data.keys().hasAny(['archivedAt']) ? (data.archivedAt is string && data.archivedAt.size() <= 100) : true) &&
+             (data.keys().hasAny(['link']) ? (data.link is string && data.link.size() <= 2000) : true);
     }
 
     function isValidSiteInfo(data) {
@@ -67,9 +76,7 @@ service cloud.firestore {
     match /notices/{noticeId} {
       allow read: if true; // Public access to notices
       allow create: if isAdmin() && isValidId(noticeId) && isValidNotice(incoming());
-      allow update: if isAdmin() && isValidId(noticeId) && isValidNotice(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'date', 'fileUrl', 'fileName', 'files'])
-      );
+      allow update: if isAdmin() && isValidId(noticeId) && isValidNotice(incoming());
       allow delete: if isAdmin() && isValidId(noticeId);
     }
 
@@ -77,9 +84,7 @@ service cloud.firestore {
     match /events/{eventId} {
       allow read: if true; // Public access to events
       allow create: if isAdmin() && isValidId(eventId) && isValidEvent(incoming());
-      allow update: if isAdmin() && isValidId(eventId) && isValidEvent(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'date', 'endDate', 'color', 'isHoliday'])
-      );
+      allow update: if isAdmin() && isValidId(eventId) && isValidEvent(incoming());
       allow delete: if isAdmin() && isValidId(eventId);
     }
 
@@ -87,9 +92,7 @@ service cloud.firestore {
     match /documents/{docId} {
       allow read: if true; // Public access to documents
       allow create: if isAdmin() && isValidId(docId) && isValidDocument(incoming());
-      allow update: if isAdmin() && isValidId(docId) && isValidDocument(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'fileUrl', 'fileName', 'files'])
-      );
+      allow update: if isAdmin() && isValidId(docId) && isValidDocument(incoming());
       allow delete: if isAdmin() && isValidId(docId);
     }
 
@@ -97,9 +100,7 @@ service cloud.firestore {
     match /siteInfo/{infoId} {
       allow read: if true;
       allow create: if isAdmin() && isValidId(infoId) && isValidSiteInfo(incoming());
-      allow update: if isAdmin() && isValidId(infoId) && isValidSiteInfo(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['content', 'updatedAt'])
-      );
+      allow update: if isAdmin() && isValidId(infoId) && isValidSiteInfo(incoming());
       allow delete: if isAdmin() && isValidId(infoId);
     }
   }

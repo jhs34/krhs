@@ -73,7 +73,14 @@ export function NoticesPage({ notices, isAdmin, onItemClick, onEditItem }: Notic
               )}
             </li>
           )) : (
-            <li className="text-sm text-surface-dim bg-white/5 rounded-2xl p-6 text-center">등록된 공지사항이 없습니다.</li>
+            <motion.li 
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="text-sm text-surface-dim bg-white/5 rounded-2xl p-6 text-center list-none"
+            >
+              등록된 공지사항이 없습니다.
+            </motion.li>
           )}
         </ul>
       </motion.div>

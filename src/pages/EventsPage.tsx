@@ -13,6 +13,7 @@ interface EventsPageProps {
   onDateChange: (date: Date) => void;
   onItemClick: (item: any, type: 'notice' | 'event' | 'document') => void;
   onEditItem: (tab: 'notices' | 'events' | 'documents', item: any) => void;
+  onAddEventClick?: (date: Date) => void;
 }
 
 export function EventsPage({ 
@@ -23,10 +24,12 @@ export function EventsPage({
   currentDate, 
   onDateChange,
   onItemClick,
-  onEditItem
+  onEditItem,
+  onAddEventClick
 }: EventsPageProps) {
   
   const upcomingEvents = events
+    .filter(e => !e.isArchived)
     .filter(e => {
       const tMonth = currentDate.getMonth();
       const tYear = currentDate.getFullYear();
@@ -37,6 +40,38 @@ export function EventsPage({
       return eventStart <= mEnd && eventEnd >= mStart;
     })
     .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  const getDDayInfo = (eventDate: Date) => {
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const eventStart = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+    
+    const diffTime = eventStart.getTime() - todayStart.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return {
+        text: 'D-Day',
+        className: 'bg-red-500/20 text-red-400 border-red-500/30'
+      };
+    } else if (diffDays > 0) {
+      if (diffDays <= 7) {
+        return {
+          text: `D-${diffDays}`,
+          className: 'bg-secondary/20 text-[#a78bfa] border-secondary/30'
+        };
+      }
+      return {
+        text: `D-${diffDays}`,
+        className: 'bg-white/10 text-white border-white/15'
+      };
+    } else {
+      return {
+        text: `D+${Math.abs(diffDays)}`,
+        className: 'bg-white/5 text-surface-dim/50 border-white/5'
+      };
+    }
+  };
 
   return (
     <div className="max-w-7xl w-full mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 flex flex-col space-y-6 sm:space-y-12">
@@ -72,6 +107,8 @@ export function EventsPage({
             selectedDate={selectedDate} 
             onSelectDate={onSelectDate} 
             onItemClick={onItemClick}
+            isAdmin={isAdmin}
+            onAddEventClick={onAddEventClick}
           />
         </motion.div>
 
@@ -101,13 +138,21 @@ export function EventsPage({
                 className="flex flex-col p-5 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors group/item border border-white/5 cursor-pointer relative"
                 onClick={() => onItemClick(event, 'event')}
               >
-                <div className="flex items-center mb-3">
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
                   <span className="text-xs font-space font-bold text-white tracking-widest uppercase bg-black/40 px-2 py-1 rounded">
                     {format(event.date, 'MMM dd')}
                     {event.endDate && event.date.getTime() !== event.endDate.getTime() && (
                       ` ~ ${format(event.endDate, 'MMM dd')}`
                     )}
                   </span>
+                  {(() => {
+                    const dday = getDDayInfo(event.date);
+                    return (
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-space font-bold border transition-colors ${dday.className}`}>
+                        {dday.text}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div className="flex items-start pr-6">
                   {event.color && <div className="w-2 h-2 rounded-full mt-1.5 mr-3 shrink-0 shadow-sm" style={{ backgroundColor: event.color }} />}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ArrowDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, isAfter, startOfDay } from 'date-fns';
@@ -7,13 +7,14 @@ import { Dashboard } from './pages/Dashboard';
 import { EventsPage } from './pages/EventsPage';
 import { NoticesPage } from './pages/NoticesPage';
 import { DocumentsPage } from './pages/DocumentsPage';
+import { ArchivePage } from './pages/ArchivePage';
 import { Navigation } from './components/Navigation';
 import { AdminPanel } from './components/AdminPanel';
 import { ItemDetailPopup } from './components/ItemDetailPopup';
 import { SiteInfoPopup } from './components/SiteInfoPopup';
 import { AcademicEvent } from './types';
 import { loginWithGoogle, logout, auth } from './firebase';
-import { subscribeToEvents, subscribeToNotices, subscribeToDocuments, subscribeToSiteInfo, FirestoreEvent, Notice, SchoolDocument, SiteInfo } from './services/firestore';
+import { subscribeToEvents, subscribeToNotices, subscribeToDocuments, subscribeToSiteInfo, FirestoreEvent, Notice, SchoolDocument, SiteInfo, updateEvent, updateNotice, deleteEvent, deleteNotice, deleteDocument } from './services/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 
 function HeroSection() {
@@ -96,6 +97,7 @@ function HeroSection() {
 }
 
 function AppContent() {
+  const processingRef = useRef<Set<string>>(new Set());
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [events, setEvents] = useState<AcademicEvent[]>([]);
@@ -109,6 +111,7 @@ function AppContent() {
   const [detailType, setDetailType] = useState<'notice' | 'event' | 'document' | null>(null);
   const [adminInitialTab, setAdminInitialTab] = useState<'notices' | 'events' | 'documents'>('notices');
   const [adminInitialEditItem, setAdminInitialEditItem] = useState<any>(null);
+  const [adminInitialEventDate, setAdminInitialEventDate] = useState<Date | null>(null);
   const [siteInfoPopup, setSiteInfoPopup] = useState<{title: string, content: string} | null>(null);
 
   const location = useLocation();
@@ -133,7 +136,9 @@ function AppContent() {
           date: validDate,
           endDate: validEndDate,
           color: e.color,
-          isHoliday: e.isHoliday || false
+          isHoliday: e.isHoliday || false,
+          isArchived: e.isArchived || false,
+          archivedAt: e.archivedAt || ''
         };
       }));
     });
@@ -165,7 +170,141 @@ function AppContent() {
     };
   }, []);
 
-  const upcomingEvents = events
+  const activeEvents = events.filter(e => !e.isArchived);
+  const activeNotices = notices.filter(n => !n.isArchived);
+  const activeDocuments = documents.filter(d => !d.isArchived);
+
+  // Background Auto-Archive & Cleanup scheduler
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (events.length === 0 && notices.length === 0 && documents.length === 0) return;
+
+    const todayStart = new Date().setHours(0, 0, 0, 0);
+    const now = new Date().getTime();
+
+    // 1. Auto-archive past events
+    events.forEach(async (event) => {
+      if (!event.isArchived) {
+        const eventEnd = event.endDate ? new Date(event.endDate) : new Date(event.date);
+        // If event set to end of that day is in the past
+        if (eventEnd.getTime() < todayStart) {
+          const actionKey = `archive-event-${event.id}`;
+          if (processingRef.current.has(actionKey)) return;
+          processingRef.current.add(actionKey);
+
+          console.log(`Auto-archiving past academic event: ${event.title}`);
+          const payload = {
+            title: event.title,
+            description: event.description || '',
+            date: event.date.toISOString(),
+            endDate: event.endDate ? event.endDate.toISOString() : event.date.toISOString(),
+            color: event.color || '#64ffda',
+            isHoliday: event.isHoliday || false,
+            isArchived: true,
+            archivedAt: new Date().toISOString()
+          };
+          try {
+            await updateEvent(event.id, payload);
+          } catch (err) {
+            console.error("Auto-archive event error:", err);
+            processingRef.current.delete(actionKey);
+          }
+        }
+      }
+    });
+
+    // 2. Auto-archive expired notices (based on validUntil)
+    notices.forEach(async (notice) => {
+      if (!notice.isArchived && notice.validUntil) {
+        const expirationTime = new Date(notice.validUntil).getTime();
+        if (expirationTime < now) {
+          const actionKey = `archive-notice-${notice.id}`;
+          if (processingRef.current.has(actionKey)) return;
+          processingRef.current.add(actionKey);
+
+          console.log(`Auto-archiving expired notice: ${notice.title}`);
+          const payload = {
+            title: notice.title,
+            content: notice.content,
+            date: notice.date,
+            isArchived: true,
+            archivedAt: new Date().toISOString(),
+            validUntil: notice.validUntil,
+            link: notice.link || '',
+            files: notice.files || []
+          };
+          try {
+            await updateNotice(notice.id, payload);
+          } catch (err) {
+            console.error("Auto-archive notice error:", err);
+            processingRef.current.delete(actionKey);
+          }
+        }
+      }
+    });
+
+    // 3. Permanent deletion of archived items older than 1 year (365 days)
+    const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+
+    events.forEach(async (event) => {
+      if (event.isArchived && event.archivedAt) {
+        const archivedTime = new Date(event.archivedAt).getTime();
+        if (now - archivedTime > ONE_YEAR_MS) {
+          const actionKey = `delete-event-${event.id}`;
+          if (processingRef.current.has(actionKey)) return;
+          processingRef.current.add(actionKey);
+
+          console.log(`Permanently purging old archived event: ${event.title}`);
+          try {
+            await deleteEvent(event.id);
+          } catch (err) {
+            console.error("Delete event error:", err);
+            processingRef.current.delete(actionKey);
+          }
+        }
+      }
+    });
+
+    notices.forEach(async (notice) => {
+      if (notice.isArchived && notice.archivedAt) {
+        const archivedTime = new Date(notice.archivedAt).getTime();
+        if (now - archivedTime > ONE_YEAR_MS) {
+          const actionKey = `delete-notice-${notice.id}`;
+          if (processingRef.current.has(actionKey)) return;
+          processingRef.current.add(actionKey);
+
+          console.log(`Permanently purging old archived notice: ${notice.title}`);
+          try {
+            await deleteNotice(notice.id);
+          } catch (err) {
+            console.error("Delete notice error:", err);
+            processingRef.current.delete(actionKey);
+          }
+        }
+      }
+    });
+
+    documents.forEach(async (doc) => {
+      if (doc.isArchived && doc.archivedAt) {
+        const archivedTime = new Date(doc.archivedAt).getTime();
+        if (now - archivedTime > ONE_YEAR_MS) {
+          const actionKey = `delete-document-${doc.id}`;
+          if (processingRef.current.has(actionKey)) return;
+          processingRef.current.add(actionKey);
+
+          console.log(`Permanently purging old archived document: ${doc.title}`);
+          try {
+            await deleteDocument(doc.id);
+          } catch (err) {
+            console.error("Delete document error:", err);
+            processingRef.current.delete(actionKey);
+          }
+        }
+      }
+    });
+  }, [isAdmin, events, notices, documents]);
+
+  const upcomingEvents = activeEvents
     .filter(e => selectedDate ? isAfter(e.date, startOfDay(new Date(selectedDate.getTime() - 86400000))) : true)
     .sort((a, b) => a.date.getTime() - b.date.getTime())
     .slice(0, 3);
@@ -181,6 +320,13 @@ function AppContent() {
     setIsAdminModalOpen(true);
   };
 
+  const handleAddEventOnDate = (date: Date) => {
+    setAdminInitialEventDate(date);
+    setAdminInitialTab('events');
+    setAdminInitialEditItem(null);
+    setIsAdminModalOpen(true);
+  };
+
   const getSiteInfoContent = (id: string, defaultContent: string) => {
     const info = siteInfos.find(i => i.id === id);
     return info && info.content.trim() ? info.content : defaultContent;
@@ -188,13 +334,6 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col relative selection:bg-secondary selection:text-white bg-background">
-      {/* Tilt-shift blur overlays */}
-      <div className="pointer-events-none fixed inset-x-0 top-0 h-40 z-40 backdrop-blur-[4px] [mask-image:linear-gradient(to_bottom,black,transparent)]" />
-      <div className="pointer-events-none fixed inset-x-0 top-0 h-24 z-40 backdrop-blur-[8px] [mask-image:linear-gradient(to_bottom,black,transparent)]" />
-      <div className="pointer-events-none fixed inset-x-0 top-0 h-10 z-40 backdrop-blur-[12px] [mask-image:linear-gradient(to_bottom,black,transparent)]" />
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 h-40 z-40 backdrop-blur-[4px] [mask-image:linear-gradient(to_top,black,transparent)]" />
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 h-24 z-40 backdrop-blur-[8px] [mask-image:linear-gradient(to_top,black,transparent)]" />
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 h-10 z-40 backdrop-blur-[12px] [mask-image:linear-gradient(to_top,black,transparent)]" />
 
       {isHome && <HeroSection />}
       
@@ -210,8 +349,8 @@ function AppContent() {
           <Route path="/" element={
             <Dashboard 
               upcomingEvents={upcomingEvents}
-              notices={notices}
-              documents={documents}
+              notices={activeNotices}
+              documents={activeDocuments}
               isAdmin={isAdmin}
               onItemClick={handleItemClick}
               onEditItem={handleEditItem}
@@ -220,6 +359,7 @@ function AppContent() {
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
               events={events}
+              onAddEventClick={handleAddEventOnDate}
             />
           } />
           <Route path="/events" element={
@@ -232,11 +372,12 @@ function AppContent() {
               onDateChange={setCurrentDate}
               onItemClick={handleItemClick}
               onEditItem={handleEditItem}
+              onAddEventClick={handleAddEventOnDate}
             />
           } />
           <Route path="/notices" element={
             <NoticesPage
-              notices={notices}
+              notices={activeNotices}
               isAdmin={isAdmin}
               onItemClick={handleItemClick}
               onEditItem={handleEditItem}
@@ -244,6 +385,16 @@ function AppContent() {
           } />
           <Route path="/documents" element={
             <DocumentsPage
+              documents={activeDocuments}
+              isAdmin={isAdmin}
+              onItemClick={handleItemClick}
+              onEditItem={handleEditItem}
+            />
+          } />
+          <Route path="/archive" element={
+            <ArchivePage
+              events={events}
+              notices={notices}
               documents={documents}
               isAdmin={isAdmin}
               onItemClick={handleItemClick}
@@ -272,6 +423,7 @@ function AppContent() {
           onClose={() => {
             setIsAdminModalOpen(false);
             setAdminInitialEditItem(null);
+            setAdminInitialEventDate(null);
           }}
           notices={notices}
           events={events as any}
@@ -279,6 +431,7 @@ function AppContent() {
           siteInfos={siteInfos}
           initialTab={adminInitialTab as any}
           initialEditItem={adminInitialEditItem}
+          initialEventDate={adminInitialEventDate}
         />
       )}
 
