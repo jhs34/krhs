@@ -16,6 +16,7 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
   const navItems = [
     { name: '대시보드', path: '/' },
     { name: '학사일정', path: '/events' },
+    { name: '시간표', path: '/timetable' },
     { name: '공지사항', path: '/notices' },
     { name: '자료실', path: '/documents' },
     { name: '보관함', path: '/archive' },

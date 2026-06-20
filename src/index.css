@@ -91,35 +91,43 @@ body {
   @apply px-2.5 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase inline-flex items-center;
 }
 
-/* Custom Scrollbar for Applet */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+/* Subtle Custom Scrollbar applied globally site-wide */
+::-webkit-scrollbar {
+  width: 4px; /* very thin vertical */
+  height: 4px; /* very thin horizontal */
 }
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
+::-webkit-scrollbar-track {
+  background: transparent; /* invisible track */
 }
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.15); /* very subtle gray */
+  border-radius: 999px;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.35); /* slightly clearer on hover */
+}
+
+/* Firefox support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.15) transparent;
 }
 
 @keyframes marquee-pingpong {
-  0%, 15% { transform: translateX(0); }
-  85%, 100% { transform: translateX(min(0px, calc(100cqw - 100%))); }
+  0%, 20% { transform: translateX(0); }
+  80%, 100% { transform: translateX(min(0px, calc(100cqw - 100%))); }
 }
 
 .marquee-container {
   container-type: inline-size;
+  overflow: hidden;
+  width: 100%;
 }
 
 .marquee-text {
-  display: flex;
+  display: inline-block;
   white-space: nowrap;
-  animation: marquee-pingpong 4s ease-in-out infinite alternate;
+  animation: marquee-pingpong 4.5s ease-in-out infinite alternate;
   width: max-content;
   min-width: 100%;
 }

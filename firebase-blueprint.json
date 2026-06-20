@@ -36,6 +36,34 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["content", "updatedAt"]
+    },
+    "TimetableMemo": {
+      "title": "TimetableMemo",
+      "description": "Customizable weekly period memos / performance evaluation reminders.",
+      "type": "object",
+      "properties": {
+        "grade": { "type": "integer" },
+        "department": { "type": "string" },
+        "classNumber": { "type": "integer" },
+        "weekStart": { "type": "string" },
+        "dayOfWeek": { "type": "integer" },
+        "period": { "type": "integer" },
+        "memo": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["grade", "department", "classNumber", "weekStart", "dayOfWeek", "period", "memo"]
+    },
+    "TimetableTemplate": {
+      "title": "TimetableTemplate",
+      "description": "Customizable default repeating class timetable template.",
+      "type": "object",
+      "properties": {
+        "grade": { "type": "integer" },
+        "department": { "type": "string" },
+        "classNumber": { "type": "integer" },
+        "rawTimetable": { "type": "string" }
+      },
+      "required": ["grade", "department", "classNumber", "rawTimetable"]
     }
   },
   "firestore": {
@@ -50,6 +78,14 @@
     "/siteInfo/{infoId}": {
       "schema": { "$ref": "#/entities/SiteInfo" },
       "description": "Global information snippets."
+    },
+    "/timetable_memos/{memoId}": {
+      "schema": { "$ref": "#/entities/TimetableMemo" },
+      "description": "Collection of weekly class period memo overrides."
+    },
+    "/timetable_templates/{templateId}": {
+      "schema": { "$ref": "#/entities/TimetableTemplate" },
+      "description": "Collection of customizable default repeating class timetable templates."
     }
   }
 }

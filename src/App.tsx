@@ -5,6 +5,7 @@ import { format, isAfter, startOfDay } from 'date-fns';
 import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { Dashboard } from './pages/Dashboard';
 import { EventsPage } from './pages/EventsPage';
+import TimetablePage from './pages/TimetablePage';
 import { NoticesPage } from './pages/NoticesPage';
 import { DocumentsPage } from './pages/DocumentsPage';
 import { ArchivePage } from './pages/ArchivePage';
@@ -374,6 +375,9 @@ function AppContent() {
               onEditItem={handleEditItem}
               onAddEventClick={handleAddEventOnDate}
             />
+          } />
+          <Route path="/timetable" element={
+            <TimetablePage isAdmin={isAdmin} />
           } />
           <Route path="/notices" element={
             <NoticesPage

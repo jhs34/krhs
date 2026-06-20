@@ -135,3 +135,55 @@ export const updateSiteInfo = async (id: string, content: string) => {
     await setDoc(doc(db, 'siteInfo', id), { content, updatedAt: new Date().toISOString() }, { merge: true });
   } catch (error) { handleFirestoreError(error, OperationType.WRITE, `siteInfo/${id}`); }
 };
+
+// Timetable Memos Services
+import { TimetableMemo, TimetableTemplate } from '../types';
+
+export const subscribeToTimetableMemos = (callback: (memos: TimetableMemo[]) => void) => {
+  const q = query(collection(db, 'timetable_memos'));
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as TimetableMemo));
+  }, (error) => handleFirestoreError(error, OperationType.LIST, 'timetable_memos'));
+};
+
+export const saveTimetableMemo = async (memo: Omit<TimetableMemo, 'createdAt'>) => {
+  try {
+    const docId = memo.id;
+    const { id, ...rest } = memo;
+    await setDoc(doc(db, 'timetable_memos', docId), {
+      ...rest,
+      createdAt: new Date().toISOString()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `timetable_memos/${memo.id}`);
+  }
+};
+
+export const deleteTimetableMemo = async (id: string) => {
+  try {
+    await deleteDoc(doc(db, 'timetable_memos', id));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `timetable_memos/${id}`);
+  }
+};
+
+// Timetable Templates Services
+export const subscribeToTimetableTemplates = (callback: (templates: TimetableTemplate[]) => void) => {
+  const q = query(collection(db, 'timetable_templates'));
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as TimetableTemplate));
+  }, (error) => handleFirestoreError(error, OperationType.LIST, 'timetable_templates'));
+};
+
+export const saveTimetableTemplate = async (templateId: string, template: Omit<TimetableTemplate, 'id'>) => {
+  try {
+    await setDoc(doc(db, 'timetable_templates', templateId), {
+      ...template,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `timetable_templates/${templateId}`);
+  }
+};
+
+

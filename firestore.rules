@@ -23,7 +23,6 @@ service cloud.firestore {
     function isValidNotice(data) {
       let reqKeys = ['title', 'content', 'date'];
       return data.keys().hasAll(reqKeys) &&
-             data.keys().hasOnly(['title', 'content', 'date', 'createdAt', 'fileUrl', 'fileName', 'files', 'isArchived', 'archivedAt', 'validUntil', 'link']) &&
              data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
              data.content is string && data.content.size() <= 10000 &&
              data.date is string && data.date.size() <= 100 &&
@@ -39,7 +38,6 @@ service cloud.firestore {
 
     function isValidEvent(data) {
       return data.keys().hasAll(['title', 'date']) &&
-             data.keys().hasOnly(['title', 'description', 'date', 'endDate', 'createdAt', 'color', 'isHoliday', 'isArchived', 'archivedAt']) &&
              data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
              data.date is string && data.date.size() <= 100 &&
              (data.keys().hasAny(['description']) ? (data.description is string && data.description.size() <= 1000) : true) &&
@@ -53,7 +51,6 @@ service cloud.firestore {
 
     function isValidDocument(data) {
       return data.keys().hasAll(['title']) &&
-             data.keys().hasOnly(['title', 'description', 'fileUrl', 'fileName', 'files', 'createdAt', 'isArchived', 'archivedAt', 'link']) &&
              data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
              (data.keys().hasAny(['description']) ? (data.description is string && data.description.size() <= 10000) : true) &&
              (data.keys().hasAny(['createdAt']) ? (data.createdAt is string && data.createdAt.size() <= 100) : true) &&
@@ -67,9 +64,32 @@ service cloud.firestore {
 
     function isValidSiteInfo(data) {
       return data.keys().hasAll(['content', 'updatedAt']) &&
-             data.keys().hasOnly(['content', 'updatedAt']) &&
+             data.keys().size() == 2 &&
              data.content is string && data.content.size() <= 10000 &&
              data.updatedAt is string && data.updatedAt.size() <= 100;
+    }
+
+    // Timetable Memos Validation
+    function isValidTimetableMemo(data) {
+      return data.keys().hasAll(['grade', 'department', 'classNumber', 'weekStart', 'dayOfWeek', 'period', 'memo']) &&
+             (data.keys().size() == 7 || (data.keys().size() == 8 && data.keys().hasAll(['createdAt']))) &&
+             data.grade is int && data.grade >= 1 && data.grade <= 3 &&
+             data.department is string && data.department.size() <= 100 &&
+             data.classNumber is int && data.classNumber >= 1 && data.classNumber <= 2 &&
+             data.weekStart is string && data.weekStart.size() <= 20 &&
+             data.dayOfWeek is int && data.dayOfWeek >= 0 && data.dayOfWeek <= 4 &&
+             data.period is int && data.period >= 1 && data.period <= 7 &&
+             data.memo is string && data.memo.size() <= 500 &&
+             (data.keys().hasAny(['createdAt']) ? (data.createdAt is string && data.createdAt.size() <= 100) : true);
+    }
+
+    // Timetable Templates Validation
+    function isValidTimetableTemplate(data) {
+      return data.keys().hasAll(['grade', 'department', 'classNumber', 'rawTimetable']) &&
+             data.grade is int &&
+             data.department is string &&
+             data.classNumber is int &&
+             data.rawTimetable is string;
     }
 
     // Notice Collection
@@ -102,6 +122,22 @@ service cloud.firestore {
       allow create: if isAdmin() && isValidId(infoId) && isValidSiteInfo(incoming());
       allow update: if isAdmin() && isValidId(infoId) && isValidSiteInfo(incoming());
       allow delete: if isAdmin() && isValidId(infoId);
+    }
+
+    // Timetable Memos Collection
+    match /timetable_memos/{memoId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidId(memoId) && isValidTimetableMemo(incoming());
+      allow update: if isAdmin() && isValidId(memoId) && isValidTimetableMemo(incoming());
+      allow delete: if isAdmin() && isValidId(memoId);
+    }
+
+    // Timetable Templates Collection
+    match /timetable_templates/{templateId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidId(templateId) && isValidTimetableTemplate(incoming());
+      allow update: if isAdmin() && isValidId(templateId) && isValidTimetableTemplate(incoming());
+      allow delete: if isAdmin() && isValidId(templateId);
     }
   }
 }

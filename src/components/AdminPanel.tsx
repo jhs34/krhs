@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Notice, FirestoreEvent, SchoolDocument, addNotice, updateNotice, deleteNotice, addEvent, updateEvent, deleteEvent, addDocument, updateDocument, deleteDocument } from '../services/firestore';
+import { Notice, FirestoreEvent, SchoolDocument, addNotice, updateNotice, deleteNotice, addEvent, updateEvent, deleteEvent, addDocument, updateDocument, deleteDocument, subscribeToTimetableTemplates, saveTimetableTemplate } from '../services/firestore';
 import { logout } from '../firebase';
 import { format } from 'date-fns';
 import { Edit2, Trash2 } from 'lucide-react';
 
 import { SiteInfo, updateSiteInfo } from '../services/firestore';
+import { DEPARTMENTS, GRADES, getDefaultTimetable } from '../data/timetableTemplates';
+import { ClassTimetable, TimetableTemplate } from '../types';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -12,7 +14,7 @@ interface AdminPanelProps {
   events: FirestoreEvent[];
   documents: SchoolDocument[];
   siteInfos?: SiteInfo[];
-  initialTab?: 'notices' | 'events' | 'documents' | 'siteInfo';
+  initialTab?: 'notices' | 'events' | 'documents' | 'siteInfo' | 'defaultTimetables';
   initialEditItem?: any;
   initialEventDate?: Date | null;
 }
@@ -27,10 +29,20 @@ export function AdminPanel({
   initialEditItem = null,
   initialEventDate = null
 }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'notices' | 'events' | 'documents' | 'siteInfo'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'notices' | 'events' | 'documents' | 'siteInfo' | 'defaultTimetables'>(initialTab);
+  
+  // Default Timetables tab states
+  const [templateGrade, setTemplateGrade] = useState<number>(1);
+  const [templateDept, setTemplateDept] = useState<string>('railway_machinery');
+  const [templateClass, setTemplateClass] = useState<number>(1);
+  const [templateDay, setTemplateDay] = useState<number>(0); // 0 = Mon, 4 = Fri
+  const [templates, setTemplates] = useState<TimetableTemplate[]>([]);
+  const [editedTimetable, setEditedTimetable] = useState<ClassTimetable>({});
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: 'notices' | 'events' | 'documents'; title: string } | null>(null);
+
 
   const getDeleteTitle = (id: string, type: 'notices' | 'events' | 'documents') => {
     if (type === 'notices') {
@@ -168,6 +180,71 @@ export function AdminPanel({
     }
   }, [activeTab, editingId, siteInfos]);
 
+  // Timetable templates subscription & loaders
+  useEffect(() => {
+    if (activeTab === 'defaultTimetables') {
+      const unsubscribe = subscribeToTimetableTemplates((data) => {
+        setTemplates(data);
+      });
+      return () => unsubscribe();
+    }
+  }, [activeTab]);
+
+  // Auto-lock class choice in AdminPanel when department changes
+  useEffect(() => {
+    const deptInfo = DEPARTMENTS.find(d => d.id === templateDept);
+    if (deptInfo && !deptInfo.classes.includes(templateClass)) {
+      setTemplateClass(deptInfo.classes[0]);
+    }
+  }, [templateDept, templateClass]);
+
+  useEffect(() => {
+    if (activeTab === 'defaultTimetables') {
+      const match = templates.find(t => t.grade === templateGrade && t.department === templateDept && t.classNumber === templateClass);
+      if (match) {
+        try {
+          setEditedTimetable(JSON.parse(match.rawTimetable) as ClassTimetable);
+        } catch (e) {
+          console.error('Failed to parse rawTimetable', e);
+        }
+      } else {
+        setEditedTimetable(getDefaultTimetable(templateGrade, templateDept, templateClass));
+      }
+    }
+  }, [templateGrade, templateDept, templateClass, templates, activeTab]);
+
+  const handleUpdateTemplateSlot = (day: number, period: number, field: 'subject' | 'teacher', value: string) => {
+    setEditedTimetable(prev => {
+      const updated = { ...prev };
+      if (!updated[day]) updated[day] = {};
+      if (!updated[day][period]) {
+        updated[day][period] = { subject: '', teacher: '' };
+      }
+      updated[day][period] = {
+        ...updated[day][period],
+        [field]: value
+      };
+      return updated;
+    });
+  };
+
+  const handleSaveTemplate = async () => {
+    const templateId = `${templateGrade}_${templateDept}_${templateClass}`;
+    try {
+      await saveTimetableTemplate(templateId, {
+        grade: templateGrade,
+        department: templateDept,
+        classNumber: templateClass,
+        rawTimetable: JSON.stringify(editedTimetable)
+      });
+      setNotification({ message: '기본 반복 시간표가 저장되었습니다.', type: 'success' });
+    } catch (err) {
+      console.error(err);
+      setNotification({ message: '시간표 저장에 실패했습니다.', type: 'error' });
+    }
+  };
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (activeTab !== 'siteInfo' && !title) return;
@@ -303,12 +380,155 @@ export function AdminPanel({
             >
               기타 정보 관리
             </button>
+            <button
+              onClick={() => setActiveTab('defaultTimetables')}
+              className={`p-2 md:p-3 text-center md:text-left rounded-lg md:rounded-xl transition-colors font-medium text-xs md:text-sm whitespace-nowrap shrink-0 flex-1 md:flex-none ${
+                activeTab === 'defaultTimetables' ? 'bg-white/20 text-white font-bold shadow-sm' : 'text-surface-dim hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              기본 시간표 관리
+            </button>
           </div>
 
           {/* Content */}
           <div className="flex-1 flex flex-col overflow-y-auto p-3 md:p-6 bg-black/20">
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="mb-4 md:mb-8 p-3 md:p-6 bg-white/5 rounded-xl md:rounded-2xl border border-white/5 space-y-2 md:space-y-4 shrink-0">
+            {activeTab === 'defaultTimetables' ? (
+              <div className="flex flex-col space-y-6">
+                <div className="bg-white/5 border border-white/5 p-4 rounded-xl space-y-4">
+                  <h3 className="text-base md:text-lg font-bold text-white">학급별 기본 반복 시간표 관리</h3>
+                  <p className="text-xs text-surface-dim">
+                    학년, 학과, 반을 선택하여 학기 내내 반복될 기본 시간표를 입력하고 수정하십시오. 이 설정은 주간 메모가 등록되지 않은 기본 레이아웃으로 전체 학생 화면에 표시됩니다.
+                  </p>
+                  
+                  {/* Selectors */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="flex flex-col space-y-1.5">
+                      <label className="text-xs font-bold text-surface-dim pl-1">학년</label>
+                      <select
+                        value={templateGrade}
+                        onChange={(e) => setTemplateGrade(Number(e.target.value))}
+                        className="bg-black/40 border border-white/10 rounded-lg p-2 text-white text-xs md:text-sm focus:border-secondary transition-colors"
+                      >
+                        {GRADES.map(g => (
+                          <option key={g} value={g}>{g}학년</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col space-y-1.5">
+                      <label className="text-xs font-bold text-surface-dim pl-1">학과</label>
+                      <select
+                        value={templateDept}
+                        onChange={(e) => setTemplateDept(e.target.value)}
+                        className="bg-black/40 border border-white/10 rounded-lg p-2 text-white text-xs md:text-sm focus:border-secondary transition-colors"
+                      >
+                        {DEPARTMENTS.map(d => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col space-y-1.5">
+                      <label className="text-xs font-bold text-surface-dim pl-1">학급 반</label>
+                      <select
+                        value={templateClass}
+                        onChange={(e) => setTemplateClass(Number(e.target.value))}
+                        className="bg-black/40 border border-white/10 rounded-lg p-2 text-white text-xs md:text-sm focus:border-secondary transition-colors"
+                      >
+                        {(() => {
+                          const deptInfo = DEPARTMENTS.find(d => d.id === templateDept);
+                          const classes = deptInfo ? deptInfo.classes : [1];
+                          return classes.map(c => (
+                            <option key={c} value={c}>{c}반</option>
+                          ));
+                        })()}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Day navigation tabs */}
+                <div className="flex space-x-1.5 bg-white/5 p-1 rounded-xl border border-white/5 overflow-x-auto select-none shrink-0 scrollbar-hide">
+                  {['월요일', '화요일', '수요일', '목요일', '금요일'].map((dayName, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setTemplateDay(idx)}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap px-2 ${
+                        templateDay === idx
+                          ? 'bg-white/10 text-white shadow-sm'
+                          : 'text-surface-dim hover:text-white'
+                      }`}
+                    >
+                      {dayName}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Slot editor grid */}
+                <div className="bg-white/5 border border-white/5 p-4 rounded-xl space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                    <span className="text-xs font-bold text-secondary-fixed">
+                      {['월', '화', '수', '목', '금'][templateDay]}요일 시간표 세부 설정
+                    </span>
+                    <span className="text-[10px] text-surface-dim/70">
+                      * 금요일은 4교시까지만 등록되며, 일반 요일은 7교시까지 설정할 수 있습니다.
+                    </span>
+                  </div>
+
+                  <div className="space-y-4">
+                    {Array.from({ length: templateDay === 4 ? 4 : 7 }, (_, pIdx) => {
+                      const periodNum = pIdx + 1;
+                      const slotData = editedTimetable[templateDay]?.[periodNum] || { subject: '', teacher: '' };
+
+                      return (
+                        <div key={periodNum} className="border-b border-white/5 pb-4 last:border-b-0 last:pb-0">
+                          <div className="grid grid-cols-12 gap-3 items-center">
+                            <div className="col-span-2 text-xs font-black text-white/70 pl-1">
+                              {periodNum}교시
+                            </div>
+                            
+                            <div className="col-span-5 flex flex-col space-y-1">
+                              <input
+                                type="text"
+                                placeholder="과목명"
+                                value={slotData.subject}
+                                onChange={(e) => handleUpdateTemplateSlot(templateDay, periodNum, 'subject', e.target.value)}
+                                className="bg-black/40 border border-white/10 rounded-lg p-2 text-white text-xs md:text-sm focus:border-secondary outline-none transition-colors"
+                              />
+                            </div>
+
+                            <div className="col-span-5 flex flex-col space-y-1">
+                              <input
+                                type="text"
+                                placeholder="교사이름"
+                                value={slotData.teacher}
+                                onChange={(e) => handleUpdateTemplateSlot(templateDay, periodNum, 'teacher', e.target.value)}
+                                className="bg-black/40 border border-white/10 rounded-lg p-2 text-white text-xs md:text-sm focus:border-secondary outline-none transition-colors"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="pt-4 border-t border-white/5 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveTemplate}
+                      className="px-6 py-2.5 rounded-lg font-bold text-xs md:text-sm text-white bg-secondary hover:bg-secondary/80 hover:scale-[1.01] transition-all shadow-md shadow-secondary/10"
+                    >
+                      {templateGrade}학년 {DEPARTMENTS.find(d => d.id === templateDept)?.name} {templateClass}반 기본 시간표 전체 저장
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Form */}
+                <form onSubmit={handleSubmit} className="mb-4 md:mb-8 p-3 md:p-6 bg-white/5 rounded-xl md:rounded-2xl border border-white/5 space-y-2 md:space-y-4 shrink-0">
+
               <div className="flex items-center justify-between mb-3 md:mb-4">
                 <h3 className="text-base md:text-lg font-bold text-white">
                   {activeTab === 'siteInfo' ? '기타 정보 수정' : editingId ? '수정하기' : '새로 추가하기'}
@@ -533,7 +753,8 @@ export function AdminPanel({
                 </ul>
               </div>
             )}
-
+            </>
+          )}
           </div>
         </div>
 
