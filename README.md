@@ -1,20 +1,48 @@
+# 🚉 한국철도고등학교 통합 학사 포털 (KRHS Portal)
+
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+  <img src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" alt="KRHS Portal Banner" width="100%" style="border-radius: 12px; margin-bottom: 20px;" />
+  <p><strong>한국철도고등학교 학생, 학부모, 그리고 교직원을 위한 스마트 학사 안내 터미널</strong></p>
 </div>
 
-# Run and deploy your AI Studio app
+---
 
-This contains everything you need to run your app locally.
+## 📖 환영합니다!
+**KRHS Portal**은 한국철도고등학교의 모든 학사 정보를 한곳에서 쉽고 빠르게 확인할 수 있는 통합 웹 서비스입니다. 
+복잡한 학교 소식과 일정을 스마트하게 관리하고, 언제 어디서나 편리하게 필요한 정보를 찾아보세요.
 
-View your app in AI Studio: https://ai.studio/apps/087d205e-9a96-4b98-8f39-8e8eebe6aed7
+---
 
-## Run Locally
+## ✨ 주요 기능 안내
 
-**Prerequisites:**  Node.js
+### 📌 한눈에 보는 대시보드
+* **중요 일정 D-Day:** 시험, 축제, 방학 등 기다려지는 학교 행사 일정을 놓치지 않게 알려줍니다.
+* **최신 소식:** 방금 올라온 공지사항과 가정통신문을 대시보드에서 바로 확인할 수 있습니다.
+* **초고속 검색:** 찾고 싶은 단어를 입력하면 관련된 공지와 일정을 즉시 찾아줍니다.
 
+### ⏰ 나만의 스마트 시간표
+* **맞춤형 조회:** 내 학년, 학과(철도운전/시설/전기/차량), 반을 선택하면 우리 반 시간표가 자동으로 나타납니다.
+* **준비물 & 메모 기록:** 각 교시를 클릭해 그날 필요한 준비물이나 과제를 꼼꼼하게 기록해둘 수 있습니다.
+* **과목별 컬러 테마:** 원하는 색상으로 시간표를 보기 편하고 예쁘게 꾸밀 수 있습니다.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 🗓️ 한눈에 들어오는 학사 캘린더
+* 이번 달, 이번 학기에 어떤 일정들이 있는지 탁상달력처럼 한눈에 파악할 수 있습니다.
+* 특정 날짜를 클릭하면 그날 진행되는 행사의 상세한 정보를 즉시 보여줍니다.
+
+### 📁 공지사항 및 가정통신문 보관함
+* 학교에서 배포하는 중요한 가정통신문 파일(한글, PDF 등)을 스마트폰이나 PC에서 바로 다운로드할 수 있습니다.
+* 시간이 지난 소식들도 잘 정리되어 있어 언제든 다시 찾아볼 수 있습니다.
+
+---
+
+## 👥 누구를 위한 공간인가요?
+
+* **🧑‍🎓 학생:** 매일의 시간표와 수행평가 준비물, 시험 일정을 간편하게 확인하세요.
+* **👨‍👩‍👧 학부모:** 학교의 주요 공지사항과 가정통신문을 종이 없이 빠르고 정확하게 받아보세요.
+* **🧑‍🏫 교직원:** 학사 일정과 안내 사항을 학생 및 학부모에게 효율적으로 전달하세요.
+
+---
+
+<div align="center">
+  <p>&copy; 2026 KOREA RAILROAD HIGH SCHOOL. All Rights Reserved.</p>
+</div>
