@@ -186,4 +186,28 @@ export const saveTimetableTemplate = async (templateId: string, template: Omit<T
   }
 };
 
+// Subject Colors Services
+export interface DBSubjectColor {
+  id: string; // Subject Key, e.g., '국어', '수학'
+  color: string; // hex string, e.g., '#800020'
+}
+
+export const subscribeToSubjectColors = (callback: (colors: DBSubjectColor[]) => void) => {
+  const q = query(collection(db, 'subject_colors'));
+  return onSnapshot(q, (snapshot) => {
+    callback(snapshot.docs.map(doc => ({ id: doc.id, color: doc.data().color }) as DBSubjectColor));
+  }, (error) => handleFirestoreError(error, OperationType.LIST, 'subject_colors'));
+};
+
+export const saveSubjectColor = async (subject: string, color: string) => {
+  try {
+    await setDoc(doc(db, 'subject_colors', subject), {
+      color,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `subject_colors/${subject}`);
+  }
+};
+
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, startOfDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, X, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -14,6 +14,23 @@ interface CalendarProps {
   isAdmin?: boolean;
   onAddEventClick?: (date: Date) => void;
 }
+
+const slideVariants = {
+  enter: (dir: number) => ({
+    x: dir > 0 ? 20 : -20,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+  },
+  exit: (dir: number) => ({
+    x: dir > 0 ? -20 : 20,
+    opacity: 0,
+  }),
+};
+
+const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
 
 export function Calendar({ 
   currentDate, 
@@ -60,7 +77,120 @@ export function Calendar({
     onDateChange(subMonths(currentDate, 1));
   };
 
-  const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
+  const weeksData = useMemo(() => {
+    const weeks: Date[][] = [];
+    for (let i = 0; i < days.length; i += 7) {
+      weeks.push(days.slice(i, i + 7));
+    }
+
+    return weeks.map((week) => {
+      const wStartStr = format(week[0], 'yyyy-MM-dd');
+      const wEndStr = format(week[6], 'yyyy-MM-dd');
+      const weekDateStrings = week.map(d => format(d, 'yyyy-MM-dd'));
+
+      // Filter events intersecting with this week using pure ISO dates list
+      const weekEvents = events.filter(e => {
+        const eStartStr = format(e.date, 'yyyy-MM-dd');
+        const eEndStr = e.endDate ? format(e.endDate, 'yyyy-MM-dd') : eStartStr;
+        return eStartStr <= wEndStr && eEndStr >= wStartStr;
+      });
+
+      // Sort: longer duration first, then earlier start time
+      const sortedEvents = [...weekEvents].sort((a, b) => {
+        const aStartStr = format(a.date, 'yyyy-MM-dd');
+        const aEndStr = a.endDate ? format(a.endDate, 'yyyy-MM-dd') : aStartStr;
+        const bStartStr = format(b.date, 'yyyy-MM-dd');
+        const bEndStr = b.endDate ? format(b.endDate, 'yyyy-MM-dd') : bStartStr;
+
+        const aDays = Math.round((new Date(aEndStr).getTime() - new Date(aStartStr).getTime()) / (24 * 60 * 60 * 1000));
+        const bDays = Math.round((new Date(bEndStr).getTime() - new Date(bStartStr).getTime()) / (24 * 60 * 60 * 1000));
+        
+        if (aDays !== bDays) return bDays - aDays;
+        return aStartStr.localeCompare(bStartStr);
+      });
+
+      // Grid Slot Assignment
+      const slots: (AcademicEvent | null)[][] = [];
+      const positionedEvents: { event: AcademicEvent; startIdx: number; endIdx: number; slot: number }[] = [];
+
+      sortedEvents.forEach(event => {
+        const eStartStr = format(event.date, 'yyyy-MM-dd');
+        const eEndStr = event.endDate ? format(event.endDate, 'yyyy-MM-dd') : eStartStr;
+        
+        let startIdx = 0;
+        let endIdx = 6;
+        
+        for (let i = 0; i < 7; i++) {
+          if (weekDateStrings[i] >= eStartStr) {
+            startIdx = i;
+            break;
+          }
+        }
+        
+        for (let i = 6; i >= 0; i--) {
+          if (weekDateStrings[i] <= eEndStr) {
+            endIdx = i;
+            break;
+          }
+        }
+        
+        startIdx = Math.max(0, Math.min(6, startIdx));
+        endIdx = Math.max(0, Math.min(6, endIdx));
+
+        let assignedSlot = 0;
+        while (true) {
+          if (!slots[assignedSlot]) {
+            slots[assignedSlot] = Array(7).fill(null);
+          }
+          
+          let isSlotFree = true;
+          for (let d = startIdx; d <= endIdx; d++) {
+            if (slots[assignedSlot][d] !== null) {
+              isSlotFree = false;
+              break;
+            }
+          }
+          
+          if (isSlotFree) {
+            for (let d = startIdx; d <= endIdx; d++) {
+              slots[assignedSlot][d] = event;
+            }
+            positionedEvents.push({ event, startIdx, endIdx, slot: assignedSlot });
+            break;
+          }
+          assignedSlot++;
+        }
+      });
+
+      const maxSlot = positionedEvents.length > 0 ? Math.max(...positionedEvents.map(p => p.slot)) : -1;
+      const maxVisibleSlots = 2; // Show 2 layers of horizontal banner slots
+
+      const getHiddenCount = (day: Date) => {
+        const dayStr = format(day, 'yyyy-MM-dd');
+        return weekEvents.filter(e => {
+          const eStartStr = format(e.date, 'yyyy-MM-dd');
+          const eEndStr = e.endDate ? format(e.endDate, 'yyyy-MM-dd') : eStartStr;
+          if (dayStr >= eStartStr && dayStr <= eEndStr) {
+            const pe = positionedEvents.find(p => p.event.id === e.id);
+            return pe && pe.slot >= maxVisibleSlots;
+          }
+          return false;
+        }).length;
+      };
+
+      const weekHiddenCounts = week.map(day => getHiddenCount(day));
+
+      return {
+        week,
+        weekEvents,
+        positionedEvents,
+        maxSlot,
+        maxVisibleSlots,
+        weekHiddenCounts,
+        getHiddenCount
+      };
+    });
+  }, [days, events]);
 
   const popupDateEvents = popupDate ? events.filter(e => {
     const eStartStr = format(e.date, 'yyyy-MM-dd');
@@ -121,115 +251,14 @@ export function Calendar({
           <motion.div
             key={monthStart.toISOString()}
             custom={direction}
-            initial={{ opacity: 0, x: direction > 0 ? 20 : -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: direction > 0 ? -20 : 20 }}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
             transition={{ duration: 0.2 }}
             className="flex flex-col space-y-1.5 md:space-y-2.5"
           >
-            {(() => {
-              const weeks: Date[][] = [];
-              for (let i = 0; i < days.length; i += 7) {
-                weeks.push(days.slice(i, i + 7));
-              }
-
-              return weeks.map((week, weekIdx) => {
-                const wStartStr = format(week[0], 'yyyy-MM-dd');
-                const wEndStr = format(week[6], 'yyyy-MM-dd');
-                const weekDateStrings = week.map(d => format(d, 'yyyy-MM-dd'));
-
-                // Filter events intersecting with this week using pure ISO dates list
-                const weekEvents = events.filter(e => {
-                  const eStartStr = format(e.date, 'yyyy-MM-dd');
-                  const eEndStr = e.endDate ? format(e.endDate, 'yyyy-MM-dd') : eStartStr;
-                  return eStartStr <= wEndStr && eEndStr >= wStartStr;
-                });
-
-                // Sort: longer duration first, then earlier start time
-                const sortedEvents = [...weekEvents].sort((a, b) => {
-                  const aStartStr = format(a.date, 'yyyy-MM-dd');
-                  const aEndStr = a.endDate ? format(a.endDate, 'yyyy-MM-dd') : aStartStr;
-                  const bStartStr = format(b.date, 'yyyy-MM-dd');
-                  const bEndStr = b.endDate ? format(b.endDate, 'yyyy-MM-dd') : bStartStr;
-
-                  const aDays = Math.round((new Date(aEndStr).getTime() - new Date(aStartStr).getTime()) / (24 * 60 * 60 * 1000));
-                  const bDays = Math.round((new Date(bEndStr).getTime() - new Date(bStartStr).getTime()) / (24 * 60 * 60 * 1000));
-                  
-                  if (aDays !== bDays) return bDays - aDays;
-                  return aStartStr.localeCompare(bStartStr);
-                });
-
-                // Grid Slot Assignment
-                const slots: (AcademicEvent | null)[][] = [];
-                const positionedEvents: { event: AcademicEvent; startIdx: number; endIdx: number; slot: number }[] = [];
-
-                sortedEvents.forEach(event => {
-                  const eStartStr = format(event.date, 'yyyy-MM-dd');
-                  const eEndStr = event.endDate ? format(event.endDate, 'yyyy-MM-dd') : eStartStr;
-                  
-                  let startIdx = 0;
-                  let endIdx = 6;
-                  
-                  for (let i = 0; i < 7; i++) {
-                    if (weekDateStrings[i] >= eStartStr) {
-                      startIdx = i;
-                      break;
-                    }
-                  }
-                  
-                  for (let i = 6; i >= 0; i--) {
-                    if (weekDateStrings[i] <= eEndStr) {
-                      endIdx = i;
-                      break;
-                    }
-                  }
-                  
-                  startIdx = Math.max(0, Math.min(6, startIdx));
-                  endIdx = Math.max(0, Math.min(6, endIdx));
-
-                  let assignedSlot = 0;
-                  while (true) {
-                    if (!slots[assignedSlot]) {
-                      slots[assignedSlot] = Array(7).fill(null);
-                    }
-                    
-                    let isSlotFree = true;
-                    for (let d = startIdx; d <= endIdx; d++) {
-                      if (slots[assignedSlot][d] !== null) {
-                        isSlotFree = false;
-                        break;
-                      }
-                    }
-                    
-                    if (isSlotFree) {
-                      for (let d = startIdx; d <= endIdx; d++) {
-                        slots[assignedSlot][d] = event;
-                      }
-                      positionedEvents.push({ event, startIdx, endIdx, slot: assignedSlot });
-                      break;
-                    }
-                    assignedSlot++;
-                  }
-                });
-
-                const maxSlot = positionedEvents.length > 0 ? Math.max(...positionedEvents.map(p => p.slot)) : -1;
-                const maxVisibleSlots = 2; // Show 2 layers of horizontal banner slots
-
-                const getHiddenCount = (day: Date) => {
-                  const dayStr = format(day, 'yyyy-MM-dd');
-                  return weekEvents.filter(e => {
-                    const eStartStr = format(e.date, 'yyyy-MM-dd');
-                    const eEndStr = e.endDate ? format(e.endDate, 'yyyy-MM-dd') : eStartStr;
-                    if (dayStr >= eStartStr && dayStr <= eEndStr) {
-                      const pe = positionedEvents.find(p => p.event.id === e.id);
-                      return pe && pe.slot >= maxVisibleSlots;
-                    }
-                    return false;
-                  }).length;
-                };
-
-                const weekHiddenCounts = week.map(day => getHiddenCount(day));
-
+            {weeksData.map(({ week, weekEvents, positionedEvents, maxSlot, maxVisibleSlots, weekHiddenCounts, getHiddenCount }, weekIdx) => {
                 return (
                   <div key={weekIdx} className="relative w-full">
                     {/* Background Grid Cells */}
@@ -520,8 +549,7 @@ export function Calendar({
                     </div>
                   </div>
                 );
-              });
-            })()}
+              })}
           </motion.div>
         </AnimatePresence>
       </div>

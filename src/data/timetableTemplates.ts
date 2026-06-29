@@ -80,58 +80,10 @@ export function getDefaultTimetable(grade: number, department: string, classNumb
     return grade1Machinery1;
   }
 
-  // Create deterministic shuffles for other classes based on parameters
-  const timetables: ClassTimetable = {};
-
-  // Deterministically modify subjects depending on class
-  const seed = grade * 17 + classNumber * 13 + (department === 'railway_operations' ? 3 : department === 'railway_electrical' ? 7 : 11);
-  const getSubject = (index: number) => {
-    const idx = (index + seed) % SUBJECT_POOL.length;
-    return SUBJECT_POOL[idx];
-  };
-
-  // Build Mon-Thu (7 periods each)
-  for (let day = 0; day <= 3; day++) {
-    timetables[day] = {};
-    for (let period = 1; period <= 7; period++) {
-      // Rotate subjects nicely
-      const baseIdx = day * 7 + period;
-      const originalSubject = getSubject(baseIdx);
-      
-      // Inject specialist subject names per department
-      let finalSubject = originalSubject.subject;
-      let finalTeacher = originalSubject.teacher;
-
-      if (period > 4 && (day === 1 || day === 3)) {
-        if (department === 'railway_operations') {
-          finalSubject = day === 1 ? '철도 여객운송' : '철도화물수송';
-          finalTeacher = '임채원';
-        } else if (department === 'railway_electrical') {
-          finalSubject = day === 1 ? '전기회로' : '철도 신호제어';
-          finalTeacher = '송우진';
-        } else {
-          finalSubject = day === 1 ? '기계 공작' : '철도 차량일반';
-          finalTeacher = '성태훈';
-        }
-      }
-
-      timetables[day][period] = {
-        subject: `${finalSubject}${grade > 1 && !finalSubject.includes('활동') ? grade : ''}`,
-        teacher: finalTeacher
-      };
-    }
+  // Return empty timetable for other classes as requested
+  const emptyTimetables: ClassTimetable = {};
+  for (let day = 0; day <= 4; day++) {
+    emptyTimetables[day] = {};
   }
-
-  // Build Fri (4 periods)
-  timetables[4] = {
-    1: { subject: '자율·자치 활동', teacher: '김현우' },
-    2: { subject: getSubject(42).subject, teacher: getSubject(42).teacher },
-    3: { 
-      subject: department === 'railway_operations' ? '철도 실무' : department === 'railway_electrical' ? '신호 실무' : '차량 실무', 
-      teacher: '장병현' 
-    },
-    4: { subject: '동아리활동', teacher: '송강호' }
-  };
-
-  return timetables;
+  return emptyTimetables;
 }

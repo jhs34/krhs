@@ -15,8 +15,10 @@ service cloud.firestore {
     function existing() { return resource.data; }
     function isSignedIn() { return request.auth != null; }
     function isAdmin() { 
-      // Hardcoded admin email for solo app developer
-      return isSignedIn() && request.auth.token.email == 'hoya100304@gmail.com' && request.auth.token.email_verified == true; 
+      // Hardcoded admin emails for both solo app dev accounts
+      return isSignedIn() && 
+             (request.auth.token.email == 'hoya100304@gmail.com' || request.auth.token.email == 'jhs34.kr@gmail.com') && 
+             request.auth.token.email_verified == true; 
     }
 
     // Validation
@@ -72,24 +74,33 @@ service cloud.firestore {
     // Timetable Memos Validation
     function isValidTimetableMemo(data) {
       return data.keys().hasAll(['grade', 'department', 'classNumber', 'weekStart', 'dayOfWeek', 'period', 'memo']) &&
-             (data.keys().size() == 7 || (data.keys().size() == 8 && data.keys().hasAll(['createdAt']))) &&
-             data.grade is int && data.grade >= 1 && data.grade <= 3 &&
+             data.keys().size() <= 9 &&
+             (data.grade is int || data.grade is float) && data.grade >= 1 && data.grade <= 3 &&
              data.department is string && data.department.size() <= 100 &&
-             data.classNumber is int && data.classNumber >= 1 && data.classNumber <= 2 &&
+             (data.classNumber is int || data.classNumber is float) && data.classNumber >= 1 && data.classNumber <= 2 &&
              data.weekStart is string && data.weekStart.size() <= 20 &&
-             data.dayOfWeek is int && data.dayOfWeek >= 0 && data.dayOfWeek <= 4 &&
-             data.period is int && data.period >= 1 && data.period <= 7 &&
+             (data.dayOfWeek is int || data.dayOfWeek is float) && data.dayOfWeek >= 0 && data.dayOfWeek <= 4 &&
+             (data.period is int || data.period is float) && data.period >= 1 && data.period <= 7 &&
              data.memo is string && data.memo.size() <= 500 &&
+             (data.keys().hasAny(['color']) ? (data.color is string && data.color.size() <= 50) : true) &&
              (data.keys().hasAny(['createdAt']) ? (data.createdAt is string && data.createdAt.size() <= 100) : true);
     }
 
     // Timetable Templates Validation
     function isValidTimetableTemplate(data) {
       return data.keys().hasAll(['grade', 'department', 'classNumber', 'rawTimetable']) &&
-             data.grade is int &&
-             data.department is string &&
-             data.classNumber is int &&
-             data.rawTimetable is string;
+             data.keys().size() <= 5 &&
+             (data.grade is int || data.grade is float) && data.grade >= 1 && data.grade <= 3 &&
+             data.department is string && data.department.size() <= 100 &&
+             (data.classNumber is int || data.classNumber is float) && data.classNumber >= 1 && data.classNumber <= 2 &&
+             data.rawTimetable is string && data.rawTimetable.size() <= 10000 &&
+             (data.keys().hasAny(['updatedAt']) ? (data.updatedAt is string && data.updatedAt.size() <= 100) : true);
+    }
+
+    // Subject Colors Validation
+    function isValidSubjectColor(data) {
+      return data.keys().hasAll(['color']) &&
+             data.color is string && data.color.size() <= 50;
     }
 
     // Notice Collection
@@ -138,6 +149,13 @@ service cloud.firestore {
       allow create: if isAdmin() && isValidId(templateId) && isValidTimetableTemplate(incoming());
       allow update: if isAdmin() && isValidId(templateId) && isValidTimetableTemplate(incoming());
       allow delete: if isAdmin() && isValidId(templateId);
+    }
+
+    // Subject Colors Collection
+    match /subject_colors/{subjectName} {
+      allow read: if true;
+      allow create, update: if isAdmin() && subjectName is string && subjectName.size() <= 128 && isValidSubjectColor(incoming());
+      allow delete: if isAdmin();
     }
   }
 }

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Notice, FirestoreEvent, SchoolDocument, addNotice, updateNotice, deleteNotice, addEvent, updateEvent, deleteEvent, addDocument, updateDocument, deleteDocument, subscribeToTimetableTemplates, saveTimetableTemplate } from '../services/firestore';
 import { logout } from '../firebase';
 import { format } from 'date-fns';
-import { Edit2, Trash2 } from 'lucide-react';
+import { Edit2, Trash2, Sparkles } from 'lucide-react';
+import { SUBJECT_THEMES } from '../data/subjectThemes';
 
 import { SiteInfo, updateSiteInfo } from '../services/firestore';
 import { DEPARTMENTS, GRADES, getDefaultTimetable } from '../data/timetableTemplates';
@@ -29,7 +30,7 @@ export function AdminPanel({
   initialEditItem = null,
   initialEventDate = null
 }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'notices' | 'events' | 'documents' | 'siteInfo' | 'defaultTimetables'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'notices' | 'events' | 'documents' | 'siteInfo' | 'defaultTimetables' | 'cleanup'>(initialTab);
   
   // Default Timetables tab states
   const [templateGrade, setTemplateGrade] = useState<number>(1);
@@ -114,6 +115,9 @@ export function AdminPanel({
   ];
   
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  
+  // Cleanup tab states
+  const [cleanupStatus, setCleanupStatus] = useState<{ loading: boolean; message: string | null; error: boolean }>({ loading: false, message: null, error: false });
 
   // Reset form when tab changes
   useEffect(() => {
@@ -388,11 +392,76 @@ export function AdminPanel({
             >
               기본 시간표 관리
             </button>
+            <button
+              onClick={() => setActiveTab('cleanup')}
+              className={`p-2 md:p-3 text-center md:text-left rounded-lg md:rounded-xl transition-colors font-medium text-xs md:text-sm whitespace-nowrap shrink-0 flex-1 md:flex-none ${
+                activeTab === 'cleanup' ? 'bg-white/20 text-white font-bold shadow-sm' : 'text-surface-dim hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              시스템 데이터 정리
+            </button>
           </div>
 
           {/* Content */}
           <div className="flex-1 flex flex-col overflow-y-auto p-3 md:p-6 bg-black/20">
-            {activeTab === 'defaultTimetables' ? (
+            {activeTab === 'cleanup' ? (
+              <div className="flex flex-col space-y-6">
+                <div className="bg-white/5 border border-white/5 p-4 rounded-xl space-y-4">
+                  <h3 className="text-base md:text-lg font-bold text-white">대규모 백그라운드 데이터 정리</h3>
+                  <p className="text-sm text-surface-dim leading-relaxed">
+                    시스템 성능 유지를 위해 오래된 데이터를 백엔드 서버(Node.js)를 통해 일괄 삭제합니다.<br/><br/>
+                    - 삭제 대상: 1년(365일)이 지난 보관함 데이터(하이라이트 제외)<br/>
+                    - 주의: 이 작업은 서버 백그라운드에서 실행되며 복구할 수 없습니다.
+                  </p>
+                  
+                  {cleanupStatus.message && (
+                    <div className={`p-3 rounded-lg text-sm font-medium ${cleanupStatus.error ? 'bg-red-500/20 text-red-200' : 'bg-green-500/20 text-green-200'}`}>
+                      {cleanupStatus.message}
+                    </div>
+                  )}
+
+                  {!cleanupStatus.loading && cleanupStatus.message === null && (
+                    <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-lg">
+                      <p className="text-xs text-red-300 font-medium">정말 삭제하시겠습니까? 삭제 후에는 데이터를 복구할 수 없습니다.</p>
+                    </div>
+                  )}
+                  
+                  <button
+                    disabled={cleanupStatus.loading}
+                    onClick={async () => {
+                      setCleanupStatus({ loading: true, message: null, error: false });
+                      try {
+                        const res = await fetch('/api/admin/cleanup', { method: 'POST' });
+                        const data = await res.json();
+                        if (data.success) {
+                          setCleanupStatus({ 
+                            loading: false, 
+                            message: `데이터 정리가 완료되었습니다. (보관함: ${data.details.archivesDeleted}건 삭제)`, 
+                            error: false 
+                          });
+                        } else {
+                          setCleanupStatus({ 
+                            loading: false, 
+                            message: `정리 실패: ${data.error}`, 
+                            error: true 
+                          });
+                        }
+                      } catch (err) {
+                        setCleanupStatus({ 
+                          loading: false, 
+                          message: '정리 중 서버 오류가 발생했습니다. (자세한 내용은 콘솔 확인)', 
+                          error: true 
+                        });
+                        console.error(err);
+                      }
+                    }}
+                    className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-bold transition-colors"
+                  >
+                    {cleanupStatus.loading ? '처리 중...' : '지금 데이터 정리 실행'}
+                  </button>
+                </div>
+              </div>
+            ) : activeTab === 'defaultTimetables' ? (
               <div className="flex flex-col space-y-6">
                 <div className="bg-white/5 border border-white/5 p-4 rounded-xl space-y-4">
                   <h3 className="text-base md:text-lg font-bold text-white">학급별 기본 반복 시간표 관리</h3>
@@ -523,6 +592,7 @@ export function AdminPanel({
                     </button>
                   </div>
                 </div>
+
               </div>
             ) : (
               <>

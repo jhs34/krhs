@@ -120,7 +120,7 @@ function AppContent() {
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      setIsAdmin(user?.email === 'hoya100304@gmail.com');
+      setIsAdmin(user?.email === 'hoya100304@gmail.com' || user?.email === 'jhs34.kr@gmail.com');
       setHasAuthChecked(true);
     });
 

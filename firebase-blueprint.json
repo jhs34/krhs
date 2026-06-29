@@ -49,6 +49,7 @@
         "dayOfWeek": { "type": "integer" },
         "period": { "type": "integer" },
         "memo": { "type": "string" },
+        "color": { "type": "string", "description": "Custom color override for exception styling." },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["grade", "department", "classNumber", "weekStart", "dayOfWeek", "period", "memo"]
@@ -64,6 +65,15 @@
         "rawTimetable": { "type": "string" }
       },
       "required": ["grade", "department", "classNumber", "rawTimetable"]
+    },
+    "SubjectColor": {
+      "title": "SubjectColor",
+      "description": "Default theme color config for repeating subjects.",
+      "type": "object",
+      "properties": {
+        "color": { "type": "string" }
+      },
+      "required": ["color"]
     }
   },
   "firestore": {
@@ -86,6 +96,10 @@
     "/timetable_templates/{templateId}": {
       "schema": { "$ref": "#/entities/TimetableTemplate" },
       "description": "Collection of customizable default repeating class timetable templates."
+    },
+    "/subject_colors/{subjectName}": {
+      "schema": { "$ref": "#/entities/SubjectColor" },
+      "description": "Collection of custom default theme colors for repeating subjects."
     }
   }
 }

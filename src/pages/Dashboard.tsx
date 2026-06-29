@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon, FileText, Bell, Edit2, Search, X } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -38,30 +38,33 @@ export function Dashboard({
 }: DashboardProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
-  const today = new Date();
+  const filteredEvents = useMemo(() => {
+    const today = new Date();
+    return searchQuery.trim()
+      ? events
+          .filter(e => !e.isArchived)
+          .filter(e => 
+            e.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+            (e.description && e.description.toLowerCase().includes(searchQuery.toLowerCase()))
+          )
+          .sort((a, b) => {
+            const diffA = Math.abs(a.date.getTime() - today.getTime());
+            const diffB = Math.abs(b.date.getTime() - today.getTime());
+            return diffA - diffB;
+          })
+      : [];
+  }, [searchQuery, events]);
 
-  const filteredEvents = searchQuery.trim()
-    ? events
-        .filter(e => !e.isArchived)
-        .filter(e => 
-          e.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-          (e.description && e.description.toLowerCase().includes(searchQuery.toLowerCase()))
-        )
-        .sort((a, b) => {
-          const diffA = Math.abs(a.date.getTime() - today.getTime());
-          const diffB = Math.abs(b.date.getTime() - today.getTime());
-          return diffA - diffB;
-        })
-    : [];
-
-  const filteredNotices = searchQuery.trim()
-    ? notices
-        .filter(n => 
-          n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-          (n.content && n.content.toLowerCase().includes(searchQuery.toLowerCase()))
-        )
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    : [];
+  const filteredNotices = useMemo(() => {
+    return searchQuery.trim()
+      ? notices
+          .filter(n => 
+            n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+            (n.content && n.content.toLowerCase().includes(searchQuery.toLowerCase()))
+          )
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      : [];
+  }, [searchQuery, notices]);
 
   const hasResults = filteredEvents.length > 0 || filteredNotices.length > 0;
 

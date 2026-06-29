@@ -19,6 +19,7 @@ export interface TimetableMemo {
   dayOfWeek: number; // 0 (Mon) ~ 4 (Fri)
   period: number; // 1 ~ 7
   memo: string; // performance assessment or special note
+  color?: string; // custom overriden background color for exception styling
   createdAt: string;
 }
 
