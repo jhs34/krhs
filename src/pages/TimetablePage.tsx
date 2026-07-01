@@ -485,7 +485,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
             const totalPeriods = dayIdx === 4 ? 4 : 7; // Friday has 4 periods, Mon-Thu has 7
 
             return (
-              <div key={dayIdx} className={`flex flex-col flex-1 pb-2 min-h-[350px] ${isToday ? 'bg-[#00e5ff]/[0.02]' : ''}`}>
+              <div key={dayIdx} className={`flex flex-col flex-1 pb-2 min-h-[500px] sm:min-h-[560px] md:min-h-[600px] ${isToday ? 'bg-[#00e5ff]/[0.02]' : ''}`}>
                 
                 {/* Column Day Header */}
                 <div className={`p-1.5 sm:p-2 sm:py-3 border-b border-white/5 flex flex-col items-center justify-center text-center sticky top-0 bg-primary-dark/95 backdrop-blur z-10 ${
@@ -513,7 +513,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                       return (
                         <div 
                           key={periodNum}
-                          className="min-h-[48px] sm:min-h-[60px] md:min-h-[70px] md:h-[calc((100vh-420px)/7)] max-h-[92px] rounded-xl border border-white/[0.02] bg-white/[0.01] flex flex-col items-center justify-center text-center p-1 sm:p-2 opacity-35 hover:opacity-50 transition-opacity"
+                          className="min-h-[64px] sm:min-h-[74px] md:min-h-[82px] md:h-[calc((100vh-420px)/7)] max-h-[92px] rounded-xl border border-white/[0.02] bg-white/[0.01] flex flex-col items-center justify-center text-center p-1 sm:p-2 opacity-35 hover:opacity-50 transition-opacity"
                         >
                           <span className="text-[8px] sm:text-[10px] font-bold text-surface-dim/40 font-mono">
                             {periodNum}교시<span className="hidden sm:inline"> | 후반</span>
@@ -569,7 +569,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                             });
                           }
                         }}
-                        className={`group relative rounded-lg sm:rounded-xl border px-1.5 py-1 sm:px-2.5 sm:pt-2 sm:pb-3 md:px-3 md:pt-2.5 md:pb-3.5 flex flex-col justify-between transition-all duration-200 min-h-[48px] sm:min-h-[60px] md:min-h-[70px] md:h-[calc((100vh-420px)/7)] max-h-[92px] select-none ${
+                        className={`group relative rounded-lg sm:rounded-xl border px-1.5 py-1 sm:px-2.5 sm:pt-2 sm:pb-3 md:px-3 md:pt-2.5 md:pb-3.5 flex flex-col justify-between transition-all duration-200 min-h-[64px] sm:min-h-[74px] md:min-h-[82px] md:h-[calc((100vh-420px)/7)] max-h-[92px] select-none ${
                           customMemo && customMemo.memo && customMemo.memo.trim() !== ''
                             ? !customMemo.color
                               ? 'bg-[#1e1c16] border-amber-600/30 ring-1 ring-amber-500/20 shadow-md shadow-amber-950/10 cursor-pointer hover:bg-[#252219]' 
