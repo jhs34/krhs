@@ -569,7 +569,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                             });
                           }
                         }}
-                        className={`group relative rounded-lg sm:rounded-xl border px-1.5 py-1 sm:px-2.5 sm:pt-2 sm:pb-3 md:px-3 md:pt-2.5 md:pb-3.5 flex flex-col justify-between transition-all duration-200 min-h-[64px] sm:min-h-[74px] md:min-h-[82px] md:h-[calc((100vh-420px)/7)] max-h-[92px] select-none ${
+                        className={`group relative rounded-lg sm:rounded-xl border px-1.5 py-1 sm:px-2.5 sm:pt-2 sm:pb-3 md:px-3 md:pt-2.5 md:pb-3.5 flex flex-col justify-start transition-all duration-200 min-h-[64px] sm:min-h-[74px] md:min-h-[82px] md:h-[calc((100vh-420px)/7)] max-h-[92px] select-none ${
                           customMemo && customMemo.memo && customMemo.memo.trim() !== ''
                             ? !customMemo.color
                               ? 'bg-[#1e1c16] border-amber-600/30 ring-1 ring-amber-500/20 shadow-md shadow-amber-950/10 cursor-pointer hover:bg-[#252219]' 
@@ -581,7 +581,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                         style={customStyle}
                       >
                         {/* Period & Time header */}
-                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-0.5 md:pb-1 mb-0.5 md:mb-1">
+                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-0.5 md:pb-1 mb-0.5 md:mb-1 shrink-0">
                           <span className="text-[8.5px] sm:text-[10px] font-black text-white/55 tracking-wide font-sans bg-white/5 px-1 sm:px-2 py-0.5 rounded whitespace-nowrap shrink-0">
                             {periodNum}교시
                           </span>
@@ -594,10 +594,10 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
 
                         {/* Subject detail */}
                         {baseSlot ? (
-                          <div className="flex flex-col space-y-0.5 text-left items-start">
-                            <div className="flex items-center space-x-1 sm:space-x-1.5 w-full max-w-full min-w-0">
+                          <div className="flex flex-col text-left items-start w-full flex-1 justify-center pb-0.5 min-h-0">
+                            <div className="flex items-center space-x-1 sm:space-x-1.5 w-full max-w-full min-w-0 mb-[2px]">
                               <div className="marquee-container min-w-0 flex-1">
-                                <span className="text-white text-[10px] sm:text-xs font-black leading-tight font-sans marquee-text" title={baseSlot.subject}>
+                                <span className="text-white text-[10.5px] sm:text-[11.5px] md:text-xs font-black leading-tight font-sans marquee-text" title={baseSlot.subject}>
                                   {baseSlot.subject}
                                 </span>
                               </div>
@@ -610,12 +610,14 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                                 </span>
                               )}
                             </div>
-                            <span className="text-[9px] sm:text-[10px] text-surface-dim font-medium truncate">
+                            <span className="text-[9px] sm:text-[10px] text-surface-dim font-medium leading-tight truncate w-full">
                               {baseSlot.teacher}<span className="hidden sm:inline"> 선생님</span>
                             </span>
                           </div>
                         ) : (
-                          <span className="text-surface-dim/35 text-[9px] sm:text-[11px] leading-tight font-sans">일정 없음</span>
+                          <div className="flex flex-col w-full flex-1 justify-center items-start pb-0.5 min-h-0">
+                            <span className="text-surface-dim/35 text-[9px] sm:text-[11px] leading-tight font-sans">일정 없음</span>
+                          </div>
                         )}
 
                         {/* Hover Overlay Action Controls for Admin */}
