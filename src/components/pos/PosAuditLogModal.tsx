@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
@@ -16,6 +16,9 @@ import {
   ChevronUp,
   AlertCircle,
   FileSpreadsheet,
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { PosAuditLog, PosLogCategory } from '../../types/pos';
 import { deletePosLog, clearAllPosLogs } from '../../services/posFirestore';
@@ -38,8 +41,19 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
   const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | 'WEEK'>('TODAY');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
-  const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showClearConfirmModal, setShowClearConfirmModal] = useState(false);
+  const [logToDelete, setLogToDelete] = useState<PosAuditLog | null>(null);
+  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => {
+        setToastMessage(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
   // Filtered logs
   const filteredLogs = useMemo(() => {
@@ -91,25 +105,30 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
     return { total, saleCount, inventoryCount, settlementCount, systemCount };
   }, [logs]);
 
-  const handleDeleteSingle = async (logId: string) => {
-    if (!confirm('이 로그 항목을 삭제하시겠습니까?')) return;
+  const handleExecuteDeleteSingle = async () => {
+    if (!logToDelete) return;
+    setIsProcessing(true);
     try {
-      await deletePosLog(logId);
+      await deletePosLog(logToDelete.id);
+      const title = logToDelete.actionTitle;
+      setLogToDelete(null);
+      setToastMessage({ type: 'success', text: `'${title}' 로그가 정상적으로 삭제되었습니다.` });
     } catch (e) {
-      alert('로그 삭제 실패: ' + (e as Error).message);
+      setToastMessage({ type: 'error', text: '로그 삭제 실패: ' + (e as Error).message });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const handleClearAll = async () => {
-    if (!confirm('현재 저장된 모든 감사 로그를 영구 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-      return;
-    }
+  const handleExecuteClearAll = async () => {
     setIsProcessing(true);
+    const count = logs.length;
     try {
       await clearAllPosLogs(logs);
-      setIsDeletingAll(false);
+      setShowClearConfirmModal(false);
+      setToastMessage({ type: 'success', text: `감사 로그 총 ${count}건을 모두 비웠습니다.` });
     } catch (e) {
-      alert('로그 전체 삭제 실패: ' + (e as Error).message);
+      setToastMessage({ type: 'error', text: '로그 전체 삭제 실패: ' + (e as Error).message });
     } finally {
       setIsProcessing(false);
     }
@@ -333,13 +352,14 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
 
               {isAdmin && logs.length > 0 && (
                 <button
-                  onClick={handleClearAll}
+                  type="button"
+                  onClick={() => setShowClearConfirmModal(true)}
                   disabled={isProcessing}
                   title="관리자 전용: 감사 로그 전체 삭제"
-                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 active:bg-rose-200 border border-rose-200 rounded-lg transition-all shrink-0 cursor-pointer disabled:opacity-50"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  로그 비우기
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>로그 비우기</span>
                 </button>
               )}
             </div>
@@ -409,9 +429,9 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
                             type="button"
                             onClick={e => {
                               e.stopPropagation();
-                              handleDeleteSingle(log.id);
+                              setLogToDelete(log);
                             }}
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
                             title="로그 삭제 (관리자)"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -454,11 +474,184 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
           <button
             id="btn-audit-log-done"
             onClick={onClose}
-            className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-colors shadow-xs"
+            className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-colors shadow-xs cursor-pointer"
           >
             닫기
           </button>
         </div>
+
+        {/* In-app Toast Notification */}
+        <AnimatePresence>
+          {toastMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              className={`absolute top-4 left-1/2 -translate-x-1/2 z-[90] px-4 py-2.5 rounded-2xl shadow-xl border flex items-center gap-2.5 text-xs font-bold pointer-events-auto backdrop-blur-md ${
+                toastMessage.type === 'success'
+                  ? 'bg-emerald-950/95 text-emerald-200 border-emerald-500/40 shadow-emerald-950/50'
+                  : toastMessage.type === 'error'
+                  ? 'bg-rose-950/95 text-rose-200 border-rose-500/40 shadow-rose-950/50'
+                  : 'bg-slate-900/95 text-slate-200 border-slate-700 shadow-slate-950/50'
+              }`}
+            >
+              {toastMessage.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+              )}
+              <span>{toastMessage.text}</span>
+              <button
+                type="button"
+                onClick={() => setToastMessage(null)}
+                className="ml-2 text-white/50 hover:text-white p-0.5 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Clear All Logs Custom Confirmation Modal */}
+        <AnimatePresence>
+          {showClearConfirmModal && (
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+              onClick={() => !isProcessing && setShowClearConfirmModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.92, opacity: 0, y: 15 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.92, opacity: 0, y: 15 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                onClick={e => e.stopPropagation()}
+                className="bg-[#0e1628] border border-rose-500/30 text-white w-full max-w-md rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center relative"
+              >
+                <div className="w-14 h-14 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center mb-4 shadow-inner">
+                  <AlertTriangle className="w-7 h-7" />
+                </div>
+
+                <h3 className="text-xl font-bold text-white mb-2">
+                  감사 로그를 모두 비우시겠습니까?
+                </h3>
+
+                <div className="bg-rose-950/40 border border-rose-500/20 rounded-2xl p-4 mb-5 w-full text-left">
+                  <p className="text-xs text-rose-200 leading-relaxed font-medium">
+                    ⚠️ 현재 저장된 모든 감사 로그 <strong className="text-white underline decoration-rose-400 decoration-2 font-bold">{logs.length}건</strong>이 데이터베이스에서 영구 삭제됩니다.
+                  </p>
+                  <p className="text-[11px] text-rose-300/80 mt-1.5 leading-normal">
+                    이 작업은 되돌릴 수 없으며 복구되지 않습니다. 마감 증빙 및 판매 내역 감사 기록이 모두 삭제됩니다.
+                  </p>
+                </div>
+
+                <div className="flex w-full space-x-3">
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => setShowClearConfirmModal(false)}
+                    className="flex-1 py-3 rounded-xl font-bold text-xs md:text-sm bg-white/10 hover:bg-white/15 text-white transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={handleExecuteClearAll}
+                    className="flex-1 py-3 rounded-xl font-bold text-xs md:text-sm bg-rose-600 hover:bg-rose-500 text-white transition-all flex items-center justify-center space-x-2 shadow-lg shadow-rose-950/50 cursor-pointer disabled:opacity-50"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>삭제 처리 중...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        <span>로그 전체 삭제</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Single Log Delete Custom Confirmation Modal */}
+        <AnimatePresence>
+          {logToDelete && (
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+              onClick={() => !isProcessing && setLogToDelete(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.92, opacity: 0, y: 15 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.92, opacity: 0, y: 15 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                onClick={e => e.stopPropagation()}
+                className="bg-[#0e1628] border border-white/20 text-white w-full max-w-md rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center relative"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mb-3">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+
+                <h3 className="text-lg font-bold text-white mb-1.5">
+                  로그 항목을 삭제하시겠습니까?
+                </h3>
+
+                <p className="text-xs text-surface-dim mb-4">
+                  선택한 감사 기록 1건이 데이터베이스에서 삭제됩니다.
+                </p>
+
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 mb-5 w-full text-left">
+                  <div className="flex items-center justify-between text-xs font-bold text-white mb-1">
+                    <span>{logToDelete.actionTitle}</span>
+                    <span className="text-[11px] font-mono text-slate-400 font-normal">
+                      {formatDateTime(logToDelete.timestamp)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 break-words leading-relaxed">
+                    {logToDelete.details}
+                  </p>
+                  <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>작성자: {logToDelete.actorName}</span>
+                    <span>분류: {logToDelete.category}</span>
+                  </div>
+                </div>
+
+                <div className="flex w-full space-x-3">
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => setLogToDelete(null)}
+                    className="flex-1 py-2.5 rounded-xl font-bold text-xs md:text-sm bg-white/10 hover:bg-white/15 text-white transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={handleExecuteDeleteSingle}
+                    className="flex-1 py-2.5 rounded-xl font-bold text-xs md:text-sm bg-rose-600 hover:bg-rose-500 text-white transition-all flex items-center justify-center space-x-1.5 shadow-lg shadow-rose-950/40 cursor-pointer disabled:opacity-50"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>삭제 중...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>삭제하기</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );

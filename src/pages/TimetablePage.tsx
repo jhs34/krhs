@@ -329,9 +329,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
   // Delete memo immediately
   const handleDeleteMemoDirectly = async (dayIdx: number, periodNum: number) => {
     const compositeId = `${selectedGrade}_${selectedDept}_${selectedClass}_${weekStartKey}_${dayIdx}_${periodNum}`;
-    if (confirm('메모를 삭제하시겠습니까?')) {
-      await deleteTimetableMemo(compositeId);
-    }
+    await deleteTimetableMemo(compositeId);
   };
 
   return (

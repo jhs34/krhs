@@ -52,6 +52,29 @@ export const logout = async () => {
   }
 };
 
+export const deleteCurrentAccount = async () => {
+  try {
+    if (auth.currentUser) {
+      await auth.currentUser.delete();
+    }
+  } catch (error) {
+    console.error("Delete account failed", error);
+    throw error;
+  }
+};
+
+/**
+ * Return display-friendly email. If hoya100304@gmail.com is signed in, display as jhs34.kr@gmail.com
+ */
+export const getDisplayUserEmail = (email?: string | null): string => {
+  if (!email) return '';
+  const clean = email.trim().toLowerCase();
+  if (clean === 'hoya100304@gmail.com') {
+    return 'jhs34.kr@gmail.com';
+  }
+  return email;
+};
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Notice, FirestoreEvent, SchoolDocument, addNotice, updateNotice, deleteNotice, addEvent, updateEvent, deleteEvent, addDocument, updateDocument, deleteDocument, subscribeToTimetableTemplates, saveTimetableTemplate } from '../services/firestore';
-import { auth, logout, refreshUserProfile } from '../firebase';
+import { auth, logout, refreshUserProfile, deleteCurrentAccount, loginWithGoogle, getDisplayUserEmail } from '../firebase';
 import { format } from 'date-fns';
-import { Edit2, Trash2, Sparkles, RefreshCw } from 'lucide-react';
+import { Edit2, Trash2, Sparkles, RefreshCw, LogOut, UserX, ArrowRightLeft, AlertTriangle } from 'lucide-react';
 import { SUBJECT_THEMES } from '../data/subjectThemes';
 
 import { SiteInfo, updateSiteInfo } from '../services/firestore';
@@ -318,6 +318,38 @@ export function AdminPanel({
     onClose();
   };
 
+  const handleSwitchAccount = async () => {
+    try {
+      await logout();
+      onClose();
+      await loginWithGoogle();
+    } catch (e) {
+      console.error('Account switch error:', e);
+    }
+  };
+
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const handleDeleteCurrentAccount = async () => {
+    setIsDeletingAccount(true);
+    try {
+      await deleteCurrentAccount();
+      setNotification({ type: 'success', message: '현재 계정이 Firebase에서 완전히 삭제되었습니다. 새 계정으로 로그인해 주세요.' });
+      setShowLogoutConfirm(false);
+      setTimeout(() => {
+        onClose();
+      }, 1200);
+    } catch (err: any) {
+      console.error('Delete account error:', err);
+      if (err.code === 'auth/requires-recent-login') {
+        setNotification({ type: 'error', message: '보안을 위해 재인증이 필요합니다. 먼저 [로그아웃] 후 다시 로그인하신 직후에 삭제를 실행해 주세요.' });
+      } else {
+        setNotification({ type: 'error', message: `계정 삭제 실패: ${err.message || '알 수 없는 오류'}` });
+      }
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <motion.div 
@@ -347,7 +379,7 @@ export function AdminPanel({
             {auth.currentUser && (
               <div className="flex items-center space-x-2 mt-1">
                 <p className="text-xs text-secondary/90 font-mono">
-                  접속 계정: {auth.currentUser.email || auth.currentUser.providerData?.[0]?.email || '로그인됨'}
+                  접속 계정: {getDisplayUserEmail(auth.currentUser.email || auth.currentUser.providerData?.[0]?.email) || '로그인됨'}
                 </p>
                 <button
                   type="button"
@@ -857,26 +889,73 @@ export function AdminPanel({
           </div>
         </div>
 
-        {/* Logout Confirm Modal */}
+        {/* Logout / Account Management Modal */}
         {showLogoutConfirm && (
           <div className="absolute inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md rounded-3xl">
-            <div className="bg-[#0a1120] border border-white/20 w-full max-w-sm p-6 rounded-2xl flex flex-col items-center shadow-2xl">
-              <h3 className="text-xl font-bold text-white mb-3">로그아웃 하시겠습니까?</h3>
-              <p className="text-sm text-surface-dim mb-6 text-center">관리자 세션이 종료되며, 메인 화면으로 돌아갑니다.</p>
-              <div className="flex w-full space-x-3">
-                <button 
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="flex-1 py-3 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/20 text-white transition-colors"
-                >
-                  취소
-                </button>
-                <button 
-                  onClick={handleLogout}
-                  className="flex-1 py-3 rounded-xl font-bold text-sm bg-red-600/90 hover:bg-red-600 text-white transition-colors shadow-lg shadow-red-900/20"
-                >
-                  로그아웃
-                </button>
+            <div className="bg-[#0a1120] border border-white/20 w-full max-w-md p-6 rounded-2xl flex flex-col items-center shadow-2xl relative">
+              <div className="w-12 h-12 rounded-2xl bg-secondary/15 border border-secondary/30 flex items-center justify-center mb-3 text-secondary">
+                <LogOut className="w-6 h-6" />
               </div>
+              <h3 className="text-lg md:text-xl font-black text-white mb-1 text-center">계정 관리 및 로그아웃</h3>
+              <p className="text-xs text-surface-dim mb-4 text-center">
+                현재 접속: <span className="text-secondary font-bold font-mono">{getDisplayUserEmail(auth.currentUser?.email) || '알 수 없음'}</span>
+              </p>
+
+              <div className="w-full flex flex-col space-y-2.5 mb-4">
+                {/* Switch Google Account */}
+                <button
+                  type="button"
+                  onClick={handleSwitchAccount}
+                  className="w-full py-3 px-4 rounded-xl text-xs md:text-sm font-bold bg-secondary hover:bg-secondary/90 text-white flex items-center justify-between transition-all shadow-md shadow-secondary/20 cursor-pointer"
+                >
+                  <div className="flex items-center space-x-2">
+                    <ArrowRightLeft className="w-4 h-4" />
+                    <span>다른 구글 계정으로 전환 (추천)</span>
+                  </div>
+                  <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full font-normal">계정 선택창 열기</span>
+                </button>
+
+                {/* Normal Logout */}
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-bold bg-white/10 hover:bg-white/15 text-white flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center space-x-2">
+                    <LogOut className="w-4 h-4 text-surface-dim" />
+                    <span>단순 로그아웃</span>
+                  </div>
+                  <span className="text-[10px] text-surface-dim font-normal">세션 종료</span>
+                </button>
+
+                {/* Permanent Firebase Account Delete */}
+                <div className="pt-2 border-t border-white/10 flex flex-col space-y-1.5">
+                  <div className="flex items-center space-x-1.5 text-[11px] text-red-400 font-bold">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>파이어베이스 계정 완전 삭제</span>
+                  </div>
+                  <p className="text-[10px] text-surface-dim leading-relaxed">
+                    현재 구글 계정 정보를 Firebase 인증 시스템에서 완전히 삭제합니다. 삭제 후 새 계정으로 언제든지 다시 로그인할 수 있습니다.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={isDeletingAccount}
+                    onClick={handleDeleteCurrentAccount}
+                    className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 hover:text-red-200 flex items-center justify-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <UserX className="w-3.5 h-3.5" />
+                    <span>{isDeletingAccount ? '삭제 진행 중...' : '현재 계정 Firebase에서 영구 삭제'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <button 
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="w-full py-2.5 rounded-xl font-bold text-xs bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+              >
+                취소하고 돌아가기
+              </button>
             </div>
           </div>
         )}

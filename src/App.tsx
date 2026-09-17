@@ -130,8 +130,8 @@ function AppContent() {
           // ignore reload error if offline
         }
       }
-      const effectiveEmail = auth.currentUser?.email || user?.email || user?.providerData?.[0]?.email;
-      setIsAdmin(effectiveEmail === 'hoya100304@gmail.com' || effectiveEmail === 'jhs34.kr@gmail.com');
+      const effectiveEmail = (auth.currentUser?.email || user?.email || user?.providerData?.[0]?.email || '').toLowerCase().trim();
+      setIsAdmin(effectiveEmail === 'jhs34.kr@gmail.com' || effectiveEmail === 'hoya100304@gmail.com');
       setHasAuthChecked(true);
     });
 

@@ -28,7 +28,7 @@ import {
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { auth, loginWithGoogle, logout } from '../../firebase';
+import { auth, loginWithGoogle, logout, getDisplayUserEmail } from '../../firebase';
 import { PosOrder } from '../../types/pos';
 
 interface PosSalesHistoryModalProps {
@@ -91,7 +91,7 @@ export function PosSalesHistoryModal({
     return () => unsub();
   }, []);
 
-  const userEmail = googleUser?.email || googleUser?.providerData?.[0]?.email || '';
+  const userEmail = (googleUser?.email || googleUser?.providerData?.[0]?.email || '').toLowerCase().trim();
   const isGoogleAdmin = Boolean(
     googleUser &&
     (userEmail === 'jhs34.kr@gmail.com' ||
@@ -466,7 +466,7 @@ export function PosSalesHistoryModal({
                 <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                 <div className="text-xs leading-tight text-emerald-200">
                   <span className="font-bold block text-emerald-300">관리자 인증됨</span>
-                  <span className="text-[11px] text-emerald-100 font-mono block truncate max-w-[190px]">{googleUser?.email}</span>
+                  <span className="text-[11px] text-emerald-100 font-mono block truncate max-w-[190px]">{getDisplayUserEmail(googleUser?.email)}</span>
                 </div>
                 <button
                   type="button"

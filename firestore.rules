@@ -15,10 +15,9 @@ service cloud.firestore {
     function existing() { return resource.data; }
     function isSignedIn() { return request.auth != null; }
     function isAdmin() { 
-      // Hardcoded admin emails for both solo app dev accounts
+      // Primary admin email: jhs34.kr@gmail.com (with backwards compatibility for hoya100304@gmail.com)
       return isSignedIn() && 
-             (request.auth.token.email == 'hoya100304@gmail.com' || request.auth.token.email == 'jhs34.kr@gmail.com') && 
-             request.auth.token.email_verified == true; 
+             (request.auth.token.email == 'jhs34.kr@gmail.com' || request.auth.token.email == 'hoya100304@gmail.com'); 
     }
 
     // Validation
