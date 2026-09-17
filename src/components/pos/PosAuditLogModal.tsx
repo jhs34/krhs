@@ -19,9 +19,12 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
+  LogOut,
 } from 'lucide-react';
-import { PosAuditLog, PosLogCategory } from '../../types/pos';
+import { PosAuditLog, PosLogCategory, PosUser } from '../../types/pos';
 import { deletePosLog, clearAllPosLogs } from '../../services/posFirestore';
+import { loginWithGoogle, logout as firebaseLogout, auth } from '../../firebase';
+import { createGoogleAdminPosUser } from '../../services/posAuth';
 
 interface PosAuditLogModalProps {
   isOpen: boolean;
@@ -29,22 +32,32 @@ interface PosAuditLogModalProps {
   logs: PosAuditLog[];
   isAdmin: boolean;
   actorName: string;
+  onGoogleAdminLogin?: (user: PosUser) => void;
+  onGoogleAdminLogout?: () => void;
 }
 
 export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
   isOpen,
   onClose,
   logs,
-  isAdmin,
+  isAdmin: propIsAdmin,
+  actorName,
+  onGoogleAdminLogin,
+  onGoogleAdminLogout,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<PosLogCategory | 'ALL'>('ALL');
   const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | 'WEEK'>('TODAY');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showClearConfirmModal, setShowClearConfirmModal] = useState(false);
   const [logToDelete, setLogToDelete] = useState<PosAuditLog | null>(null);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+
+  const [localIsAdmin, setLocalIsAdmin] = useState(false);
+
+  const effectiveIsAdmin = propIsAdmin || localIsAdmin;
 
   useEffect(() => {
     if (toastMessage) {
@@ -54,6 +67,88 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
       return () => clearTimeout(timer);
     }
   }, [toastMessage]);
+
+  const handleGoogleAdminLogin = async () => {
+    setIsGoogleLoading(true);
+    try {
+      const googleUser = await loginWithGoogle();
+      if (googleUser && googleUser.email) {
+        const adminUser = createGoogleAdminPosUser(
+          googleUser.email,
+          googleUser.displayName,
+          googleUser.uid
+        );
+        setLocalIsAdmin(true);
+        if (onGoogleAdminLogin) {
+          onGoogleAdminLogin(adminUser);
+        }
+        setToastMessage({
+          type: 'success',
+          text: `포털 관리자 계정(${googleUser.email})으로 로그인되었습니다.`,
+        });
+      }
+    } catch (err: any) {
+      console.error('Google login error:', err);
+      setToastMessage({
+        type: 'error',
+        text: err?.message || '구글 관리자 로그인에 실패했습니다.',
+      });
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleAdminLogout = async () => {
+    try {
+      await firebaseLogout();
+      setLocalIsAdmin(false);
+      if (onGoogleAdminLogout) {
+        onGoogleAdminLogout();
+      }
+      setToastMessage({
+        type: 'info',
+        text: '구글 관리자 계정에서 로그아웃되었습니다.',
+      });
+    } catch (err: any) {
+      console.error('Logout error', err);
+    }
+  };
+
+  // Helper to extract local date string (YYYY-MM-DD) from timestamp
+  const getLocalDateStr = (timestampStr: string): string => {
+    try {
+      const d = new Date(timestampStr);
+      if (isNaN(d.getTime())) return timestampStr.slice(0, 10);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    } catch {
+      return timestampStr.slice(0, 10);
+    }
+  };
+
+  // Date counts for tabs
+  const dateCounts = useMemo(() => {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    let todayCount = 0;
+    let weekCount = 0;
+
+    logs.forEach(log => {
+      const localDate = getLocalDateStr(log.timestamp);
+      if (localDate === todayStr || log.sessionId === todayStr || log.timestamp.slice(0, 10) === todayStr) {
+        todayCount++;
+      }
+      try {
+        const d = new Date(log.timestamp);
+        if (!isNaN(d.getTime()) && d >= sevenDaysAgo) {
+          weekCount++;
+        }
+      } catch {}
+    });
+
+    return { today: todayCount, week: weekCount, all: logs.length };
+  }, [logs]);
 
   // Filtered logs
   const filteredLogs = useMemo(() => {
@@ -69,15 +164,21 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
 
       // Date filter
       if (dateFilter === 'TODAY') {
-        const logDate = log.timestamp.slice(0, 10);
-        if (logDate !== todayStr && log.sessionId !== todayStr) {
+        const localDate = getLocalDateStr(log.timestamp);
+        const isToday =
+          localDate === todayStr ||
+          log.sessionId === todayStr ||
+          log.timestamp.slice(0, 10) === todayStr;
+        if (!isToday) {
           return false;
         }
       } else if (dateFilter === 'WEEK') {
-        const logDate = new Date(log.timestamp);
-        if (logDate < sevenDaysAgo) {
-          return false;
-        }
+        try {
+          const logDate = new Date(log.timestamp);
+          if (!isNaN(logDate.getTime()) && logDate < sevenDaysAgo) {
+            return false;
+          }
+        } catch {}
       }
 
       // Search query
@@ -210,71 +311,127 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
   };
 
   return (
-    <div id="pos-audit-log-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div id="pos-audit-log-modal" className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
       <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
+        initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        className="flex flex-col w-full max-w-5xl max-h-[92vh] bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200"
+        exit={{ opacity: 0, scale: 0.98 }}
+        className="flex flex-col w-full max-w-5xl h-full sm:h-auto sm:max-h-[92vh] bg-white rounded-none sm:rounded-2xl shadow-2xl overflow-hidden border-0 sm:border border-slate-200"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600/30 border border-blue-400/40 text-blue-300">
-              <ShieldCheck className="w-6 h-6" />
+        <div className="flex items-center justify-between px-4 py-3.5 sm:px-6 sm:py-4 bg-slate-900 text-white shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-600/30 border border-blue-400/40 text-blue-300 shrink-0">
+              <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold tracking-tight">POS 감사 및 활동 로그 (Audit Log)</h2>
-                <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-950 text-emerald-400 border border-emerald-600/50">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-xl font-bold tracking-tight truncate">POS 감사 및 활동 로그</h2>
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-emerald-950 text-emerald-400 border border-emerald-600/50 shrink-0">
+                  <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-pulse" />
                   실시간 기록 중
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5 hidden sm:block">
                 결제 승인, 결제 취소, 품목/재고 변동, 정산 마감, 시스템 설정 등 모든 POS 변경 이력을 투명하게 기록합니다.
               </p>
             </div>
           </div>
-          <button
-            id="btn-close-audit-log"
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {effectiveIsAdmin ? (
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-bold">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>구글 관리자</span>
+                </div>
+                {onGoogleAdminLogout && (
+                  <button
+                    type="button"
+                    onClick={handleGoogleAdminLogout}
+                    className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-300 text-xs font-medium border border-red-500/30 transition-colors cursor-pointer"
+                    title="관리자 로그아웃"
+                  >
+                    <LogOut className="w-3.5 h-3.5 shrink-0" />
+                    <span className="hidden sm:inline">로그아웃</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleGoogleAdminLogin}
+                disabled={isGoogleLoading}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-95 disabled:opacity-50"
+                title="구글 계정(jhs34.kr@gmail.com)으로 관리자 로그인"
+              >
+                {isGoogleLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
+                    <path
+                      fill="#ffffff"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="#ffffff"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="#ffffff"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                    />
+                    <path
+                      fill="#ffffff"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                    />
+                  </svg>
+                )}
+                <span>구글 관리자 로그인</span>
+              </button>
+            )}
+
+            <button
+              id="btn-close-audit-log"
+              onClick={onClose}
+              className="p-1.5 sm:p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5 sm:w-6 sm:h-6" />
+            </button>
+          </div>
         </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 px-6 py-3 bg-slate-100/80 border-b border-slate-200 text-xs shrink-0">
-          <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-center">
-            <div className="text-slate-500 font-medium">전체 로그</div>
-            <div className="text-base font-bold text-slate-900 mt-0.5">{stats.total}건</div>
-          </div>
-          <div className="bg-white p-2.5 rounded-xl border border-emerald-200 text-center">
-            <div className="text-emerald-700 font-medium">판매/취소</div>
-            <div className="text-base font-bold text-emerald-800 mt-0.5">{stats.saleCount}건</div>
-          </div>
-          <div className="bg-white p-2.5 rounded-xl border border-blue-200 text-center">
-            <div className="text-blue-700 font-medium">재고/품목</div>
-            <div className="text-base font-bold text-blue-800 mt-0.5">{stats.inventoryCount}건</div>
-          </div>
-          <div className="bg-white p-2.5 rounded-xl border border-purple-200 text-center">
-            <div className="text-purple-700 font-medium">정산/마감</div>
-            <div className="text-base font-bold text-purple-800 mt-0.5">{stats.settlementCount}건</div>
-          </div>
-          <div className="bg-white p-2.5 rounded-xl border border-amber-200 text-center">
-            <div className="text-amber-700 font-medium">시스템/계정</div>
-            <div className="text-base font-bold text-amber-800 mt-0.5">{stats.systemCount}건</div>
+        {/* Compact Single-Row Stats Strip */}
+        <div className="flex items-center justify-between gap-1 sm:gap-2 px-3 sm:px-6 py-2 bg-slate-100/90 border-b border-slate-200 text-xs shrink-0 overflow-x-auto no-scrollbar">
+          <div className="flex items-center divide-x divide-slate-200 bg-white border border-slate-200 rounded-lg shadow-2xs w-full py-1 px-1.5 justify-around text-center">
+            <div className="flex-1 px-1.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] sm:text-xs text-slate-500 font-medium">전체</span>
+              <span className="text-xs sm:text-sm font-bold text-slate-900 font-mono">{stats.total}</span>
+            </div>
+            <div className="flex-1 px-1.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] sm:text-xs text-emerald-700 font-medium">판매/취소</span>
+              <span className="text-xs sm:text-sm font-bold text-emerald-700 font-mono">{stats.saleCount}</span>
+            </div>
+            <div className="flex-1 px-1.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] sm:text-xs text-blue-700 font-medium">재고/품목</span>
+              <span className="text-xs sm:text-sm font-bold text-blue-700 font-mono">{stats.inventoryCount}</span>
+            </div>
+            <div className="flex-1 px-1.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] sm:text-xs text-purple-700 font-medium">정산/마감</span>
+              <span className="text-xs sm:text-sm font-bold text-purple-700 font-mono">{stats.settlementCount}</span>
+            </div>
+            <div className="flex-1 px-1.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] sm:text-xs text-amber-700 font-medium">시스템</span>
+              <span className="text-xs sm:text-sm font-bold text-amber-700 font-mono">{stats.systemCount}</span>
+            </div>
           </div>
         </div>
 
         {/* Filters and Controls */}
-        <div className="p-4 bg-white border-b border-slate-200 flex flex-col gap-3 shrink-0">
+        <div className="p-3 sm:p-4 bg-white border-b border-slate-200 flex flex-col gap-2.5 sm:gap-3 shrink-0">
           {/* Category Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex overflow-x-auto pb-1 sm:pb-0 items-center gap-1.5 text-xs no-scrollbar">
             {[
-              { id: 'ALL', label: '전체 로그' },
+              { id: 'ALL', label: '전체' },
               { id: 'SALE', label: '판매/결제' },
               { id: 'INVENTORY', label: '재고/품목' },
               { id: 'SETTLEMENT', label: '정산/마감' },
@@ -284,7 +441,7 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id as any)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
                   selectedCategory === cat.id
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -296,37 +453,40 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
           </div>
 
           {/* Date filter & Search input */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2">
-              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-medium text-slate-600">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+            <div className="flex items-center justify-between sm:justify-start gap-2">
+              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-medium text-slate-600 shrink-0">
                 <button
+                  type="button"
                   onClick={() => setDateFilter('TODAY')}
-                  className={`px-2.5 py-1 rounded-md transition-all ${
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                     dateFilter === 'TODAY' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'hover:text-slate-900'
                   }`}
                 >
-                  오늘
+                  오늘 ({dateCounts.today})
                 </button>
                 <button
+                  type="button"
                   onClick={() => setDateFilter('WEEK')}
-                  className={`px-2.5 py-1 rounded-md transition-all ${
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                     dateFilter === 'WEEK' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'hover:text-slate-900'
                   }`}
                 >
-                  최근 7일
+                  최근 7일 ({dateCounts.week})
                 </button>
                 <button
+                  type="button"
                   onClick={() => setDateFilter('ALL')}
-                  className={`px-2.5 py-1 rounded-md transition-all ${
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                     dateFilter === 'ALL' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'hover:text-slate-900'
                   }`}
                 >
-                  전체 기간
+                  전체 ({dateCounts.all})
                 </button>
               </div>
 
-              <span className="text-xs text-slate-500">
-                표시 중: <strong className="text-slate-900">{filteredLogs.length}</strong>건
+              <span className="text-xs text-slate-500 shrink-0">
+                표시: <strong className="text-slate-900 font-mono">{filteredLogs.length}</strong>건
               </span>
             </div>
 
@@ -343,14 +503,14 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
 
-              {isAdmin && logs.length > 0 && (
+              {effectiveIsAdmin && logs.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setShowClearConfirmModal(true)}
@@ -359,7 +519,8 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 active:bg-rose-200 border border-rose-200 rounded-lg transition-all shrink-0 cursor-pointer disabled:opacity-50"
                 >
                   <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                  <span>로그 비우기</span>
+                  <span className="hidden sm:inline">로그 비우기</span>
+                  <span className="sm:hidden">비우기</span>
                 </button>
               )}
             </div>
@@ -369,10 +530,29 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
         {/* Log List View */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-slate-50/50">
           {filteredLogs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-              <AlertCircle className="w-12 h-12 stroke-[1.5] mb-2" />
-              <p className="text-sm font-medium text-slate-600">조건에 부합하는 감사 로그가 없습니다.</p>
-              <p className="text-xs text-slate-400 mt-1">필터를 변경하거나 검색어를 비워보세요.</p>
+            <div className="flex flex-col items-center justify-center py-16 text-slate-400 text-center px-4">
+              <AlertCircle className="w-12 h-12 stroke-[1.5] mb-2 text-slate-300" />
+              <p className="text-sm font-semibold text-slate-700">
+                {dateFilter === 'TODAY' ? '오늘 기록된 감사 로그가 없습니다.' : '조건에 부합하는 감사 로그가 없습니다.'}
+              </p>
+              <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                {logs.length > 0
+                  ? `전체 ${logs.length}건의 로그가 데이터베이스에 보관되어 있습니다.`
+                  : '포스기에서 결제, 상품/재고 수정, 로그인 등의 활동 시 실시간으로 안전하게 기록됩니다.'}
+              </p>
+              {logs.length > 0 && dateFilter !== 'ALL' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDateFilter('ALL');
+                    setSelectedCategory('ALL');
+                    setSearchQuery('');
+                  }}
+                  className="mt-4 px-3.5 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-all shadow-sm cursor-pointer active:scale-95"
+                >
+                  전체 로그 ({logs.length}건) 보기
+                </button>
+              )}
             </div>
           ) : (
             filteredLogs.map(log => {
@@ -424,7 +604,7 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
                             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                           </button>
                         )}
-                        {isAdmin && (
+                        {effectiveIsAdmin && (
                           <button
                             type="button"
                             onClick={e => {
@@ -467,14 +647,14 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-3.5 bg-white border-t border-slate-200 shrink-0">
-          <div className="text-xs text-slate-500">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 px-4 py-3 sm:px-6 sm:py-3.5 bg-white border-t border-slate-200 shrink-0">
+          <div className="text-[11px] sm:text-xs text-slate-500 hidden sm:block">
             실시간으로 기록된 로그는 Firestore에 안전하게 보존되며 인사이동 및 회계 감사 시 활용됩니다.
           </div>
           <button
             id="btn-audit-log-done"
             onClick={onClose}
-            className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-colors shadow-xs cursor-pointer"
+            className="w-full sm:w-auto px-5 py-2.5 sm:py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 active:scale-[0.99] rounded-xl transition-all shadow-xs cursor-pointer text-center"
           >
             닫기
           </button>

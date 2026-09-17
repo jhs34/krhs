@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Settings, Menu, X, Store, Wrench, ChevronDown, Boxes, ShieldCheck, LogOut } from 'lucide-react';
+import { Settings, Menu, X, Store, Wrench, ChevronDown, Boxes, ShieldCheck, LogOut, Maximize, Minimize } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, logout, getDisplayUserEmail } from '../firebase';
+import { useFullscreen } from '../utils/useFullscreen';
 
 interface NavigationProps {
   isAdmin: boolean;
@@ -16,6 +17,7 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isToolMenuOpen, setIsToolMenuOpen] = useState(false);
   const toolDropdownRef = useRef<HTMLDivElement>(null);
+  const { isFullscreen, toggleFullscreen } = useFullscreen();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -89,7 +91,7 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 8, scale: 0.96 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute right-0 mt-2 w-64 sm:w-72 bg-[#0c1426] border border-white/15 rounded-2xl p-2 shadow-2xl z-50 overflow-hidden backdrop-blur-md"
+                      className="fixed left-3.5 right-3.5 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 bg-[#0c1426] border border-white/15 rounded-2xl p-2 shadow-2xl z-50 overflow-hidden backdrop-blur-md"
                     >
                       <div className="px-3 py-2 border-b border-white/5 flex items-center justify-between">
                         <span className="text-[11px] font-bold text-surface-dim tracking-wider uppercase">포털 도구함</span>
@@ -135,6 +137,25 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* Fullscreen Toggle Button */}
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                title={isFullscreen ? '전체화면 종료 (ESC)' : '전체화면 모드 전환'}
+                className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 border cursor-pointer shrink-0 ${
+                  isFullscreen
+                    ? 'bg-secondary/25 text-secondary border-secondary/40 shadow-sm shadow-secondary/20'
+                    : 'text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 border-white/10'
+                }`}
+                aria-label={isFullscreen ? '전체화면 종료' : '전체화면 모드'}
+              >
+                {isFullscreen ? (
+                  <Minimize className="w-3.5 h-3.5" />
+                ) : (
+                  <Maximize className="w-3.5 h-3.5" />
+                )}
+              </button>
 
               {hasAuthChecked && (
                 auth.currentUser ? (
@@ -241,6 +262,30 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
                   </Link>
                 );
               })}
+
+              {/* Mobile Fullscreen Toggle Row */}
+              <div className="pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleFullscreen();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between p-3 rounded-lg text-sm font-medium bg-white/5 hover:bg-white/10 text-white transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center space-x-2">
+                    {isFullscreen ? (
+                      <Minimize className="w-4 h-4 text-secondary shrink-0" />
+                    ) : (
+                      <Maximize className="w-4 h-4 text-secondary shrink-0" />
+                    )}
+                    <span className="font-semibold">{isFullscreen ? '전체화면 종료' : '전체화면 모드'}</span>
+                  </span>
+                  <span className="text-[11px] text-surface-dim">
+                    {isFullscreen ? '창 모드로 복귀' : '전체화면 전환'}
+                  </span>
+                </button>
+              </div>
             </nav>
           </motion.div>
         )}

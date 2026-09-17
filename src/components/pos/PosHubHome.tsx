@@ -6,7 +6,6 @@ import {
   Home,
   Clock,
   ArrowRight,
-  Sparkles,
   ShieldCheck,
   TrendingUp,
   AlertTriangle,
@@ -101,9 +100,11 @@ export function PosHubHome({
           <div className="flex items-center space-x-1.5 bg-secondary/15 border border-secondary/30 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs whitespace-nowrap shrink-0">
             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
             <span className="text-white font-bold max-w-[65px] xs:max-w-[90px] sm:max-w-none truncate">{user.name}</span>
-            <span className="hidden sm:inline text-[10px] text-secondary-fixed opacity-80">
-              ({user.role === 'admin' ? '관리자' : '판매원'})
-            </span>
+            {user.role === 'admin' && (
+              <span className="hidden sm:inline text-[10px] text-amber-300 font-bold bg-amber-500/20 px-1.5 py-0.5 rounded">
+                관리자
+              </span>
+            )}
           </div>
 
           {/* Audit Log Button */}
@@ -144,61 +145,44 @@ export function PosHubHome({
       </header>
 
       {/* Main Hub Body */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-5 sm:p-8 flex flex-col justify-center space-y-8">
-        {/* Welcome Banner */}
-        <div className="text-center sm:text-left flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-[#121e3d] via-[#101b38] to-[#0c162e] border border-white/10 rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
-          <div className="relative z-10">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-secondary/15 border border-secondary/30 text-secondary text-xs font-bold mb-3">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>학생회 매점 정식 인증 세션</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              안녕하세요, {user.name} 담당자님!
-            </h2>
-            <p className="text-sm text-surface-dim mt-1.5 max-w-xl leading-relaxed">
-              매점 영업을 시작하려면 아래 <span className="text-white font-bold">[포스기 화면 (영업 시작)]</span>을 누르고, 상품 등록 및 재고 수량을 변경하려면 <span className="text-white font-bold">[상품 및 재고 관리]</span>를 선택하세요.
-            </p>
-          </div>
-
-          <div className="relative z-10 flex items-center space-x-3 self-center sm:self-auto shrink-0 bg-black/40 border border-white/10 p-3 rounded-2xl">
-            <div className="w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
-            <div className="text-left">
-              <div className="text-[11px] text-surface-dim">시스템 상태</div>
-              <div className="text-xs font-black text-emerald-300">정상 작동 (영업 준비 완료)</div>
-            </div>
-          </div>
+      <main className="flex-1 max-w-6xl w-full mx-auto p-3.5 sm:p-6 md:p-8 flex flex-col space-y-4 sm:space-y-6 md:space-y-8">
+        {/* Welcome Text */}
+        <div className="space-y-1 sm:space-y-1.5 pt-1">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight">
+            안녕하세요, {user.name} 담당자님!
+          </h2>
+          <p className="text-xs sm:text-sm text-surface-dim max-w-2xl leading-relaxed">
+            매점 영업을 시작하려면 아래 <span className="text-white font-bold">[포스기 화면]</span>을 누르고, 상품 등록 및 재고 수량을 변경하려면 <span className="text-white font-bold">[상품 및 재고 관리]</span>를 선택하세요.
+          </p>
         </div>
 
-        {/* Primary Action Buttons (2x2 Grid) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Primary Action Buttons (2x2 Grid on all screens) */}
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:gap-5">
           {/* Action 1: POS Sales Register (영업 시작) */}
           <button
             type="button"
             onClick={onStartSales}
-            className="group relative text-left bg-gradient-to-br from-[#182852] to-[#0f1b3b] hover:from-[#1e3266] hover:to-[#14234c] border-2 border-secondary/40 hover:border-secondary rounded-3xl p-6 shadow-2xl transition-all active:scale-[0.99] flex flex-col justify-between min-h-[200px] overflow-hidden"
+            className="group relative text-left bg-gradient-to-br from-[#182852] to-[#0f1b3b] hover:from-[#1e3266] hover:to-[#14234c] border-2 border-secondary/40 hover:border-secondary rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xl transition-all active:scale-[0.98] flex flex-col justify-between min-h-[105px] sm:min-h-[140px] overflow-hidden cursor-pointer"
           >
             {/* Background Glow */}
-            <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-secondary/20 rounded-full blur-3xl pointer-events-none group-hover:bg-secondary/30 transition-all" />
+            <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-secondary/20 rounded-full blur-2xl pointer-events-none group-hover:bg-secondary/30 transition-all" />
 
-            <div className="flex items-start justify-between relative z-10">
-              <div className="w-13 h-13 rounded-2xl bg-secondary text-white flex items-center justify-center shadow-lg shadow-secondary/30 group-hover:scale-105 transition-transform">
-                <Store className="w-6 h-6" />
+            <div className="flex items-start justify-between relative z-10 w-full">
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-secondary text-white flex items-center justify-center shadow-lg shadow-secondary/30 group-hover:scale-105 transition-transform shrink-0">
+                <Store className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <span className="px-3 py-1 rounded-full text-xs font-black bg-secondary/20 text-secondary border border-secondary/30">
-                {hasActiveCart ? '판매 진행 중' : '영업 개시'}
+              <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black bg-secondary/20 text-secondary border border-secondary/30 truncate">
+                {hasActiveCart ? '판매 중' : '영업 개시'}
               </span>
             </div>
 
-            <div className="relative z-10 mt-5">
-              <div className="flex items-center space-x-2">
-                <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
-                  포스기 화면 (영업 시작)
+            <div className="relative z-10 mt-2 sm:mt-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight">
+                  포스기 화면
                 </h3>
-                <ArrowRight className="w-5 h-5 text-secondary group-hover:translate-x-1.5 transition-transform" />
+                <ArrowRight className="w-4 h-4 text-secondary group-hover:translate-x-1 transition-transform shrink-0 ml-1" />
               </div>
-              <p className="text-xs text-surface-dim mt-1.5 leading-relaxed">
-                바코드 스캔, 터치 상품 선택, 장바구니 계산 및 현금/계좌이체 결제 창으로 즉시 진입합니다.
-              </p>
             </div>
           </button>
 
@@ -206,30 +190,27 @@ export function PosHubHome({
           <button
             type="button"
             onClick={onOpenProductManager}
-            className="group relative text-left bg-gradient-to-br from-[#162438] to-[#0c1626] hover:from-[#1c2e47] hover:to-[#111e33] border-2 border-amber-500/30 hover:border-amber-400 rounded-3xl p-6 shadow-2xl transition-all active:scale-[0.99] flex flex-col justify-between min-h-[200px] overflow-hidden"
+            className="group relative text-left bg-gradient-to-br from-[#162438] to-[#0c1626] hover:from-[#1c2e47] hover:to-[#111e33] border-2 border-amber-500/30 hover:border-amber-400 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xl transition-all active:scale-[0.98] flex flex-col justify-between min-h-[105px] sm:min-h-[140px] overflow-hidden cursor-pointer"
           >
             {/* Background Glow */}
-            <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-amber-500/20 transition-all" />
+            <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-all" />
 
-            <div className="flex items-start justify-between relative z-10">
-              <div className="w-13 h-13 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-                <Boxes className="w-6 h-6" />
+            <div className="flex items-start justify-between relative z-10 w-full">
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform shrink-0">
+                <Boxes className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                품목 {items.length}종 관리
+              <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 truncate">
+                {items.length}종
               </span>
             </div>
 
-            <div className="relative z-10 mt-5">
-              <div className="flex items-center space-x-2">
-                <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
-                  상품 및 재고 관리
+            <div className="relative z-10 mt-2 sm:mt-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight">
+                  상품 관리
                 </h3>
-                <ArrowRight className="w-5 h-5 text-amber-400 group-hover:translate-x-1.5 transition-transform" />
+                <ArrowRight className="w-4 h-4 text-amber-400 group-hover:translate-x-1 transition-transform shrink-0 ml-1" />
               </div>
-              <p className="text-xs text-surface-dim mt-1.5 leading-relaxed">
-                신규 상품 등록, 가격/바코드 수정, 카테고리 순서 변경 및 품목별 재고 수량을 실시간으로 조정합니다.
-              </p>
             </div>
           </button>
 
@@ -237,30 +218,27 @@ export function PosHubHome({
           <button
             type="button"
             onClick={onOpenSalesHistory}
-            className="group relative text-left bg-gradient-to-br from-[#0e2a24] to-[#081714] hover:from-[#12362e] hover:to-[#0c1f1b] border-2 border-emerald-500/30 hover:border-emerald-400 rounded-3xl p-6 shadow-2xl transition-all active:scale-[0.99] flex flex-col justify-between min-h-[200px] overflow-hidden"
+            className="group relative text-left bg-gradient-to-br from-[#0e2a24] to-[#081714] hover:from-[#12362e] hover:to-[#0c1f1b] border-2 border-emerald-500/30 hover:border-emerald-400 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xl transition-all active:scale-[0.98] flex flex-col justify-between min-h-[105px] sm:min-h-[140px] overflow-hidden cursor-pointer"
           >
             {/* Background Glow */}
-            <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-emerald-500/20 transition-all" />
+            <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/20 transition-all" />
 
-            <div className="flex items-start justify-between relative z-10">
-              <div className="w-13 h-13 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-                <ReceiptText className="w-6 h-6" />
+            <div className="flex items-start justify-between relative z-10 w-full">
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform shrink-0">
+                <ReceiptText className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                오늘 결제 {todayOrdersCount}건
+              <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 truncate">
+                오늘 {todayOrdersCount}건
               </span>
             </div>
 
-            <div className="relative z-10 mt-5">
-              <div className="flex items-center space-x-2">
-                <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
-                  매출 내역 및 영수증 관리
+            <div className="relative z-10 mt-2 sm:mt-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight">
+                  매출 내역
                 </h3>
-                <ArrowRight className="w-5 h-5 text-emerald-400 group-hover:translate-x-1.5 transition-transform" />
+                <ArrowRight className="w-4 h-4 text-emerald-400 group-hover:translate-x-1 transition-transform shrink-0 ml-1" />
               </div>
-              <p className="text-xs text-surface-dim mt-1.5 leading-relaxed">
-                전체 결제 내역 조회, 전자 영수증 재발급/출력, 결제 취소 및 환불 시 실시간 재고 자동 복원을 처리합니다.
-              </p>
             </div>
           </button>
 
@@ -268,98 +246,78 @@ export function PosHubHome({
           <button
             type="button"
             onClick={onOpenSettlement}
-            className="group relative text-left bg-gradient-to-br from-[#241738] to-[#140b24] hover:from-[#2e1d47] hover:to-[#1a0e2e] border-2 border-violet-500/30 hover:border-violet-400 rounded-3xl p-6 shadow-2xl transition-all active:scale-[0.99] flex flex-col justify-between min-h-[200px] overflow-hidden"
+            className="group relative text-left bg-gradient-to-br from-[#241738] to-[#140b24] hover:from-[#2e1d47] hover:to-[#1a0e2e] border-2 border-violet-500/30 hover:border-violet-400 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xl transition-all active:scale-[0.98] flex flex-col justify-between min-h-[105px] sm:min-h-[140px] overflow-hidden cursor-pointer"
           >
             {/* Background Glow */}
-            <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-violet-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-violet-500/20 transition-all" />
+            <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-violet-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-violet-500/20 transition-all" />
 
-            <div className="flex items-start justify-between relative z-10">
-              <div className="w-13 h-13 rounded-2xl bg-violet-500/20 border border-violet-500/40 text-violet-300 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-                <Calculator className="w-6 h-6" />
+            <div className="flex items-start justify-between relative z-10 w-full">
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-violet-500/20 border border-violet-500/40 text-violet-300 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform shrink-0">
+                <Calculator className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-violet-500/15 text-violet-300 border border-violet-500/30">
-                실적 {totalSalesToday.toLocaleString()}원
+              <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-violet-500/15 text-violet-300 border border-violet-500/30 truncate">
+                마감 관리
               </span>
             </div>
 
-            <div className="relative z-10 mt-5">
-              <div className="flex items-center space-x-2">
-                <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
-                  일일 시재금 및 마감 정산
+            <div className="relative z-10 mt-2 sm:mt-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight">
+                  마감 정산
                 </h3>
-                <ArrowRight className="w-5 h-5 text-violet-400 group-hover:translate-x-1.5 transition-transform" />
+                <ArrowRight className="w-4 h-4 text-violet-400 group-hover:translate-x-1 transition-transform shrink-0 ml-1" />
               </div>
-              <p className="text-xs text-surface-dim mt-1.5 leading-relaxed">
-                영업 시작 준비금과 현금 매출을 합산하여 금고 실측 현금과의 시재 과부족을 정산하고 마감 보고서를 생성합니다.
-              </p>
             </div>
           </button>
         </div>
 
-        {/* Quick KPI & Status Overview Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-[#0e172e] border border-white/10 rounded-2xl p-4">
-            <div className="flex items-center justify-between text-surface-dim text-xs mb-1.5">
-              <span>당일 총 매출액</span>
-              <TrendingUp className="w-3.5 h-3.5 text-secondary" />
+        {/* Quick KPI & Status Overview Bar (Compact single line on mobile, grid on desktop) */}
+        <div className="bg-[#0e172e] border border-white/10 rounded-2xl p-2.5 sm:p-4 shadow-sm">
+          {/* Mobile Single Row Strip (Horizontal scroll without overflowing) */}
+          <div className="grid grid-cols-2 min-[480px]:grid-cols-4 gap-2 sm:gap-4 divide-y sm:divide-y-0 divide-white/5">
+            <div className="flex sm:flex-col items-center sm:items-start justify-between sm:justify-start p-1.5 sm:p-0">
+              <div className="flex items-center gap-1 text-surface-dim text-[11px] sm:text-xs">
+                <TrendingUp className="w-3.5 h-3.5 text-secondary shrink-0" />
+                <span>당일 매출</span>
+              </div>
+              <div className="text-sm sm:text-lg font-black text-white font-mono mt-0 sm:mt-1">
+                {totalSalesToday.toLocaleString()}
+                <span className="text-[10px] sm:text-xs font-normal text-surface-dim ml-0.5">원</span>
+              </div>
             </div>
-            <div className="text-xl font-black text-white font-mono">
-              {totalSalesToday.toLocaleString()}
-              <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
-            </div>
-            <div className="text-[11px] text-surface-dim mt-1">
-              이체 {transferSalesToday.toLocaleString()}원 / 현금 {cashSalesToday.toLocaleString()}원
-            </div>
-          </div>
 
-          <div className="bg-[#0e172e] border border-white/10 rounded-2xl p-4">
-            <div className="flex items-center justify-between text-surface-dim text-xs mb-1.5">
-              <span>총 재고 합계</span>
-              <Boxes className="w-3.5 h-3.5 text-indigo-400" />
+            <div className="flex sm:flex-col items-center sm:items-start justify-between sm:justify-start p-1.5 sm:p-0">
+              <div className="flex items-center gap-1 text-surface-dim text-[11px] sm:text-xs">
+                <Boxes className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <span>총 재고</span>
+              </div>
+              <div className="text-sm sm:text-lg font-black text-white font-mono mt-0 sm:mt-1">
+                {totalStockCount}
+                <span className="text-[10px] sm:text-xs font-normal text-surface-dim ml-0.5">개</span>
+              </div>
             </div>
-            <div className="text-xl font-black text-white font-mono">
-              {totalStockCount}
-              <span className="text-xs font-normal text-surface-dim ml-0.5">개</span>
-            </div>
-            <div className="text-[11px] text-surface-dim mt-1">
-              {categories.length}개 카테고리 · {items.length}개 품목
-            </div>
-          </div>
 
-          <div className="bg-[#0e172e] border border-white/10 rounded-2xl p-4">
-            <div className="flex items-center justify-between text-surface-dim text-xs mb-1.5">
-              <span>품절 품목 (재고 0)</span>
-              <BadgeAlert className="w-3.5 h-3.5 text-red-400" />
+            <div className="flex sm:flex-col items-center sm:items-start justify-between sm:justify-start p-1.5 sm:p-0 pt-2 sm:pt-0">
+              <div className="flex items-center gap-1 text-surface-dim text-[11px] sm:text-xs">
+                <BadgeAlert className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                <span>품절 품목</span>
+              </div>
+              <div className={`text-sm sm:text-lg font-black font-mono mt-0 sm:mt-1 ${outOfStockCount > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                {outOfStockCount}
+                <span className="text-[10px] sm:text-xs font-normal text-surface-dim ml-0.5">종</span>
+              </div>
             </div>
-            <div className={`text-xl font-black font-mono ${outOfStockCount > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-              {outOfStockCount}
-              <span className="text-xs font-normal text-surface-dim ml-0.5">종</span>
-            </div>
-            <div className="text-[11px] text-surface-dim mt-1">
-              {outOfStockCount > 0 ? '즉시 입고 필요' : '모든 품목 재고 보유'}
-            </div>
-          </div>
 
-          <div className="bg-[#0e172e] border border-white/10 rounded-2xl p-4">
-            <div className="flex items-center justify-between text-surface-dim text-xs mb-1.5">
-              <span>재고 부족 (1~5개)</span>
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+            <div className="flex sm:flex-col items-center sm:items-start justify-between sm:justify-start p-1.5 sm:p-0 pt-2 sm:pt-0">
+              <div className="flex items-center gap-1 text-surface-dim text-[11px] sm:text-xs">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span>재고 부족</span>
+              </div>
+              <div className={`text-sm sm:text-lg font-black font-mono mt-0 sm:mt-1 ${lowStockCount > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                {lowStockCount}
+                <span className="text-[10px] sm:text-xs font-normal text-surface-dim ml-0.5">종</span>
+              </div>
             </div>
-            <div className={`text-xl font-black font-mono ${lowStockCount > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
-              {lowStockCount}
-              <span className="text-xs font-normal text-surface-dim ml-0.5">종</span>
-            </div>
-            <div className="text-[11px] text-surface-dim mt-1">
-              추가 발주 점검 권장
-            </div>
-          </div>
-        </div>
-
-        {/* Operating Guide Notice */}
-        <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 text-xs text-surface-dim flex items-start space-x-3">
-          <Sparkles className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
-          <div className="leading-relaxed">
-            <span className="text-white font-bold">운영 규칙 안내:</span> 영업 도중 실수로 인한 판매 중단을 방지하기 위해, 포스기 판매 화면에서는 즉시 로그아웃 대신 <strong className="text-secondary-fixed">[계정 교환]</strong> 버튼을 통해 근무자를 변경할 수 있습니다. 당일 영업을 모두 마치신 후 <strong className="text-red-300">[영업 종료]</strong>를 하시면 본 메인 화면으로 돌아와 안전하게 로그아웃하실 수 있습니다.
           </div>
         </div>
       </main>

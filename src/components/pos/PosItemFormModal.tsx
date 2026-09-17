@@ -18,7 +18,6 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
   const [stock, setStock] = useState<number | ''>(item?.stock ?? 20);
   const [isFavorite, setIsFavorite] = useState(item?.isFavorite ?? false);
   const [isActive, setIsActive] = useState(item?.isActive ?? true);
-  const [barcode, setBarcode] = useState(item?.barcode || '');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,7 +28,6 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
       setStock(item.stock);
       setIsFavorite(item.isFavorite);
       setIsActive(item.isActive);
-      setBarcode(item.barcode || '');
     }
   }, [item]);
 
@@ -62,7 +60,6 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
       stock: numStock,
       isFavorite,
       isActive,
-      barcode: barcode.trim() || undefined,
       updatedAt: new Date().toISOString(),
     };
 
@@ -218,20 +215,6 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
                 개
               </span>
             </div>
-          </div>
-
-          {/* Barcode (Optional) */}
-          <div>
-            <label className="block text-xs font-semibold text-surface-dim mb-1.5">
-              바코드 번호 (선택)
-            </label>
-            <input
-              type="text"
-              value={barcode}
-              onChange={e => setBarcode(e.target.value)}
-              placeholder="바코드 스캐너 입력 또는 공란"
-              className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-secondary placeholder:text-surface-dim/40"
-            />
           </div>
 
           {/* Favorite & Active Toggles */}

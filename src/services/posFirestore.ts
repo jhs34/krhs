@@ -161,10 +161,55 @@ export function subscribePosSettlement(
         actualCashInput: typeof data.actualCashInput === 'number' ? data.actualCashInput : undefined,
         discrepancy: typeof data.discrepancy === 'number' ? data.discrepancy : undefined,
         status: (data.status as 'OPEN' | 'CLOSED') || 'OPEN',
+        note: data.note || '',
       });
     },
     err => {
       console.error('Firestore settlement subscription error:', err);
+      if (onError) onError(err);
+    }
+  );
+}
+
+/**
+ * Subscribe to all historical POS daily settlement reports in real-time (newest first).
+ */
+export function subscribePosSettlements(
+  onData: (settlements: PosSettlement[]) => void,
+  onError?: (error: Error) => void
+): () => void {
+  const collRef = collection(db, 'settlements');
+  return onSnapshot(
+    collRef,
+    snapshot => {
+      const list: PosSettlement[] = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          openedAt: data.openedAt || '',
+          closedAt: data.closedAt || undefined,
+          openedBy: data.openedBy || '',
+          closedBy: data.closedBy || undefined,
+          initialCash: typeof data.initialCash === 'number' ? data.initialCash : 0,
+          transferSales: typeof data.transferSales === 'number' ? data.transferSales : 0,
+          cashSales: typeof data.cashSales === 'number' ? data.cashSales : 0,
+          totalSales: typeof data.totalSales === 'number' ? data.totalSales : 0,
+          actualCashInput: typeof data.actualCashInput === 'number' ? data.actualCashInput : undefined,
+          discrepancy: typeof data.discrepancy === 'number' ? data.discrepancy : undefined,
+          status: (data.status as 'OPEN' | 'CLOSED') || 'OPEN',
+          note: data.note || '',
+        };
+      });
+      // Sort newest first by id (YYYY-MM-DD) or closedAt
+      list.sort((a, b) => {
+        const timeB = b.closedAt || b.openedAt || b.id;
+        const timeA = a.closedAt || a.openedAt || a.id;
+        return timeB.localeCompare(timeA);
+      });
+      onData(list);
+    },
+    err => {
+      console.error('Firestore settlements list subscription error:', err);
       if (onError) onError(err);
     }
   );
@@ -455,6 +500,126 @@ export async function runCancelOrderTransaction(
 }
 
 /**
+ * Fast atomic update for a single POS item (stock adjustment, favorite toggle, active state, name, etc.)
+ */
+export async function saveSinglePosItemPartial(
+  itemId: string,
+  patch: Partial<PosItem>,
+  actorName = '근무자'
+): Promise<void> {
+  await ensurePosAuth();
+  const itemRef = doc(db, 'items', itemId);
+  const cleanPatch: Record<string, any> = {
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  };
+  await setDoc(itemRef, sanitizeForFirestore(cleanPatch), { merge: true });
+
+  // Optional lightweight log for stock / status adjustments
+  if (patch.stock !== undefined || patch.isActive !== undefined || patch.price !== undefined || patch.name !== undefined) {
+    logPosActivity({
+      action: 'ITEM_UPDATED',
+      actionTitle: '상품 정보 수정',
+      category: 'INVENTORY',
+      actorName,
+      details: `상품 [#${itemId.slice(-6)}] 업데이트 (${Object.entries(patch)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(', ')})`,
+      metadata: { itemId, ...patch },
+    }).catch(() => {});
+  }
+}
+
+/**
+ * Batch save modified items with custom summary log to prevent log spamming
+ */
+export async function saveBatchPosItemsWithSummary(
+  changedItems: PosItem[],
+  logSummaryDetails: string,
+  actorName = '근무자'
+): Promise<void> {
+  if (changedItems.length === 0) return;
+  await ensurePosAuth();
+  const chunkSize = 400;
+  for (let i = 0; i < changedItems.length; i += chunkSize) {
+    const chunk = changedItems.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    const nowIso = new Date().toISOString();
+    for (const item of chunk) {
+      const itemRef = doc(db, 'items', item.id);
+      batch.set(
+        itemRef,
+        sanitizeForFirestore({
+          name: item.name || '',
+          categoryId: item.categoryId || '',
+          price: typeof item.price === 'number' ? item.price : 0,
+          stock: typeof item.stock === 'number' ? item.stock : 0,
+          isFavorite: Boolean(item.isFavorite),
+          isActive: item.isActive !== false,
+          barcode: item.barcode || '',
+          updatedAt: item.updatedAt || nowIso,
+        }),
+        { merge: true }
+      );
+    }
+    await batch.commit();
+  }
+
+  logPosActivity({
+    action: 'ITEM_UPDATED',
+    actionTitle: '상품 재고/정보 일괄 저장',
+    category: 'INVENTORY',
+    actorName,
+    details: logSummaryDetails || `총 ${changedItems.length}개 상품 변경사항 일괄 저장`,
+    metadata: { count: changedItems.length },
+  }).catch(() => {});
+}
+
+/**
+ * Fast batch save for multiple POS items (atomic commit, eliminates subscription lag & reversion)
+ */
+export async function saveMultiplePosItems(
+  items: PosItem[],
+  actorName = '관리자'
+): Promise<void> {
+  if (items.length === 0) return;
+  await ensurePosAuth();
+  const chunkSize = 400;
+  for (let i = 0; i < items.length; i += chunkSize) {
+    const chunk = items.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    const nowIso = new Date().toISOString();
+    for (const item of chunk) {
+      const itemRef = doc(db, 'items', item.id);
+      batch.set(
+        itemRef,
+        sanitizeForFirestore({
+          name: item.name || '',
+          categoryId: item.categoryId || '',
+          price: typeof item.price === 'number' ? item.price : 0,
+          stock: typeof item.stock === 'number' ? item.stock : 0,
+          isFavorite: Boolean(item.isFavorite),
+          isActive: item.isActive !== false,
+          barcode: item.barcode || '',
+          updatedAt: item.updatedAt || nowIso,
+        }),
+        { merge: true }
+      );
+    }
+    await batch.commit();
+  }
+
+  logPosActivity({
+    action: 'ITEM_UPDATED',
+    actionTitle: '상품 다중 일괄 업데이트',
+    category: 'INVENTORY',
+    actorName,
+    details: `총 ${items.length}개 상품 데이터 일괄 동기화`,
+    metadata: { count: items.length },
+  }).catch(() => {});
+}
+
+/**
  * Save or update a single POS item.
  */
 export async function savePosItem(
@@ -514,9 +679,46 @@ export async function deletePosItem(
 }
 
 /**
- * Save or update a POS category.
+ * Batch save multiple POS categories with a single consolidated log.
  */
-export async function savePosCategory(cat: PosCategory, actorName = '관리자'): Promise<void> {
+export async function saveBatchPosCategories(
+  categories: PosCategory[],
+  actorName = '관리자'
+): Promise<void> {
+  if (categories.length === 0) return;
+  await ensurePosAuth();
+  const batch = writeBatch(db);
+  for (const cat of categories) {
+    const catRef = doc(db, 'categories', cat.id);
+    batch.set(
+      catRef,
+      {
+        name: cat.name,
+        orderIndex: cat.orderIndex,
+      },
+      { merge: true }
+    );
+  }
+  await batch.commit();
+
+  logPosActivity({
+    action: 'CATEGORY_UPDATED',
+    actionTitle: '카테고리 구성 변경',
+    category: 'INVENTORY',
+    actorName,
+    details: `카테고리 목록 (${categories.map(c => c.name).join(', ')}) 일괄 변경 저장`,
+    metadata: { count: categories.length },
+  }).catch(() => {});
+}
+
+/**
+ * Save or update a single POS category.
+ */
+export async function savePosCategory(
+  cat: PosCategory,
+  actorName = '관리자',
+  shouldLog = true
+): Promise<void> {
   await ensurePosAuth();
   const catRef = doc(db, 'categories', cat.id);
   await setDoc(
@@ -528,14 +730,16 @@ export async function savePosCategory(cat: PosCategory, actorName = '관리자')
     { merge: true }
   );
 
-  logPosActivity({
-    action: 'CATEGORY_UPDATED',
-    actionTitle: '카테고리 저장',
-    category: 'INVENTORY',
-    actorName,
-    details: `카테고리 [${cat.name}] 정보 저장 (순서: ${cat.orderIndex})`,
-    metadata: { categoryId: cat.id, name: cat.name, orderIndex: cat.orderIndex },
-  }).catch(() => {});
+  if (shouldLog) {
+    logPosActivity({
+      action: 'CATEGORY_UPDATED',
+      actionTitle: '카테고리 저장',
+      category: 'INVENTORY',
+      actorName,
+      details: `카테고리 [${cat.name}] 정보 저장 (순서: ${cat.orderIndex})`,
+      metadata: { categoryId: cat.id, name: cat.name, orderIndex: cat.orderIndex },
+    }).catch(() => {});
+  }
 }
 
 /**
@@ -597,6 +801,27 @@ export async function savePosSettlement(
       actualCashInput: settlement.actualCashInput,
       discrepancy: settlement.discrepancy,
     },
+  }).catch(() => {});
+}
+
+/**
+ * [관리자 전용] 일일 정산 보고서 삭제
+ */
+export async function deletePosSettlement(
+  settlementId: string,
+  actorName = '관리자'
+): Promise<void> {
+  await ensurePosAuth();
+  const docRef = doc(db, 'settlements', settlementId);
+  await deleteDoc(docRef);
+
+  logPosActivity({
+    action: 'SETTLEMENT_DELETED',
+    actionTitle: '마감 정산 내역 삭제',
+    category: 'SETTLEMENT',
+    actorName,
+    sessionId: settlementId,
+    details: `[${settlementId}] 일일 마감 정산 보고서가 관리자에 의해 삭제되었습니다.`,
   }).catch(() => {});
 }
 
@@ -872,6 +1097,8 @@ export async function logPosActivity(
     const id = log.id || `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const logDocRef = doc(db, 'pos_logs', id);
     const timestamp = log.timestamp || new Date().toISOString();
+    const now = new Date();
+    const defaultSessionId = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     const entry: PosAuditLog = {
       id,
@@ -883,7 +1110,7 @@ export async function logPosActivity(
       actorUid: log.actorUid,
       details: log.details,
       metadata: log.metadata,
-      sessionId: log.sessionId,
+      sessionId: log.sessionId || defaultSessionId,
     };
 
     await setDoc(
@@ -909,32 +1136,52 @@ export function subscribePosLogs(
   onError?: (error: Error) => void,
   maxEntries = 300
 ): () => void {
-  const q = query(collection(db, 'pos_logs'), orderBy('timestamp', 'desc'), limit(maxEntries));
-  return onSnapshot(
-    q,
-    snapshot => {
-      const logs: PosAuditLog[] = snapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          timestamp: data.timestamp || new Date().toISOString(),
-          action: data.action || 'SYSTEM',
-          actionTitle: data.actionTitle || '시스템 작업',
-          category: data.category || 'SYSTEM',
-          actorName: data.actorName || '관리자',
-          actorUid: data.actorUid,
-          details: data.details || '',
-          metadata: data.metadata || undefined,
-          sessionId: data.sessionId,
-        };
-      });
-      onData(logs);
-    },
-    err => {
-      console.error('Firestore pos_logs subscription error:', err);
-      if (onError) onError(err);
-    }
-  );
+  const mapDocToLog = (docSnap: any): PosAuditLog => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      timestamp: data.timestamp || new Date().toISOString(),
+      action: data.action || 'SYSTEM',
+      actionTitle: data.actionTitle || '시스템 작업',
+      category: data.category || 'SYSTEM',
+      actorName: data.actorName || '관리자',
+      actorUid: data.actorUid,
+      details: data.details || '',
+      metadata: data.metadata || undefined,
+      sessionId: data.sessionId,
+    };
+  };
+
+  try {
+    const q = query(collection(db, 'pos_logs'), orderBy('timestamp', 'desc'), limit(maxEntries));
+    return onSnapshot(
+      q,
+      snapshot => {
+        const logs: PosAuditLog[] = snapshot.docs.map(mapDocToLog);
+        onData(logs);
+      },
+      err => {
+        console.warn('Firestore pos_logs subscription error with orderBy, falling back to unordered query:', err);
+        const fallbackQ = query(collection(db, 'pos_logs'), limit(maxEntries));
+        return onSnapshot(
+          fallbackQ,
+          snapshot => {
+            const logs: PosAuditLog[] = snapshot.docs.map(mapDocToLog);
+            logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            onData(logs);
+          },
+          fallbackErr => {
+            console.error('Firestore pos_logs fallback error:', fallbackErr);
+            if (onError) onError(fallbackErr);
+          }
+        );
+      }
+    );
+  } catch (err) {
+    console.error('Failed to setup pos_logs subscription:', err);
+    if (onError) onError(err as Error);
+    return () => {};
+  }
 }
 
 /**

@@ -9,7 +9,7 @@ interface PosTransferModalProps {
 
 export function PosTransferModal({ totalAmount, onConfirmPayment, onClose }: PosTransferModalProps) {
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md" onClick={onClose}>
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" onClick={onClose}>
       <motion.div
         initial={{ scale: 0.92, opacity: 0, filter: 'blur(10px)' }}
         animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}

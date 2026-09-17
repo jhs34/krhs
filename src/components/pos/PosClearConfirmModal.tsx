@@ -9,14 +9,14 @@ interface PosClearConfirmModalProps {
 
 export function PosClearConfirmModal({ onConfirm, onClose, totalItems }: PosClearConfirmModalProps) {
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
       <motion.div
         initial={{ scale: 0.9, opacity: 0, filter: 'blur(8px)' }}
         animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
         exit={{ scale: 0.9, opacity: 0, filter: 'blur(8px)' }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
         onClick={e => e.stopPropagation()}
-        className="bg-[#0e1628] border border-white/20 w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center relative"
+        className="bg-[#0e1628] border border-white/20 w-full max-w-sm rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col items-center text-center relative"
       >
         <div className="w-12 h-12 rounded-2xl bg-red-500/15 border border-red-500/30 text-red-400 flex items-center justify-center mb-3">
           <AlertTriangle className="w-6 h-6" />

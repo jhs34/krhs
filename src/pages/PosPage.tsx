@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { format } from 'date-fns';
-import { CheckCircle2, AlertCircle, Power, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Power, AlertTriangle, ShoppingCart, ChevronUp, ChevronDown } from 'lucide-react';
 import { PosHeader } from '../components/pos/PosHeader';
 import { PosMenuGrid } from '../components/pos/PosMenuGrid';
 import { PosCart } from '../components/pos/PosCart';
@@ -41,6 +41,8 @@ import {
   deletePosOrder,
   deleteMultiplePosOrders,
   savePosItem,
+  saveSinglePosItemPartial,
+  saveMultiplePosItems,
   savePosCategory,
   deletePosItem,
   deletePosCategory,
@@ -87,9 +89,6 @@ export function PosPage() {
 
   // Screen View Mode: 'hub' (포스기 메인화면) | 'register' (포스기 판매/영업 화면)
   const [posScreenMode, setPosScreenMode] = useState<'hub' | 'register'>('hub');
-
-  // Modal for switching accounts during sales
-  const [showSwitchAccountModal, setShowSwitchAccountModal] = useState<boolean>(false);
 
   // Modal for confirming shift end
   const [showEndShiftConfirm, setShowEndShiftConfirm] = useState<boolean>(false);
@@ -163,6 +162,109 @@ export function PosPage() {
   const [showSalesHistoryModal, setShowSalesHistoryModal] = useState<boolean>(false);
   const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
   const [showAuditLogModal, setShowAuditLogModal] = useState<boolean>(false);
+
+  // Responsive Viewport & Orientation Detection
+  // 데스크톱 가로 모드 및 태블릿 가로 모드일 때만 좌우 2분할(Split) 레이아웃 적용.
+  // 스마트폰(전체) 및 탭(태블릿: 갤럭시 탭, 아이패드 등)을 세로로 세웠을 때는 모바일처럼 장바구니가 하단으로 가도록 처리.
+  const checkIsSplitLayout = () => {
+    if (typeof window === 'undefined') return true;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const isLandscape = w > h;
+
+    // 1. 세로 모드 (Portrait, h >= w):
+    // 탭(태블릿) 세로 화면(iPad, 갤럭시 탭: 768px, 800px, 820px, 834px, 1024px 등)과 스마트폰 세로는
+    // 모두 장바구니가 하단으로 이동 (false)
+    // (단, 1150px 이상의 초대형 피벗 모니터만 가로 분할 유지)
+    if (!isLandscape && w < 1150) {
+      return false;
+    }
+
+    // 2. 가로 모드 (Landscape, w > h):
+    // 최소 768px 이상의 가로 화면(태블릿 가로, 랩탑, PC 데스크톱)일 때만 좌우 분할
+    if (isLandscape && w >= 768) {
+      return true;
+    }
+
+    // 3. 그 외 (스마트폰 가로 등) 모두 하단 장바구니 모드
+    return false;
+  };
+
+  const [isSplitLayout, setIsSplitLayout] = useState<boolean>(() => checkIsSplitLayout());
+
+  useEffect(() => {
+    const handleViewportChange = () => {
+      const split = checkIsSplitLayout();
+      setIsSplitLayout(split);
+      if (split) {
+        setIsMobileCartOpen(false);
+      }
+    };
+
+    handleViewportChange();
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('orientationchange', handleViewportChange);
+
+    const mql = window.matchMedia('(orientation: portrait)');
+    const handleMqlChange = () => handleViewportChange();
+    if (mql?.addEventListener) {
+      mql.addEventListener('change', handleMqlChange);
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('orientationchange', handleViewportChange);
+      if (mql?.removeEventListener) {
+        mql.removeEventListener('change', handleMqlChange);
+      }
+    };
+  }, []);
+
+  // Mobile / Tablet Portrait Cart Slide-up & Gestures (방법 1: 슬라이드 제스처, 방법 2: 전용 하단 버튼)
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState<boolean>(false);
+  const touchStartYRef = useRef<number>(0);
+  const touchCurrentYRef = useRef<number>(0);
+
+  // Close mobile cart if screen expands to split layout
+  useEffect(() => {
+    if (isSplitLayout) {
+      setIsMobileCartOpen(false);
+    }
+  }, [isSplitLayout]);
+
+  // Swipe up on collapsed mobile bottom bar (방법 1)
+  const handleBarTouchStart = (e: React.TouchEvent) => {
+    touchStartYRef.current = e.touches[0].clientY;
+    touchCurrentYRef.current = e.touches[0].clientY;
+  };
+
+  const handleBarTouchMove = (e: React.TouchEvent) => {
+    touchCurrentYRef.current = e.touches[0].clientY;
+  };
+
+  const handleBarTouchEnd = () => {
+    const diffY = touchStartYRef.current - touchCurrentYRef.current;
+    if (diffY > 28) {
+      setIsMobileCartOpen(true);
+    }
+  };
+
+  // Swipe down on expanded mobile sheet header (방법 1)
+  const handleSheetHeaderTouchStart = (e: React.TouchEvent) => {
+    touchStartYRef.current = e.touches[0].clientY;
+    touchCurrentYRef.current = e.touches[0].clientY;
+  };
+
+  const handleSheetHeaderTouchMove = (e: React.TouchEvent) => {
+    touchCurrentYRef.current = e.touches[0].clientY;
+  };
+
+  const handleSheetHeaderTouchEnd = () => {
+    const diffY = touchCurrentYRef.current - touchStartYRef.current;
+    if (diffY > 35) {
+      setIsMobileCartOpen(false);
+    }
+  };
 
   // Audit Logs State (hydrated from localStorage)
   const [logs, setLogs] = useState<PosAuditLog[]>(() => {
@@ -410,8 +512,82 @@ export function PosPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Safe item updater with Cart synchronization & Firestore Sync
-  const handleUpdateItems = async (newItems: PosItem[]) => {
+  // Fast atomic single-item updater (instant optimistic response, no subscription delay)
+  const handleUpdateSingleItem = async (updatedItem: PosItem) => {
+    // 1. Optimistic state update
+    setItems(prev => {
+      const exists = prev.some(it => it.id === updatedItem.id);
+      if (exists) {
+        return prev.map(it => (it.id === updatedItem.id ? updatedItem : it));
+      }
+      return [updatedItem, ...prev];
+    });
+
+    // 2. Sync cart
+    setCart(prevCart => {
+      return prevCart
+        .map(ci => {
+          if (ci.item.id === updatedItem.id) {
+            return {
+              ...ci,
+              item: updatedItem,
+              count: Math.min(ci.count, Math.max(1, updatedItem.stock)),
+            };
+          }
+          return ci;
+        })
+        .filter(ci => ci.item.stock > 0);
+    });
+
+    // 3. Fast single Firestore write
+    try {
+      await savePosItem(updatedItem, currentUser?.name || '근무자');
+    } catch (e) {
+      console.error('Failed to sync item with Firestore:', e);
+    }
+  };
+
+  // Fast partial property patcher (stock delta, active toggle, favorite toggle)
+  const handlePatchSingleItem = async (itemId: string, patch: Partial<PosItem>) => {
+    // 1. Optimistic state update
+    setItems(prev =>
+      prev.map(it => {
+        if (it.id === itemId) {
+          return { ...it, ...patch };
+        }
+        return it;
+      })
+    );
+
+    // 2. Sync cart if relevant
+    if (patch.stock !== undefined || patch.name !== undefined || patch.price !== undefined || patch.isActive !== undefined) {
+      setCart(prevCart => {
+        return prevCart
+          .map(ci => {
+            if (ci.item.id === itemId) {
+              const fresh = { ...ci.item, ...patch };
+              return {
+                ...ci,
+                item: fresh,
+                count: Math.min(ci.count, Math.max(1, fresh.stock)),
+              };
+            }
+            return ci;
+          })
+          .filter(ci => ci.item.stock > 0);
+      });
+    }
+
+    // 3. Fast single Firestore write
+    try {
+      await saveSinglePosItemPartial(itemId, patch, currentUser?.name || '근무자');
+    } catch (e) {
+      console.error('Failed to sync item patch with Firestore:', e);
+    }
+  };
+
+  // Safe item updater with Cart synchronization (Local State Sync)
+  const handleUpdateItems = (newItems: PosItem[]) => {
     setItems(newItems);
     setCart(prevCart => {
       return prevCart
@@ -425,25 +601,10 @@ export function PosPage() {
         })
         .filter(ci => ci.item.stock > 0);
     });
-
-    try {
-      for (const item of newItems) {
-        await savePosItem(item);
-      }
-    } catch (e) {
-      console.error('Failed to sync items with Firestore:', e);
-    }
   };
 
-  const handleUpdateCategories = async (newCategories: PosCategory[]) => {
+  const handleUpdateCategories = (newCategories: PosCategory[]) => {
     setCategories(newCategories);
-    try {
-      for (const cat of newCategories) {
-        await savePosCategory(cat);
-      }
-    } catch (e) {
-      console.error('Failed to sync categories with Firestore:', e);
-    }
   };
 
   const handleResetToDefault = async () => {
@@ -588,12 +749,14 @@ export function PosPage() {
   const handleConfirmCashPayment = (received: number, change: number) => {
     const total = cart.reduce((sum, item) => sum + item.item.price * item.count, 0);
     setShowCashModal(false);
+    setIsMobileCartOpen(false);
     executeOrder('CASH', total, received, change, change > 0 ? `거스름돈 ${change.toLocaleString()}원` : '거스름돈 없음');
   };
 
   const handleConfirmTransferPayment = () => {
     const total = cart.reduce((sum, item) => sum + item.item.price * item.count, 0);
     setShowTransferModal(false);
+    setIsMobileCartOpen(false);
     executeOrder('TRANSFER', total, undefined, undefined, '입금 확인 완료');
   };
 
@@ -705,14 +868,8 @@ export function PosPage() {
     showToast('매점 영업이 종료되었습니다. 메인 화면으로 복귀했습니다.');
   };
 
-  // Switch account success during sales
-  const handleSwitchAccountSuccess = (newUser: PosUser) => {
-    setCurrentUser(newUser);
-    setShowSwitchAccountModal(false);
-    showToast(`근무자가 '${newUser.name}' 님으로 교환되었습니다.`);
-  };
-
   const totalCartAmount = cart.reduce((sum, item) => sum + item.item.price * item.count, 0);
+  const totalCartCount = cart.reduce((sum, item) => sum + item.count, 0);
 
   return (
     <div className="fixed inset-0 w-full h-full bg-[#080d1a] text-white flex flex-col overflow-hidden z-50 select-none">
@@ -751,7 +908,7 @@ export function PosPage() {
       {/* 3. When logged in: If in 'register' mode -> Active Sales Register Screen */}
       {currentUser && posScreenMode === 'register' && (
         <>
-          {/* POS Active Sales Header with Switch Account & End Shift */}
+          {/* POS Active Sales Header with End Shift */}
           <PosHeader
             user={currentUser}
             isCloudConnected={isFirestoreConnected}
@@ -762,22 +919,24 @@ export function PosPage() {
             onOpenProductManager={() => setShowProductManager(true)}
             onOpenSalesHistory={() => setShowSalesHistoryModal(true)}
             onOpenAuditLog={() => setShowAuditLogModal(true)}
-            onSwitchAccount={() => setShowSwitchAccountModal(true)}
+            onOpenSettlement={() => setShowSettlementModal(true)}
             onEndShift={() => setShowEndShiftConfirm(true)}
             totalSalesToday={totalSalesToday}
             cashSalesToday={cashSalesToday}
             transferSalesToday={transferSalesToday}
           />
 
-          {/* Main 2-Column Split: Menu Grid vs Cart with Galaxy-style Draggable Splitter */}
+          {/* Main Layout: Split Layout (Desktop & Tablet Landscape) vs Bottom Cart Mode (Mobile & Tablet Portrait) */}
           <div
             ref={splitContainerRef}
             className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 relative select-none z-0"
           >
-            {/* Left Panel: Menu selection */}
+            {/* Menu Selection Panel: Fullscreen on mobile & tablet portrait, split on landscape */}
             <div
-              style={{ width: `${splitRatio}%` }}
-              className="w-full md:w-auto h-full flex flex-col overflow-hidden min-w-0 md:min-w-[280px]"
+              style={isSplitLayout ? { width: `${splitRatio}%` } : undefined}
+              className={`w-full h-full flex flex-col overflow-hidden min-w-0 ${
+                isSplitLayout ? 'md:w-auto md:min-w-[280px]' : ''
+              }`}
             >
               <PosMenuGrid
                 categories={categories}
@@ -788,48 +947,187 @@ export function PosPage() {
               />
             </div>
 
-            {/* Samsung Galaxy Split-Screen Draggable Divider */}
-            <PosSplitDivider
-              splitRatio={splitRatio}
-              onRatioChange={setSplitRatio}
-              containerRef={splitContainerRef}
-              minRatio={30}
-              maxRatio={78}
-              defaultRatio={62}
-            />
+            {/* Split Layout Only: Samsung Galaxy Split-Screen Draggable Divider */}
+            {isSplitLayout && (
+              <div className="flex h-full shrink-0">
+                <PosSplitDivider
+                  splitRatio={splitRatio}
+                  onRatioChange={setSplitRatio}
+                  containerRef={splitContainerRef}
+                  minRatio={30}
+                  maxRatio={78}
+                  defaultRatio={62}
+                />
+              </div>
+            )}
 
-            {/* Right Panel: Cart & Payment Panel */}
-            <div
-              style={{ width: `${100 - splitRatio}%` }}
-              className="w-full md:w-auto h-full flex flex-col overflow-hidden min-w-0 md:min-w-[260px]"
-            >
-              <PosCart
-                cart={cart}
-                isProcessing={isProcessingOrder}
-                isOnline={isOnline}
-                onUpdateCount={handleUpdateCount}
-                onRemoveItem={handleRemoveItem}
-                onRequestClear={() => setShowClearConfirm(true)}
-                onOpenKeypad={cartItem => setKeypadTarget(cartItem)}
-                onRequestCashPayment={() => setShowCashModal(true)}
-                onRequestTransferPayment={() => setShowTransferModal(true)}
-              />
-            </div>
+            {/* Split Layout Only: Right Panel Cart & Payment Panel */}
+            {isSplitLayout && (
+              <div
+                style={{ width: `${100 - splitRatio}%` }}
+                className="h-full flex flex-col overflow-hidden min-w-0 md:min-w-[260px]"
+              >
+                <PosCart
+                  cart={cart}
+                  isProcessing={isProcessingOrder}
+                  isOnline={isOnline}
+                  onUpdateCount={handleUpdateCount}
+                  onRemoveItem={handleRemoveItem}
+                  onRequestClear={() => setShowClearConfirm(true)}
+                  onOpenKeypad={cartItem => setKeypadTarget(cartItem)}
+                  onRequestCashPayment={() => setShowCashModal(true)}
+                  onRequestTransferPayment={() => setShowTransferModal(true)}
+                />
+              </div>
+            )}
           </div>
+
+          {/* Bottom Cart Mode (스마트폰 및 탭/태블릿 세로 모드): Floating Bottom Cart Bar */}
+          {!isSplitLayout && (
+            <div
+              className={`fixed bottom-0 inset-x-0 z-40 bg-[#0b1326]/95 backdrop-blur-xl border-t border-white/10 px-4 sm:px-6 pt-2 pb-3 sm:pb-4 shadow-2xl transition-all select-none ${
+                isMobileCartOpen ? 'pointer-events-none opacity-0 translate-y-full' : 'opacity-100 translate-y-0'
+              }`}
+            >
+              <div className="max-w-3xl mx-auto">
+                {/* Swipe handle bar */}
+                <div
+                  onTouchStart={handleBarTouchStart}
+                  onTouchMove={handleBarTouchMove}
+                  onTouchEnd={handleBarTouchEnd}
+                  onClick={() => setIsMobileCartOpen(true)}
+                  className="w-full flex justify-center py-1 cursor-grab active:cursor-grabbing"
+                  aria-label="장바구니 열기 제스처 바"
+                >
+                  <div className="w-10 h-1 bg-white/20 rounded-full" />
+                </div>
+
+                {/* Main Bar Content */}
+                <div className="flex items-center justify-between gap-3 sm:gap-4 mt-0.5">
+                  {/* Cart Summary & Price Info */}
+                  <div
+                    onClick={() => setIsMobileCartOpen(true)}
+                    className="flex items-center space-x-3 cursor-pointer min-w-0 flex-1 py-1"
+                  >
+                    <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center text-white shrink-0 shadow-sm">
+                      <ShoppingCart className="w-5 h-5 text-blue-400" />
+                      {totalCartCount > 0 && (
+                        <motion.span
+                          key={totalCartCount}
+                          initial={{ scale: 0.6 }}
+                          animate={{ scale: 1 }}
+                          className="absolute -top-1.5 -right-1.5 px-1.5 py-0.2 rounded-full text-[10px] sm:text-xs font-black bg-blue-600 text-white shadow-md border border-white/20 min-w-[18px] text-center"
+                        >
+                          {totalCartCount}
+                        </motion.span>
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="text-[11px] sm:text-xs text-slate-400 font-medium truncate">
+                        {totalCartCount > 0 ? `선택 품목 ${totalCartCount}개` : '장바구니가 비어 있습니다'}
+                      </div>
+                      <div className="text-base sm:text-lg font-black text-white font-mono tracking-tight">
+                        {totalCartAmount.toLocaleString()}
+                        <span className="text-xs font-normal text-slate-400 ml-0.5">원</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dedicated Action Button */}
+                  <button
+                    type="button"
+                    id="btn-open-mobile-cart"
+                    onClick={() => setIsMobileCartOpen(true)}
+                    className={`flex items-center justify-center space-x-1.5 sm:space-x-2 px-4 sm:px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-black transition-all cursor-pointer shrink-0 ${
+                      totalCartCount > 0
+                        ? 'bg-blue-600 hover:bg-blue-500 active:scale-[0.97] text-white shadow-lg shadow-blue-600/30'
+                        : 'bg-white/10 hover:bg-white/15 active:scale-[0.98] text-slate-300 border border-white/10'
+                    }`}
+                  >
+                    <span>{totalCartCount > 0 ? '장바구니 / 결제' : '장바구니 열기'}</span>
+                    <ChevronUp className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Bottom Cart Mode (스마트폰 및 탭/태블릿 세로 모드): Slide-up Cart Sheet */}
+          {!isSplitLayout && (
+            <AnimatePresence>
+              {isMobileCartOpen && (
+                <>
+                  {/* Semi-transparent Dim Backdrop */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setIsMobileCartOpen(false)}
+                    className="fixed inset-0 z-[120] bg-black/75 backdrop-blur-xs"
+                  />
+
+                  {/* Bottom Sheet Modal */}
+                  <motion.div
+                    initial={{ y: '100%' }}
+                    animate={{ y: 0 }}
+                    exit={{ y: '100%' }}
+                    transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+                    className="fixed inset-x-0 bottom-0 z-[125] h-[88vh] max-h-[92vh] max-w-3xl mx-auto bg-[#070b16] border-t sm:border-x border-white/20 rounded-t-3xl shadow-2xl flex flex-col overflow-hidden"
+                  >
+                    {/* Sheet Header with Gesture Drag Down Handle (방법 1) & Dedicated Close Button (방법 2) */}
+                    <div
+                      onTouchStart={handleSheetHeaderTouchStart}
+                      onTouchMove={handleSheetHeaderTouchMove}
+                      onTouchEnd={handleSheetHeaderTouchEnd}
+                      className="pt-2 pb-2.5 px-4 sm:px-6 bg-[#090e1c] border-b border-white/10 flex flex-col select-none cursor-grab active:cursor-grabbing shrink-0"
+                    >
+                      {/* Pull Down Handle Bar */}
+                      <div className="w-12 sm:w-16 h-1.5 bg-white/30 rounded-full mx-auto mb-2" />
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-secondary" />
+                          <h3 className="text-sm sm:text-base font-black text-white">주문 내역 및 결제</h3>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-secondary/20 text-secondary border border-secondary/30">
+                            {totalCartCount}개
+                          </span>
+                        </div>
+
+                        {/* Dedicated Close Button (방법 2) */}
+                        <button
+                          type="button"
+                          id="btn-close-mobile-cart-sheet"
+                          onClick={() => setIsMobileCartOpen(false)}
+                          className="flex items-center space-x-1 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white text-xs sm:text-sm font-bold transition-all border border-white/10 cursor-pointer shadow-sm"
+                        >
+                          <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-surface-dim" />
+                          <span>접기 (메뉴 추가)</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Sheet Body: Full POS Cart */}
+                    <div className="flex-1 overflow-hidden">
+                      <PosCart
+                        cart={cart}
+                        isProcessing={isProcessingOrder}
+                        isOnline={isOnline}
+                        onUpdateCount={handleUpdateCount}
+                        onRemoveItem={handleRemoveItem}
+                        onRequestClear={() => setShowClearConfirm(true)}
+                        onOpenKeypad={cartItem => setKeypadTarget(cartItem)}
+                        onRequestCashPayment={() => setShowCashModal(true)}
+                        onRequestTransferPayment={() => setShowTransferModal(true)}
+                      />
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          )}
         </>
       )}
-
-      {/* Modal: Switch Account during sales */}
-      <AnimatePresence>
-        {showSwitchAccountModal && currentUser && (
-          <PosLoginModal
-            mode="switch"
-            currentUserName={currentUser.name}
-            onLoginSuccess={handleSwitchAccountSuccess}
-            onClose={() => setShowSwitchAccountModal(false)}
-          />
-        )}
-      </AnimatePresence>
 
       {/* Modal: End Shift Confirmation */}
       <AnimatePresence>
@@ -952,7 +1250,10 @@ export function PosPage() {
           <PosProductManagerModal
             categories={categories}
             items={items}
+            isAdmin={currentUser?.role === 'admin'}
             onUpdateItems={handleUpdateItems}
+            onUpdateSingleItem={handleUpdateSingleItem}
+            onPatchItem={handlePatchSingleItem}
             onUpdateCategories={handleUpdateCategories}
             onDeleteItem={deletePosItem}
             onDeleteCategory={deletePosCategory}
@@ -961,6 +1262,10 @@ export function PosPage() {
             onClearAllFavorites={handleClearAllFavorites}
             onClose={() => setShowProductManager(false)}
             showToast={showToast}
+            onGoogleAdminLogin={adminUser => {
+              setCurrentUser(adminUser);
+              showToast(`구글 관리자(${adminUser.name}) 계정으로 인증되었습니다.`);
+            }}
           />
         )}
       </AnimatePresence>
@@ -986,6 +1291,7 @@ export function PosPage() {
         currentUserId={currentUser?.id || 'admin'}
         settlement={settlement}
         onSaveSettlement={handleSaveSettlement}
+        isAdmin={currentUser?.role === 'admin'}
       />
 
       {/* Modal: Activity & Audit Logs (감사 로그) */}
@@ -995,6 +1301,13 @@ export function PosPage() {
         logs={logs}
         isAdmin={currentUser?.role === 'admin'}
         actorName={currentUser?.name || '관리자'}
+        onGoogleAdminLogin={adminUser => {
+          setCurrentUser(adminUser);
+          showToast(`구글 관리자(${adminUser.name}) 계정으로 연결되었습니다.`);
+        }}
+        onGoogleAdminLogout={() => {
+          handleLogout();
+        }}
       />
     </div>
   );

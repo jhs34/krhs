@@ -67,6 +67,7 @@ export interface PosSettlement {
   actualCashInput?: number; // 실측 현금
   discrepancy?: number; // 오차 (+ / -)
   status: 'OPEN' | 'CLOSED';
+  note?: string; // 마감 특이사항 메모
 }
 
 export interface PosPreset {
@@ -100,8 +101,11 @@ export type PosLogAction =
   | 'POS_RESET'
   | 'SETTLEMENT_OPENED'
   | 'SETTLEMENT_CLOSED'
+  | 'SETTLEMENT_UPDATED'
+  | 'SETTLEMENT_DELETED'
   | 'USER_LOGIN'
-  | 'USER_LOGOUT';
+  | 'USER_LOGOUT'
+  | 'ADMIN_ELEVATION';
 
 export type PosLogCategory = 'SALE' | 'INVENTORY' | 'SETTLEMENT' | 'SYSTEM' | 'AUTH';
 

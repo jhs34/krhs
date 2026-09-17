@@ -150,28 +150,34 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
     return () => observer.disconnect();
   }, []);
 
-  // Compute minimum card width and estimated column count
+  // Compute minimum card width dynamically adapted to mobile vs tablet/desktop
   const minCardWidth = useMemo(() => {
+    // 좁은 모바일 화면 (폭 480px 미만)에서는 standard가 확실하게 2열이 나오도록 155px 이상 지정
+    const isNarrow = containerWidth > 0 && containerWidth < 480;
+
     switch (density) {
       case 'compact':
-        return 120;
+        return isNarrow ? 92 : 105;
       case 'large':
-        return 210;
+        return isNarrow ? 260 : 210;
       case 'standard':
       default:
-        return 150;
+        return isNarrow ? 155 : 150;
     }
-  }, [density]);
+  }, [density, containerWidth]);
 
   // Estimated columns for current split width
   const estimatedColumns = useMemo(() => {
-    if (!containerWidth) return 3;
-    const paddingAndGaps = 28;
+    if (!containerWidth) return 2;
+    if (containerWidth < 480) {
+      return density === 'compact' ? 3 : density === 'large' ? 1 : 2;
+    }
+    const paddingAndGaps = density === 'compact' ? 20 : 28;
     const available = Math.max(containerWidth - paddingAndGaps, 100);
-    const gap = 12;
+    const gap = density === 'compact' ? 8 : 12;
     const cols = Math.floor((available + gap) / (minCardWidth + gap));
     return Math.max(1, cols);
-  }, [containerWidth, minCardWidth]);
+  }, [containerWidth, minCardWidth, density]);
 
   // Map item counts currently in cart for visual badge feedback
   const cartCountMap = useMemo(() => {
@@ -245,42 +251,42 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
 
     const cardPadding =
       density === 'compact'
-        ? 'p-2 sm:p-2.5 min-h-[100px]'
+        ? 'p-2 sm:p-2.5 min-h-[76px] sm:min-h-[84px]'
         : density === 'large'
-        ? 'p-3.5 sm:p-4 min-h-[140px]'
-        : 'p-3 sm:p-3.5 min-h-[120px]';
+        ? 'p-4 sm:p-5 min-h-[135px] sm:min-h-[150px]'
+        : 'p-3 sm:p-3.5 min-h-[104px] sm:min-h-[114px]';
 
     const titleSize =
       density === 'compact'
-        ? 'text-xs sm:text-sm font-semibold'
+        ? 'text-xs sm:text-sm font-extrabold leading-tight'
         : density === 'large'
-        ? 'text-base sm:text-lg font-black'
-        : 'text-sm sm:text-base font-bold';
+        ? 'text-lg sm:text-xl md:text-2xl font-black leading-snug tracking-tight'
+        : 'text-[15px] sm:text-[17px] md:text-lg font-black leading-snug tracking-tight';
 
     const priceSize =
       density === 'compact'
-        ? 'text-xs sm:text-sm font-bold'
+        ? 'text-xs sm:text-sm font-black'
         : density === 'large'
         ? 'text-base sm:text-xl font-black'
-        : 'text-sm sm:text-lg font-black';
+        : 'text-sm sm:text-base font-black';
 
     return (
       <motion.button
         key={item.id}
         type="button"
-        whileTap={!isSoldOut ? { scale: 0.96 } : {}}
+        whileTap={!isSoldOut ? { scale: 0.97 } : {}}
         disabled={isSoldOut}
         onClick={() => onAddToCart(item)}
         className={`group relative text-left rounded-2xl border transition-all flex flex-col justify-between overflow-hidden cursor-pointer ${cardPadding} ${
           isSoldOut
-            ? 'bg-black/40 border-red-500/20 cursor-not-allowed opacity-75'
+            ? 'bg-[#0f172a]/70 border-rose-500/20 cursor-not-allowed opacity-75'
             : inCartCount > 0
-            ? 'bg-secondary/15 border-secondary/50 shadow-md shadow-secondary/10 hover:border-secondary'
-            : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 active:bg-secondary/20 shadow-sm'
+            ? 'bg-blue-950/45 border-blue-500/70 shadow-md shadow-blue-500/15 ring-1 ring-blue-500/40 hover:border-blue-400'
+            : 'bg-[#111c34]/90 hover:bg-[#162341] border-white/10 hover:border-blue-400/40 active:scale-[0.98] shadow-sm hover:shadow-md'
         }`}
       >
         {/* Top Area: Left Item Name & Right Stock/Favorite */}
-        <div className="flex items-start justify-between w-full gap-1 mb-1">
+        <div className="flex items-start justify-between w-full gap-1.5 mb-1.5">
           {/* Left: Item Name with smooth edge-masked Marquee if overflowing */}
           <div className="flex-1 min-w-0 pr-1 overflow-hidden">
             <PosItemNameMarquee name={item.name} className={titleSize} />
@@ -289,15 +295,15 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
           {/* Right: Stock Badge & Favorite right below it */}
           <div className="flex flex-col items-end shrink-0 space-y-1">
             {isSoldOut ? (
-              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-red-500 text-white shadow-sm whitespace-nowrap">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/25 text-rose-300 border border-rose-500/40 whitespace-nowrap shadow-xs">
                 품절
               </span>
             ) : isLowStock ? (
-              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/35 whitespace-nowrap">
                 {item.stock}개
               </span>
             ) : (
-              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 whitespace-nowrap">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 whitespace-nowrap">
                 {item.stock}개
               </span>
             )}
@@ -305,7 +311,7 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
             {item.isFavorite && (
               <span
                 title="즐겨찾기 인기 상품"
-                className="px-1 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center space-x-0.5 text-[9px] font-bold"
+                className="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center space-x-0.5 text-[9px] font-bold"
               >
                 <Star className="w-2.5 h-2.5 fill-current text-amber-400" />
                 <span className={density === 'compact' ? 'hidden' : 'inline'}>인기</span>
@@ -315,15 +321,17 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
         </div>
 
         {/* Bottom: Price & in-cart indicator */}
-        <div className="flex items-baseline justify-between w-full pt-1 mt-auto gap-1">
-          <span className={`text-secondary-fixed tracking-tight ${priceSize}`}>
-            {item.price.toLocaleString()}
-            <span className="text-[10px] sm:text-xs font-normal ml-0.5 text-surface-dim">원</span>
-          </span>
+        <div className="flex items-baseline justify-between w-full pt-1.5 mt-auto gap-1">
+          <div className="flex items-baseline">
+            <span className={`text-blue-300 font-extrabold tracking-tight font-mono ${priceSize}`}>
+              {item.price.toLocaleString()}
+            </span>
+            <span className="text-xs font-medium ml-0.5 text-slate-400">원</span>
+          </div>
 
           {inCartCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded-lg text-[10px] sm:text-xs font-black bg-secondary text-white shadow-sm flex items-center space-x-0.5 animate-in zoom-in-50 whitespace-nowrap">
-              <span>{inCartCount}개</span>
+            <span className="px-2 py-0.5 rounded-lg text-xs font-black bg-blue-600 text-white shadow-sm flex items-center space-x-0.5 animate-in zoom-in-50 whitespace-nowrap">
+              <span>담김 {inCartCount}</span>
             </span>
           )}
         </div>
@@ -341,26 +349,40 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
     );
   };
 
+  // Grid layout class based on density:
+  // - compact: 3 columns on mobile, fluid auto-fill on larger screens
+  // - large: 1 column on mobile, fluid auto-fill on larger screens
+  // - standard (default): spacious, comfortable 2 columns on mobile, fluid on tablet/desktop
+  const gridLayoutClass = useMemo(() => {
+    if (density === 'compact') {
+      return 'grid grid-cols-3 sm:grid-cols-[repeat(auto-fill,minmax(105px,1fr))] gap-2 sm:gap-2.5';
+    }
+    if (density === 'large') {
+      return 'grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3 sm:gap-4';
+    }
+    return 'grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5 sm:gap-3.5';
+  }, [density]);
+
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#0a1122] select-none">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#080d1a] select-none">
       {/* Top Bar: Compact Single-Row Categories, Expandable Density & Search */}
-      <div className="p-2 sm:p-2.5 border-b border-white/10 bg-[#090e1c] flex items-center justify-between gap-1.5 shrink-0 overflow-hidden">
+      <div className="px-2.5 py-2 sm:px-3 sm:py-2.5 border-b border-white/10 bg-[#0c1427]/95 backdrop-blur-md flex items-center justify-between gap-1.5 shrink-0 overflow-hidden">
         {/* Category tabs wrapper with soft fading edge gradients */}
         <div className="relative flex-1 min-w-0 overflow-hidden">
           {/* Left edge soft fade */}
-          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-[#090e1c] via-[#090e1c]/80 to-transparent z-10" />
+          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-[#0c1427] via-[#0c1427]/80 to-transparent z-10" />
 
           {/* Scrollable category tabs */}
           <div 
-            className="flex items-center space-x-1 sm:space-x-1.5 overflow-x-auto scrollbar-hide py-0.5 px-2 [mask-image:linear-gradient(to_right,transparent_0px,#000_12px,#000_calc(100%-12px),transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0px,#000_12px,#000_calc(100%-12px),transparent_100%)]"
+            className="flex items-center space-x-1.5 sm:space-x-2 overflow-x-auto scrollbar-hide py-0.5 px-2 [mask-image:linear-gradient(to_right,transparent_0px,#000_12px,#000_calc(100%-12px),transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0px,#000_12px,#000_calc(100%-12px),transparent_100%)]"
           >
             <button
               type="button"
               onClick={() => setSelectedCategoryId('all')}
-              className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
                 selectedCategoryId === 'all'
-                  ? 'bg-secondary text-white shadow-md shadow-secondary/20'
-                  : 'bg-white/5 text-surface-dim hover:text-white hover:bg-white/10'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'bg-white/[0.06] text-slate-300 hover:text-white hover:bg-white/10 border border-white/5'
               }`}
             >
               전체 ({items.filter(i => i.isActive).length})
@@ -369,13 +391,13 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
             <button
               type="button"
               onClick={() => setSelectedCategoryId('favorites')}
-              className={`flex items-center space-x-1 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+              className={`flex items-center space-x-1 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
                 selectedCategoryId === 'favorites'
                   ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
-                  : 'bg-white/5 text-amber-300 hover:text-amber-200 hover:bg-white/10'
+                  : 'bg-white/[0.06] text-amber-300 hover:text-amber-200 hover:bg-white/10 border border-white/5'
               }`}
             >
-              <Star className="w-3 h-3 fill-current" />
+              <Star className="w-3.5 h-3.5 fill-current" />
               <span>인기 ({items.filter(i => i.isActive && i.isFavorite).length})</span>
             </button>
 
@@ -387,10 +409,10 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
                   key={cat.id}
                   type="button"
                   onClick={() => setSelectedCategoryId(cat.id)}
-                  className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                  className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
                     isSelected
-                      ? 'bg-secondary text-white shadow-md shadow-secondary/20'
-                      : 'bg-white/5 text-surface-dim hover:text-white hover:bg-white/10'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                      : 'bg-white/[0.06] text-slate-300 hover:text-white hover:bg-white/10 border border-white/5'
                   }`}
                 >
                   {cat.name} ({count})
@@ -400,22 +422,22 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
           </div>
 
           {/* Right edge soft fade */}
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-[#090e1c] via-[#090e1c]/80 to-transparent z-10" />
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-[#0c1427] via-[#0c1427]/80 to-transparent z-10" />
         </div>
 
         {/* Right Toolbar: Expandable Density Switcher & Expandable Search */}
         <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0 justify-end">
           {/* Expandable Density Switcher (Collapsed to single icon by default) */}
-          <div className="relative" ref={densityRef}>
+          <div className="relative shrink-0" ref={densityRef}>
             <AnimatePresence initial={false} mode="wait">
               {isDensityOpen ? (
                 <motion.div
                   key="density-expanded"
-                  initial={{ width: 34, opacity: 0 }}
-                  animate={{ width: 'auto', opacity: 1 }}
-                  exit={{ width: 34, opacity: 0 }}
-                  transition={{ duration: 0.18, ease: 'easeOut' }}
-                  className="flex items-center bg-[#131d33] border border-secondary/50 rounded-xl p-0.5 text-[11px] font-bold shadow-lg"
+                  initial={{ scale: 0.88, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.88, opacity: 0 }}
+                  transition={{ duration: 0.15, ease: 'easeOut' }}
+                  className="flex items-center bg-[#131d33] border border-secondary/50 rounded-xl p-0.5 text-[11px] font-bold shadow-lg whitespace-nowrap overflow-hidden shrink-0 origin-right"
                 >
                   <button
                     type="button"
@@ -424,14 +446,14 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
                       setIsDensityOpen(false);
                     }}
                     title={`작게 (${estimatedColumns}열)`}
-                    className={`px-2 py-1 rounded-lg transition-all flex items-center space-x-1 ${
+                    className={`px-2 py-1 rounded-lg transition-all flex items-center space-x-1 whitespace-nowrap shrink-0 cursor-pointer ${
                       density === 'compact'
                         ? 'bg-secondary text-white shadow-sm'
                         : 'text-surface-dim hover:text-white'
                     }`}
                   >
-                    <span>작게</span>
-                    {density === 'compact' && <Check className="w-3 h-3" />}
+                    <span className="whitespace-nowrap">작게</span>
+                    {density === 'compact' && <Check className="w-3 h-3 shrink-0" />}
                   </button>
                   <button
                     type="button"
@@ -440,14 +462,14 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
                       setIsDensityOpen(false);
                     }}
                     title={`보통 (${estimatedColumns}열)`}
-                    className={`px-2 py-1 rounded-lg transition-all flex items-center space-x-1 ${
+                    className={`px-2 py-1 rounded-lg transition-all flex items-center space-x-1 whitespace-nowrap shrink-0 cursor-pointer ${
                       density === 'standard'
                         ? 'bg-secondary text-white shadow-sm'
                         : 'text-surface-dim hover:text-white'
                     }`}
                   >
-                    <span>보통</span>
-                    {density === 'standard' && <Check className="w-3 h-3" />}
+                    <span className="whitespace-nowrap">보통</span>
+                    {density === 'standard' && <Check className="w-3 h-3 shrink-0" />}
                   </button>
                   <button
                     type="button"
@@ -456,20 +478,20 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
                       setIsDensityOpen(false);
                     }}
                     title={`크게 (${estimatedColumns}열)`}
-                    className={`px-2 py-1 rounded-lg transition-all flex items-center space-x-1 ${
+                    className={`px-2 py-1 rounded-lg transition-all flex items-center space-x-1 whitespace-nowrap shrink-0 cursor-pointer ${
                       density === 'large'
                         ? 'bg-secondary text-white shadow-sm'
                         : 'text-surface-dim hover:text-white'
                     }`}
                   >
-                    <span>크게</span>
-                    {density === 'large' && <Check className="w-3 h-3" />}
+                    <span className="whitespace-nowrap">크게</span>
+                    {density === 'large' && <Check className="w-3 h-3 shrink-0" />}
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsDensityOpen(false)}
                     title="닫기"
-                    className="p-1 text-surface-dim hover:text-white rounded-lg hover:bg-white/10 transition-colors ml-0.5"
+                    className="p-1 text-surface-dim hover:text-white rounded-lg hover:bg-white/10 transition-colors ml-0.5 shrink-0 cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -574,7 +596,9 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
       {/* Dynamic Fluid Menu Tiles Grid Container */}
       <div 
         ref={gridContainerRef}
-        className="flex-1 overflow-y-auto p-2.5 sm:p-3 md:p-3.5 custom-scrollbar"
+        className={`flex-1 overflow-y-auto custom-scrollbar ${
+          density === 'compact' ? 'p-2.5 sm:p-3.5 md:p-4 pb-36 sm:pb-28' : 'p-3.5 sm:p-4 md:p-5 pb-36 sm:pb-28'
+        }`}
       >
         {filteredItems.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-surface-dim py-12">
@@ -584,28 +608,23 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
           </div>
         ) : categorySections && categorySections.length > 0 ? (
           /* Grouped by Category in 'All' view */
-          <div className="space-y-4">
+          <div className="space-y-6 sm:space-y-8">
             {categorySections.map(section => (
-              <div key={section.categoryId} className="space-y-2">
-                {/* Category Group Header */}
-                <div className="flex items-center space-x-2 px-1 pt-1">
-                  <span className="w-2 h-2 rounded-full bg-secondary shadow-sm shadow-secondary/40" />
-                  <h2 className="text-xs sm:text-sm font-black text-white tracking-tight">
+              <div key={section.categoryId} className="space-y-2.5">
+                {/* Category Group Header with generous breathing space */}
+                <div className="flex items-center space-x-2 px-0.5 pt-1.5 pb-0.5">
+                  <span className="w-1.5 h-4 rounded-full bg-blue-500 shadow-sm shadow-blue-500/40" />
+                  <h2 className="text-sm sm:text-base font-extrabold text-white tracking-tight">
                     {section.categoryName}
                   </h2>
-                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-surface-dim border border-white/5">
-                    {section.items.length}
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-white/10 text-slate-300 border border-white/10">
+                    {section.items.length}개
                   </span>
-                  <div className="flex-1 h-[1px] bg-white/10 ml-2" />
+                  <div className="flex-1 h-[1px] bg-gradient-to-r from-white/15 via-white/5 to-transparent ml-2" />
                 </div>
 
-                {/* Section Items Grid with CSS repeat(auto-fill, minmax) */}
-                <div 
-                  className="grid gap-2 sm:gap-2.5"
-                  style={{
-                    gridTemplateColumns: `repeat(auto-fill, minmax(${minCardWidth}px, 1fr))`
-                  }}
-                >
+                {/* Section Items Grid */}
+                <div className={gridLayoutClass}>
                   {section.items.map(item => renderItemCard(item))}
                 </div>
               </div>
@@ -613,12 +632,7 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
           </div>
         ) : (
           /* Single Category or Favorites View */
-          <div 
-            className="grid gap-2 sm:gap-2.5"
-            style={{
-              gridTemplateColumns: `repeat(auto-fill, minmax(${minCardWidth}px, 1fr))`
-            }}
-          >
+          <div className={gridLayoutClass}>
             {filteredItems.map(item => renderItemCard(item))}
           </div>
         )}

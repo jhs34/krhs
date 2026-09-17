@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowDown } from 'lucide-react';
+import { ArrowDown, Maximize, Minimize } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, isAfter, startOfDay } from 'date-fns';
 import { HashRouter as Router, Routes, Route, useLocation, Link } from 'react-router-dom';
@@ -19,8 +19,11 @@ import { AcademicEvent } from './types';
 import { loginWithGoogle, logout, auth } from './firebase';
 import { subscribeToEvents, subscribeToNotices, subscribeToDocuments, subscribeToSiteInfo, FirestoreEvent, Notice, SchoolDocument, SiteInfo, updateEvent, updateNotice, deleteEvent, deleteNotice, deleteDocument } from './services/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useFullscreen } from './utils/useFullscreen';
 
 function HeroSection() {
+  const { isFullscreen, toggleFullscreen } = useFullscreen();
+
   return (
     <section className="relative w-full h-screen flex flex-col justify-between overflow-hidden">
       {/* Blurred Background with Overlays */}
@@ -36,8 +39,8 @@ function HeroSection() {
         <div className="absolute -bottom-[20%] -left-[10%] w-[120%] h-[50%] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-secondary/10 via-transparent to-transparent rounded-[100%] blur-[100px]"></div>
       </div>
 
-      {/* Top Header - Logo */}
-      <header className="relative z-50 w-full pt-10 px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 max-w-7xl w-full mx-auto">
+      {/* Top Header - Logo & Fullscreen Action */}
+      <header className="relative z-50 w-full pt-8 sm:pt-10 px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 max-w-7xl w-full mx-auto flex items-center justify-between">
         <motion.div 
           initial={{ opacity: 0, y: -20, filter: 'blur(10px)' }}
           animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -54,6 +57,25 @@ function HeroSection() {
             <span className="font-space font-medium text-[13px] text-white tracking-[0.2em] uppercase hidden sm:block">KOREA RAILROAD HIGH SCHOOL</span>
           </div>
         </motion.div>
+
+        {/* Hero Fullscreen Toggle Button */}
+        <motion.button
+          type="button"
+          onClick={toggleFullscreen}
+          title={isFullscreen ? '전체화면 종료 (ESC)' : '전체화면 모드 전환'}
+          initial={{ opacity: 0, y: -20, filter: 'blur(10px)' }}
+          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+          transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
+          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/90 hover:text-white border border-white/20 backdrop-blur-md text-xs font-medium transition-all cursor-pointer shadow-sm"
+          aria-label={isFullscreen ? '전체화면 종료' : '전체화면 모드'}
+        >
+          {isFullscreen ? (
+            <Minimize className="w-3.5 h-3.5 text-secondary shrink-0" />
+          ) : (
+            <Maximize className="w-3.5 h-3.5 text-secondary shrink-0" />
+          )}
+          <span className="hidden sm:inline font-sans">{isFullscreen ? '전체화면 종료' : '전체화면'}</span>
+        </motion.button>
       </header>
 
       {/* Center Text Editorial Style */}

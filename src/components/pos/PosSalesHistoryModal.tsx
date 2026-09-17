@@ -59,6 +59,7 @@ export function PosSalesHistoryModal({
   const [confirmCancelTarget, setConfirmCancelTarget] = useState<PosOrder | null>(null);
   const [cancelReason, setCancelReason] = useState<string>('고객 요청 (단순 변심/재결제)');
   const [copiedReceipt, setCopiedReceipt] = useState<boolean>(false);
+  const [mobileTab, setMobileTab] = useState<'list' | 'receipt'>('list');
 
   // Multi-selection state
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
@@ -433,40 +434,40 @@ export function PosSalesHistoryModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#0e172e] border border-white/10 rounded-3xl w-full max-w-6xl h-[94vh] max-h-[900px] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-5 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-[#0e172e] border-0 sm:border sm:border-white/10 rounded-none sm:rounded-3xl w-full max-w-6xl h-full sm:h-[94vh] sm:max-h-[900px] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-white/10 bg-[#090e1c] flex flex-wrap items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-300">
-              <Receipt className="w-5 h-5" />
+        <div className="p-3.5 sm:p-5 border-b border-white/10 bg-[#090e1c] flex items-center justify-between gap-2.5 shrink-0">
+          <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-300 shrink-0">
+              <Receipt className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h2 className="text-lg sm:text-xl font-black text-white">매출 내역 및 일자별 영수증 관리</h2>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/10 text-surface-dim">
-                  총 {orders.length}건
+            <div className="min-w-0">
+              <div className="flex items-center space-x-2 flex-wrap">
+                <h2 className="text-base sm:text-xl font-black text-white truncate">매출 내역 및 영수증 관리</h2>
+                <span className="px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold bg-white/10 text-surface-dim shrink-0">
+                  {orders.length}건
                 </span>
                 {filterDate !== 'ALL' && (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/20 text-primary border border-primary/30">
+                  <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/20 text-primary border border-primary/30 shrink-0">
                     {filterDate} 조회 중
                   </span>
                 )}
               </div>
-              <p className="text-xs text-surface-dim">
+              <p className="text-[11px] sm:text-xs text-surface-dim truncate hidden sm:block">
                 일자별 매출 분류, 영수증 재발급, 다중 선택 일괄 삭제 및 수정 제어를 지원합니다.
               </p>
             </div>
           </div>
 
           {/* Google Admin Auth Status & Actions */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
             {isGoogleAdmin ? (
-              <div className="flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-xl">
-                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                <div className="text-xs leading-tight text-emerald-200">
-                  <span className="font-bold block text-emerald-300">관리자 인증됨</span>
-                  <span className="text-[11px] text-emerald-100 font-mono block truncate max-w-[190px]">{getDisplayUserEmail(googleUser?.email)}</span>
+              <div className="flex items-center space-x-1.5 sm:space-x-2 bg-emerald-500/10 border border-emerald-500/30 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl">
+                <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0" />
+                <div className="text-[11px] sm:text-xs leading-tight text-emerald-200">
+                  <span className="font-bold block text-emerald-300 text-[10px] sm:text-xs">관리자</span>
+                  <span className="text-[10px] sm:text-[11px] text-emerald-100 font-mono block truncate max-w-[100px] sm:max-w-[180px]">{getDisplayUserEmail(googleUser?.email)}</span>
                 </div>
                 <button
                   type="button"
@@ -482,21 +483,49 @@ export function PosSalesHistoryModal({
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={isLoggingIn}
-                className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+                className="flex items-center space-x-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-[11px] sm:text-xs font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer"
               >
                 <LogIn className="w-3.5 h-3.5" />
-                <span>{isLoggingIn ? '로그인 중...' : '구글 관리자 로그인'}</span>
+                <span>{isLoggingIn ? '...' : '관리자'}</span>
               </button>
             )}
 
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
+        </div>
+
+        {/* Mobile View Switcher Tabs (Only visible on small/mobile screens) */}
+        <div className="md:hidden flex border-b border-white/10 bg-[#070b16] shrink-0">
+          <button
+            type="button"
+            onClick={() => setMobileTab('list')}
+            className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center space-x-1.5 border-b-2 transition-colors ${
+              mobileTab === 'list'
+                ? 'border-emerald-400 text-emerald-300 bg-white/[0.04]'
+                : 'border-transparent text-surface-dim hover:text-white'
+            }`}
+          >
+            <Receipt className="w-3.5 h-3.5" />
+            <span>주문 목록 ({filteredOrders.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab('receipt')}
+            className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center space-x-1.5 border-b-2 transition-colors ${
+              mobileTab === 'receipt'
+                ? 'border-emerald-400 text-emerald-300 bg-white/[0.04]'
+                : 'border-transparent text-surface-dim hover:text-white'
+            }`}
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>영수증 상세 {activeOrder ? `(#${activeOrder.id.slice(-4)})` : ''}</span>
+          </button>
         </div>
 
         {/* Quick KPI Bar */}
@@ -606,9 +635,9 @@ export function PosSalesHistoryModal({
         </div>
 
         {/* Content Body: Left Orders List with Grouping & Right Receipt Detail */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
           {/* Left: Orders List & Grouped Date View */}
-          <div className="w-full md:w-7/12 border-r border-white/10 flex flex-col h-full overflow-hidden bg-[#0a1122]">
+          <div className={`w-full md:w-7/12 border-r border-white/10 flex flex-col h-full overflow-hidden bg-[#0a1122] ${mobileTab === 'list' ? 'flex' : 'hidden md:flex'}`}>
             {/* Filter Bar & Search */}
             <div className="p-3 border-b border-white/10 space-y-2.5 bg-[#0a1122] shrink-0">
               <div className="flex items-center justify-between gap-2">
@@ -805,8 +834,11 @@ export function PosSalesHistoryModal({
                             return (
                               <div
                                 key={order.id}
-                                onClick={() => setSelectedOrderId(order.id)}
-                                className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                                onClick={() => {
+                                  setSelectedOrderId(order.id);
+                                  setMobileTab('receipt');
+                                }}
+                                className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                                   isChecked
                                     ? 'bg-blue-950/40 border-blue-500/50 shadow-md shadow-blue-500/10'
                                     : isSelected
@@ -904,7 +936,23 @@ export function PosSalesHistoryModal({
           </div>
 
           {/* Right: Receipt Detail View */}
-          <div className="w-full md:w-5/12 bg-[#090e1c] flex flex-col h-full overflow-hidden">
+          <div className={`w-full md:w-5/12 bg-[#090e1c] flex flex-col h-full overflow-hidden ${mobileTab === 'receipt' ? 'flex' : 'hidden md:flex'}`}>
+            {/* Mobile Back to List Button */}
+            <div className="md:hidden flex items-center justify-between px-3.5 py-2.5 bg-[#070b16] border-b border-white/10 shrink-0">
+              <button
+                type="button"
+                onClick={() => setMobileTab('list')}
+                className="flex items-center space-x-1.5 text-xs font-bold text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
+              >
+                <span>← 주문 목록으로 돌아가기</span>
+              </button>
+              {activeOrder && (
+                <span className="text-[11px] font-mono text-emerald-400 font-bold">
+                  주문 #{activeOrder.id.slice(-6)}
+                </span>
+              )}
+            </div>
+
             {activeOrder ? (
               <div className="flex-1 flex flex-col h-full p-4 overflow-y-auto custom-scrollbar">
                 {/* Receipt Paper Card */}
@@ -1101,9 +1149,16 @@ export function PosSalesHistoryModal({
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-surface-dim p-8">
+              <div className="flex-1 flex flex-col items-center justify-center text-surface-dim p-8 text-center">
                 <Receipt className="w-12 h-12 mb-3 text-white/10" />
-                <p className="text-xs text-white/60">좌측 목록에서 영수증을 확인할 주문을 선택해주세요.</p>
+                <p className="text-xs text-white/60 mb-4">목록에서 영수증을 확인할 주문을 선택해주세요.</p>
+                <button
+                  type="button"
+                  onClick={() => setMobileTab('list')}
+                  className="md:hidden px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold shadow-lg cursor-pointer"
+                >
+                  주문 목록 보러 가기
+                </button>
               </div>
             )}
           </div>
