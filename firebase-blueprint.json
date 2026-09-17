@@ -1,0 +1,193 @@
+{
+  "entities": {
+    "Notice": {
+      "title": "Notice",
+      "description": "A school notice or announcement.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Title of the notice." },
+        "content": { "type": "string", "description": "Details of the notice." },
+        "date": { "type": "string", "format": "date-time", "description": "Notice date (ISO string)." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp." }
+      },
+      "required": ["title", "content", "date", "createdAt"]
+    },
+    "AcademicEvent": {
+      "title": "AcademicEvent",
+      "description": "An event in the academic calendar.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "color": { "type": "string" },
+        "isHoliday": { "type": "boolean" }
+      },
+      "required": ["title", "description", "date", "createdAt"]
+    },
+    "SiteInfo": {
+      "title": "SiteInfo",
+      "description": "Global site information like announcements, updates, contact.",
+      "type": "object",
+      "properties": {
+        "content": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["content", "updatedAt"]
+    },
+    "TimetableMemo": {
+      "title": "TimetableMemo",
+      "description": "Customizable weekly period memos / performance evaluation reminders.",
+      "type": "object",
+      "properties": {
+        "grade": { "type": "integer" },
+        "department": { "type": "string" },
+        "classNumber": { "type": "integer" },
+        "weekStart": { "type": "string" },
+        "dayOfWeek": { "type": "integer" },
+        "period": { "type": "integer" },
+        "memo": { "type": "string" },
+        "color": { "type": "string", "description": "Custom color override for exception styling." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["grade", "department", "classNumber", "weekStart", "dayOfWeek", "period", "memo"]
+    },
+    "TimetableTemplate": {
+      "title": "TimetableTemplate",
+      "description": "Customizable default repeating class timetable template.",
+      "type": "object",
+      "properties": {
+        "grade": { "type": "integer" },
+        "department": { "type": "string" },
+        "classNumber": { "type": "integer" },
+        "rawTimetable": { "type": "string" }
+      },
+      "required": ["grade", "department", "classNumber", "rawTimetable"]
+    },
+    "SubjectColor": {
+      "title": "SubjectColor",
+      "description": "Default theme color config for repeating subjects.",
+      "type": "object",
+      "properties": {
+        "color": { "type": "string" }
+      },
+      "required": ["color"]
+    },
+    "PosCategory": {
+      "title": "PosCategory",
+      "description": "Category for POS menu items",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "orderIndex": { "type": "number" }
+      },
+      "required": ["name", "orderIndex"]
+    },
+    "PosItem": {
+      "title": "PosItem",
+      "description": "Store inventory product for POS",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "price": { "type": "number" },
+        "stock": { "type": "number" },
+        "isFavorite": { "type": "boolean" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["name", "categoryId", "price", "stock"]
+    },
+    "PosOrder": {
+      "title": "PosOrder",
+      "description": "Order transaction log for POS",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "handlerUid": { "type": "string" },
+        "handlerName": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "items": { "type": "array" },
+        "isCancelled": { "type": "boolean" }
+      },
+      "required": ["sessionId", "handlerUid", "paymentMethod", "totalAmount", "items", "isCancelled"]
+    },
+    "PosSettlement": {
+      "title": "PosSettlement",
+      "description": "Daily or shift settlement report for POS",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string" },
+        "initialCash": { "type": "number" },
+        "totalSales": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["sessionId", "status"]
+    },
+    "PosAuditLog": {
+      "title": "PosAuditLog",
+      "description": "Audit and activity log of POS transactions, inventory updates, settlements, and operations.",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "action": { "type": "string" },
+        "actionTitle": { "type": "string" },
+        "category": { "type": "string" },
+        "actorName": { "type": "string" },
+        "actorUid": { "type": "string" },
+        "details": { "type": "string" },
+        "sessionId": { "type": "string" }
+      },
+      "required": ["timestamp", "action", "actionTitle", "category", "actorName", "details"]
+    }
+  },
+  "firestore": {
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/PosCategory" },
+      "description": "POS categories"
+    },
+    "/items/{itemId}": {
+      "schema": { "$ref": "#/entities/PosItem" },
+      "description": "POS items and inventory"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/PosOrder" },
+      "description": "POS transaction orders"
+    },
+    "/settlements/{sessionId}": {
+      "schema": { "$ref": "#/entities/PosSettlement" },
+      "description": "POS daily settlement records"
+    },
+    "/pos_logs/{logId}": {
+      "schema": { "$ref": "#/entities/PosAuditLog" },
+      "description": "POS audit and activity logs"
+    },
+    "/notices/{noticeId}": {
+      "schema": { "$ref": "#/entities/Notice" },
+      "description": "Collection of school notices."
+    },
+    "/events/{eventId}": {
+      "schema": { "$ref": "#/entities/AcademicEvent" },
+      "description": "Collection of academic calendar events."
+    },
+    "/siteInfo/{infoId}": {
+      "schema": { "$ref": "#/entities/SiteInfo" },
+      "description": "Global information snippets."
+    },
+    "/timetable_memos/{memoId}": {
+      "schema": { "$ref": "#/entities/TimetableMemo" },
+      "description": "Collection of weekly class period memo overrides."
+    },
+    "/timetable_templates/{templateId}": {
+      "schema": { "$ref": "#/entities/TimetableTemplate" },
+      "description": "Collection of customizable default repeating class timetable templates."
+    },
+    "/subject_colors/{subjectName}": {
+      "schema": { "$ref": "#/entities/SubjectColor" },
+      "description": "Collection of custom default theme colors for repeating subjects."
+    }
+  }
+}
