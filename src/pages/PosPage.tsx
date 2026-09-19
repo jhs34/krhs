@@ -609,7 +609,11 @@ export function PosPage() {
 
   const handleResetToDefault = async () => {
     try {
-      await resetPosDataToDefaults(DEFAULT_POS_CATEGORIES, DEFAULT_POS_ITEMS);
+      await resetPosDataToDefaults(
+        DEFAULT_POS_CATEGORIES,
+        DEFAULT_POS_ITEMS,
+        currentUser?.name || '관리자'
+      );
       setItems(DEFAULT_POS_ITEMS);
       setCategories(DEFAULT_POS_CATEGORIES);
       setCart([]);
@@ -623,10 +627,11 @@ export function PosPage() {
   const handleApplyPreset = async (
     newCategories: PosCategory[],
     newItems: PosItem[],
-    presetName: string
+    presetName: string,
+    presetId?: string
   ) => {
     try {
-      await applyPosPreset(newCategories, newItems);
+      await applyPosPreset(newCategories, newItems, presetName, currentUser?.name || '관리자', presetId);
       setCategories(newCategories);
       setItems(newItems);
       setCart([]);
@@ -711,7 +716,9 @@ export function PosPage() {
     total: number,
     cashReceived?: number,
     changeAmount?: number,
-    extraDetails?: string
+    extraDetails?: string,
+    buyerName?: string,
+    memo?: string
   ) => {
     if (cart.length === 0) return;
     setIsProcessingOrder(true);
@@ -721,6 +728,8 @@ export function PosPage() {
         sessionId: todayDateStr,
         handlerUid: currentUser?.id || 'staff',
         handlerName: currentUser?.name || '매점판매원',
+        buyerName,
+        memo,
         paymentMethod: method,
         totalAmount: total,
         cashReceived,
@@ -733,8 +742,9 @@ export function PosPage() {
 
       if (!isSoundMuted) PosFeedback.playSuccess();
 
+      const buyerText = buyerName ? ` (결제자: ${buyerName})` : '';
       showToast(
-        `${method === 'CASH' ? '현금' : '계좌이체'} 결제가 완료되었습니다! (${total.toLocaleString()}원)${extraDetails ? ` - ${extraDetails}` : ''}`,
+        `${method === 'CASH' ? '현금' : '계좌이체'} 결제가 완료되었습니다! (${total.toLocaleString()}원)${buyerText}${extraDetails ? ` - ${extraDetails}` : ''}`,
         'success'
       );
     } catch (error: any) {
@@ -746,18 +756,18 @@ export function PosPage() {
     }
   };
 
-  const handleConfirmCashPayment = (received: number, change: number) => {
+  const handleConfirmCashPayment = (received: number, change: number, buyerName?: string, memo?: string) => {
     const total = cart.reduce((sum, item) => sum + item.item.price * item.count, 0);
     setShowCashModal(false);
     setIsMobileCartOpen(false);
-    executeOrder('CASH', total, received, change, change > 0 ? `거스름돈 ${change.toLocaleString()}원` : '거스름돈 없음');
+    executeOrder('CASH', total, received, change, change > 0 ? `거스름돈 ${change.toLocaleString()}원` : '거스름돈 없음', buyerName, memo);
   };
 
-  const handleConfirmTransferPayment = () => {
+  const handleConfirmTransferPayment = (buyerName?: string, memo?: string) => {
     const total = cart.reduce((sum, item) => sum + item.item.price * item.count, 0);
     setShowTransferModal(false);
     setIsMobileCartOpen(false);
-    executeOrder('TRANSFER', total, undefined, undefined, '입금 확인 완료');
+    executeOrder('TRANSFER', total, undefined, undefined, '입금 확인 완료', buyerName, memo);
   };
 
   // [트랜잭션 결제 취소] runCancelOrderTransaction: order 상태 취소 처리 및 품목 재고 자동 원자적 롤백

@@ -114,7 +114,7 @@ export function loginPosUser(usernameInput: string, pinInput: string): { success
   const cleanPin = pinInput.trim();
 
   if (!cleanInput) {
-    return { success: false, error: '아이디(이름)를 입력해 주세요.' };
+    return { success: false, error: '아이디를 입력해 주세요.' };
   }
   if (!cleanPin) {
     return { success: false, error: '비밀번호(4자리 번호)를 입력해 주세요.' };

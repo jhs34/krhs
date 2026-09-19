@@ -1,13 +1,21 @@
-import { Check, X, QrCode, CreditCard } from 'lucide-react';
+import { useState } from 'react';
+import { Check, X, QrCode, CreditCard, User, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface PosTransferModalProps {
   totalAmount: number;
-  onConfirmPayment: () => void;
+  onConfirmPayment: (buyerName?: string, memo?: string) => void;
   onClose: () => void;
 }
 
 export function PosTransferModal({ totalAmount, onConfirmPayment, onClose }: PosTransferModalProps) {
+  const [buyerName, setBuyerName] = useState<string>('');
+  const [memo, setMemo] = useState<string>('');
+
+  const handleConfirm = () => {
+    onConfirmPayment(buyerName.trim() || undefined, memo.trim() || undefined);
+  };
+
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto" onClick={onClose}>
       <motion.div
@@ -35,10 +43,49 @@ export function PosTransferModal({ totalAmount, onConfirmPayment, onClose }: Pos
         </div>
 
         {/* Total Amount Box */}
-        <div className="w-full bg-indigo-500/10 border border-indigo-500/30 rounded-2xl p-6 mb-6 text-center">
+        <div className="w-full bg-indigo-500/10 border border-indigo-500/30 rounded-2xl p-5 mb-4 text-center">
           <span className="text-xs font-bold text-indigo-300">이체 입금 요청 금액</span>
-          <div className="text-4xl font-black text-white mt-2 font-mono tracking-tight">
-            {totalAmount.toLocaleString()}<span className="text-2xl font-bold text-indigo-200 ml-1">원</span>
+          <div className="text-3xl sm:text-4xl font-black text-white mt-1.5 font-mono tracking-tight">
+            {totalAmount.toLocaleString()}<span className="text-xl sm:text-2xl font-bold text-indigo-200 ml-1">원</span>
+          </div>
+        </div>
+
+        {/* Optional Buyer Name & Memo Inputs */}
+        <div className="w-full mb-5 text-left space-y-3">
+          <div>
+            <div className="flex items-center justify-between mb-1.5 px-1">
+              <label className="text-xs font-bold text-surface-dim flex items-center space-x-1.5">
+                <User className="w-3.5 h-3.5 text-indigo-400" />
+                <span>결제자(입금자) 이름</span>
+              </label>
+              <span className="text-[10px] text-slate-400 bg-white/5 px-1.5 py-0.5 rounded">선택사항</span>
+            </div>
+            <input
+              type="text"
+              value={buyerName}
+              onChange={e => setBuyerName(e.target.value)}
+              placeholder="결제자 / 입금자명 (미입력 가능)"
+              maxLength={20}
+              className="w-full bg-black/40 border border-white/10 focus:border-indigo-500/60 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 outline-none transition-all"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5 px-1">
+              <label className="text-xs font-bold text-surface-dim flex items-center space-x-1.5">
+                <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                <span>메모</span>
+              </label>
+              <span className="text-[10px] text-slate-400 bg-white/5 px-1.5 py-0.5 rounded">선택사항</span>
+            </div>
+            <input
+              type="text"
+              value={memo}
+              onChange={e => setMemo(e.target.value)}
+              placeholder="주문 메모 (선택사항, 예: 요청사항, 메모 등)"
+              maxLength={100}
+              className="w-full bg-black/40 border border-white/10 focus:border-indigo-500/60 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 outline-none transition-all"
+            />
           </div>
         </div>
 
@@ -53,7 +100,7 @@ export function PosTransferModal({ totalAmount, onConfirmPayment, onClose }: Pos
           </button>
           <button
             type="button"
-            onClick={onConfirmPayment}
+            onClick={handleConfirm}
             className="flex-[1.5] py-3.5 rounded-xl font-bold text-xs md:text-sm bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white transition-all flex items-center justify-center space-x-1.5 shadow-lg shadow-indigo-900/30"
           >
             <Check className="w-4 h-4" />

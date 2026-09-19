@@ -171,9 +171,11 @@ export function PosSalesHistoryModal({
         const q = searchQuery.toLowerCase().trim();
         const matchesId = order.id.toLowerCase().includes(q);
         const matchesHandler = order.handlerName.toLowerCase().includes(q);
+        const matchesBuyer = order.buyerName ? order.buyerName.toLowerCase().includes(q) : false;
+        const matchesMemo = order.memo ? order.memo.toLowerCase().includes(q) : false;
         const matchesItem = order.items.some(i => i.name.toLowerCase().includes(q));
         const matchesAmount = order.totalAmount.toString().includes(q);
-        return matchesId || matchesHandler || matchesItem || matchesAmount;
+        return matchesId || matchesHandler || matchesBuyer || matchesMemo || matchesItem || matchesAmount;
       }
 
       return true;
@@ -316,6 +318,8 @@ export function PosSalesHistoryModal({
       `주문번호: ${order.id}`,
       `판매일시: ${format(new Date(order.timestamp), 'yyyy-MM-dd HH:mm:ss')}`,
       `담 당 자: ${order.handlerName}`,
+      ...(order.buyerName ? [`결 제 자: ${order.buyerName}`] : []),
+      ...(order.memo ? [`메    모: ${order.memo}`] : []),
       '--------------------------------',
       '상품명               수량    금액',
       '--------------------------------',
@@ -894,8 +898,20 @@ export function PosSalesHistoryModal({
                                       {itemTitle}
                                     </div>
 
-                                    <div className="text-[11px] text-surface-dim mt-0.5 flex items-center space-x-2">
+                                    <div className="text-[11px] text-surface-dim mt-0.5 flex items-center space-x-2 flex-wrap">
                                       <span>담당: {order.handlerName}</span>
+                                      {order.buyerName && (
+                                        <>
+                                          <span>·</span>
+                                          <span className="text-blue-300 font-medium">결제자: {order.buyerName}</span>
+                                        </>
+                                      )}
+                                      {order.memo && (
+                                        <>
+                                          <span>·</span>
+                                          <span className="text-amber-300/90 font-medium truncate max-w-[150px]">메모: {order.memo}</span>
+                                        </>
+                                      )}
                                       <span>·</span>
                                       <span>{order.items.reduce((s, i) => s + i.count, 0)}개 상품</span>
                                     </div>
@@ -982,6 +998,18 @@ export function PosSalesHistoryModal({
                       <span>담당근무자:</span>
                       <span>{activeOrder.handlerName}</span>
                     </div>
+                    {activeOrder.buyerName ? (
+                      <div className="flex justify-between">
+                        <span>결제자:</span>
+                        <span>{activeOrder.buyerName}</span>
+                      </div>
+                    ) : null}
+                    {activeOrder.memo ? (
+                      <div className="flex justify-between">
+                        <span>메모:</span>
+                        <span className="text-right max-w-[180px] break-words">{activeOrder.memo}</span>
+                      </div>
+                    ) : null}
                   </div>
 
                   {/* Item Rows */}
@@ -1336,8 +1364,8 @@ export function PosSalesHistoryModal({
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-4 pr-1 custom-scrollbar">
-              {/* Order Time & Handler */}
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              {/* Order Time & Handler & Buyer */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 <div>
                   <label className="block text-surface-dim font-bold mb-1">판매 일시</label>
                   <input
@@ -1353,6 +1381,26 @@ export function PosSalesHistoryModal({
                     type="text"
                     value={editingOrder.handlerName}
                     onChange={e => setEditingOrder({ ...editingOrder, handlerName: e.target.value })}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-surface-dim font-bold mb-1">결제자 이름 (선택)</label>
+                  <input
+                    type="text"
+                    value={editingOrder.buyerName || ''}
+                    placeholder="미입력"
+                    onChange={e => setEditingOrder({ ...editingOrder, buyerName: e.target.value || undefined })}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-surface-dim font-bold mb-1">메모 (선택)</label>
+                  <input
+                    type="text"
+                    value={editingOrder.memo || ''}
+                    placeholder="메모 없음"
+                    onChange={e => setEditingOrder({ ...editingOrder, memo: e.target.value || undefined })}
                     className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-blue-400"
                   />
                 </div>

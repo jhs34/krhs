@@ -134,7 +134,7 @@ export function PosLoginModal({
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-surface-dim flex items-center space-x-1 pl-0.5">
                 <User className="w-2.5 h-2.5 text-secondary" />
-                <span>아이디(이름)</span>
+                <span>아이디</span>
               </label>
               <input
                 type="text"

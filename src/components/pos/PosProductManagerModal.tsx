@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   X,
   Plus,
@@ -33,7 +33,7 @@ import {
   Loader2,
   RotateCcw,
 } from 'lucide-react';
-import { PosCategory, PosItem, PosPreset, PosUser } from '../../types/pos';
+import { PosCategory, PosItem, PosPreset, PosUser, PosItemChangeDetail, PosFieldDiff } from '../../types/pos';
 import { DEFAULT_POS_CATEGORIES, DEFAULT_POS_ITEMS } from '../../data/defaultPosData';
 import {
   subscribePosPresets,
@@ -58,7 +58,7 @@ interface PosProductManagerModalProps {
   onDeleteItem?: (id: string) => void;
   onDeleteCategory?: (id: string) => void;
   onResetToDefault: () => void;
-  onApplyPreset?: (categories: PosCategory[], items: PosItem[], presetName: string) => void;
+  onApplyPreset?: (categories: PosCategory[], items: PosItem[], presetName: string, presetId?: string) => void;
   onClearAllFavorites?: () => void;
   onClose: () => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
@@ -90,45 +90,25 @@ export function PosProductManagerModal({
     JSON.parse(JSON.stringify(categories))
   );
 
-  // Sync with prop updates only if there are no pending local changes
-  useEffect(() => {
-    setLocalItems(prev => {
-      // Check if prev has any diff compared to old items
-      const hasItemDiff = prev.some(local => {
-        const orig = items.find(it => it.id === local.id);
-        if (!orig) return true;
-        return (
-          orig.name !== local.name ||
-          orig.price !== local.price ||
-          orig.stock !== local.stock ||
-          orig.categoryId !== local.categoryId ||
-          orig.isFavorite !== local.isFavorite ||
-          orig.isActive !== local.isActive ||
-          orig.barcode !== local.barcode
-        );
-      }) || prev.length !== items.length;
+  // Track if user explicitly made manual edits in current session
+  const isDirtyRef = useRef(false);
 
-      if (!hasItemDiff) {
-        return JSON.parse(JSON.stringify(items));
-      }
-      return prev;
-    });
+  // Sync with prop updates only when there are no pending manual local changes
+  useEffect(() => {
+    if (!isDirtyRef.current) {
+      setLocalItems(JSON.parse(JSON.stringify(items)));
+    }
   }, [items]);
 
   useEffect(() => {
-    setLocalCategories(prev => {
-      const hasCatDiff =
-        prev.length !== categories.length ||
-        prev.some((c, i) => categories[i]?.id !== c.id || categories[i]?.name !== c.name);
-      if (!hasCatDiff) {
-        return JSON.parse(JSON.stringify(categories));
-      }
-      return prev;
-    });
+    if (!isDirtyRef.current) {
+      setLocalCategories(JSON.parse(JSON.stringify(categories)));
+    }
   }, [categories]);
 
   // Compute modified items compared to original prop items
   const modifiedItems = useMemo(() => {
+    if (!isDirtyRef.current) return [];
     return localItems.filter(local => {
       const orig = items.find(it => it.id === local.id);
       if (!orig) return true; // Newly added
@@ -145,6 +125,7 @@ export function PosProductManagerModal({
   }, [localItems, items]);
 
   const isCategoriesModified = useMemo(() => {
+    if (!isDirtyRef.current) return false;
     if (localCategories.length !== categories.length) return true;
     return localCategories.some((c, idx) => {
       const orig = categories[idx];
@@ -152,7 +133,7 @@ export function PosProductManagerModal({
     });
   }, [localCategories, categories]);
 
-  const hasChanges = modifiedItems.length > 0 || isCategoriesModified;
+  const hasChanges = isDirtyRef.current && (modifiedItems.length > 0 || isCategoriesModified);
 
   // Saving state
   const [isSavingChanges, setIsSavingChanges] = useState(false);
@@ -317,6 +298,7 @@ export function PosProductManagerModal({
 
   // Item Local Handlers (Fast local update only - no Firestore calls until 'Save' is pressed)
   const handleSaveItem = (savedItem: PosItem) => {
+    isDirtyRef.current = true;
     const exists = localItems.some(it => it.id === savedItem.id);
     if (exists) {
       setLocalItems(prev => prev.map(it => (it.id === savedItem.id ? savedItem : it)));
@@ -337,6 +319,7 @@ export function PosProductManagerModal({
       return;
     }
     if (!deleteConfirmItem) return;
+    isDirtyRef.current = true;
     if (onDeleteItem) {
       onDeleteItem(deleteConfirmItem.id);
     }
@@ -346,18 +329,21 @@ export function PosProductManagerModal({
   };
 
   const handleToggleFavorite = (itemId: string) => {
+    isDirtyRef.current = true;
     setLocalItems(prev =>
       prev.map(it => (it.id === itemId ? { ...it, isFavorite: !it.isFavorite } : it))
     );
   };
 
   const handleToggleActive = (itemId: string) => {
+    isDirtyRef.current = true;
     setLocalItems(prev =>
       prev.map(it => (it.id === itemId ? { ...it, isActive: !it.isActive } : it))
     );
   };
 
   const handleAdjustStock = (itemId: string, delta: number) => {
+    isDirtyRef.current = true;
     setLocalItems(prev =>
       prev.map(it => {
         if (it.id === itemId) {
@@ -370,6 +356,7 @@ export function PosProductManagerModal({
   };
 
   const handleSetExactStock = (itemId: string, exact: number) => {
+    isDirtyRef.current = true;
     setLocalItems(prev =>
       prev.map(it => {
         if (it.id === itemId) {
@@ -392,6 +379,7 @@ export function PosProductManagerModal({
       orderIndex: localCategories.length + 1,
     };
 
+    isDirtyRef.current = true;
     setLocalCategories(prev => [...prev, newCategory]);
     setNewCatName('');
     showToast(`'${newCategory.name}' 카테고리가 추가되었습니다. (저장 버튼을 눌러 확정)`);
@@ -399,6 +387,7 @@ export function PosProductManagerModal({
 
   const handleSaveCategoryName = (catId: string) => {
     if (!editingCatName.trim()) return;
+    isDirtyRef.current = true;
     setLocalCategories(prev =>
       prev.map(c => (c.id === catId ? { ...c, name: editingCatName.trim() } : c))
     );
@@ -417,6 +406,7 @@ export function PosProductManagerModal({
     copy[targetIndex] = temp;
 
     const reIndexed = copy.map((cat, idx) => ({ ...cat, orderIndex: idx + 1 }));
+    isDirtyRef.current = true;
     setLocalCategories(reIndexed);
   };
 
@@ -436,6 +426,7 @@ export function PosProductManagerModal({
       return;
     }
 
+    isDirtyRef.current = true;
     if (onDeleteCategory) {
       onDeleteCategory(deleteConfirmCat.id);
     }
@@ -446,6 +437,7 @@ export function PosProductManagerModal({
 
   // Bulk Quick Actions (Local)
   const handleReplenishAllSoldOut = () => {
+    isDirtyRef.current = true;
     setLocalItems(prev => prev.map(it => (it.stock <= 0 ? { ...it, stock: 10 } : it)));
     showToast(`품절 상품 ${outOfStockCount}종의 재고를 각 10개씩 일괄 입고 설정했습니다. (저장 버튼을 눌러 확정)`);
   };
@@ -457,6 +449,7 @@ export function PosProductManagerModal({
       setShowClearFavoritesConfirm(false);
       return;
     }
+    isDirtyRef.current = true;
     setLocalItems(prev => prev.map(i => ({ ...i, isFavorite: false })));
     showToast('모든 상품의 즐겨찾기를 해제했습니다. (저장 버튼을 눌러 확정)');
     setShowClearFavoritesConfirm(false);
@@ -471,22 +464,100 @@ export function PosProductManagerModal({
 
     setIsSavingChanges(true);
     try {
-      // 1. Generate consolidated log description
+      // 1. Generate consolidated log description & rich structured change items
       const detailsList: string[] = [];
+      const itemChanges: PosItemChangeDetail[] = [];
+
       modifiedItems.forEach(newItem => {
         const oldItem = items.find(it => it.id === newItem.id);
+        const cat = localCategories.find(c => c.id === newItem.categoryId);
+        const catName = cat ? cat.name : '기본 카테고리';
+
         if (!oldItem) {
           detailsList.push(`[${newItem.name}] 신규등록 (재고 ${newItem.stock}개)`);
+          itemChanges.push({
+            itemId: newItem.id,
+            itemName: newItem.name,
+            categoryName: catName,
+            changeType: 'CREATED',
+            summary: `신규 상품 등록 (판매가: ${newItem.price.toLocaleString()}원, 초기 재고: ${newItem.stock}개)`,
+            diffs: [
+              { field: 'price', label: '판매 가격', from: '없음', to: `${newItem.price.toLocaleString()}원` },
+              { field: 'stock', label: '초기 재고', from: '없음', to: `${newItem.stock}개` },
+            ],
+          });
         } else {
           const subChanges: string[] = [];
-          if (oldItem.stock !== newItem.stock) subChanges.push(`재고 ${oldItem.stock}→${newItem.stock}`);
-          if (oldItem.name !== newItem.name) subChanges.push(`이름 '${oldItem.name}'→'${newItem.name}'`);
-          if (oldItem.price !== newItem.price) subChanges.push(`가격 ${oldItem.price.toLocaleString()}원→${newItem.price.toLocaleString()}원`);
-          if (oldItem.isActive !== newItem.isActive) subChanges.push(newItem.isActive ? '판매재개' : '판매중단');
-          if (oldItem.isFavorite !== newItem.isFavorite) subChanges.push(newItem.isFavorite ? '즐겨찾기' : '즐겨찾기해제');
-          if (oldItem.categoryId !== newItem.categoryId) subChanges.push('카테고리변경');
+          const diffs: PosFieldDiff[] = [];
+
+          if (oldItem.stock !== newItem.stock) {
+            const diff = newItem.stock - oldItem.stock;
+            const sign = diff > 0 ? `+${diff}` : `${diff}`;
+            subChanges.push(`재고 ${oldItem.stock}개→${newItem.stock}개 (${sign})`);
+            diffs.push({
+              field: 'stock',
+              label: '재고 수량',
+              from: `${oldItem.stock}개`,
+              to: `${newItem.stock}개 (${sign})`,
+            });
+          }
+          if (oldItem.price !== newItem.price) {
+            subChanges.push(`가격 ${oldItem.price.toLocaleString()}원→${newItem.price.toLocaleString()}원`);
+            diffs.push({
+              field: 'price',
+              label: '판매 가격',
+              from: `${oldItem.price.toLocaleString()}원`,
+              to: `${newItem.price.toLocaleString()}원`,
+            });
+          }
+          if (oldItem.name !== newItem.name) {
+            subChanges.push(`이름 '${oldItem.name}'→'${newItem.name}'`);
+            diffs.push({
+              field: 'name',
+              label: '상품명',
+              from: oldItem.name,
+              to: newItem.name,
+            });
+          }
+          if (oldItem.isActive !== newItem.isActive) {
+            subChanges.push(newItem.isActive ? '판매재개' : '판매중단');
+            diffs.push({
+              field: 'isActive',
+              label: '판매 상태',
+              from: oldItem.isActive ? '판매중' : '판매중단',
+              to: newItem.isActive ? '판매중' : '판매중단',
+            });
+          }
+          if (oldItem.isFavorite !== newItem.isFavorite) {
+            subChanges.push(newItem.isFavorite ? '즐겨찾기' : '즐겨찾기해제');
+            diffs.push({
+              field: 'isFavorite',
+              label: '즐겨찾기',
+              from: oldItem.isFavorite ? '등록' : '미등록',
+              to: newItem.isFavorite ? '등록' : '미등록',
+            });
+          }
+          if (oldItem.categoryId !== newItem.categoryId) {
+            const oldCatName = localCategories.find(c => c.id === oldItem.categoryId)?.name || '이전 카테고리';
+            subChanges.push(`카테고리 '${oldCatName}'→'${catName}'`);
+            diffs.push({
+              field: 'categoryId',
+              label: '카테고리',
+              from: oldCatName,
+              to: catName,
+            });
+          }
+
           if (subChanges.length > 0) {
             detailsList.push(`[${newItem.name}] ${subChanges.join(', ')}`);
+            itemChanges.push({
+              itemId: newItem.id,
+              itemName: newItem.name,
+              categoryName: catName,
+              changeType: diffs.length === 1 && diffs[0].field === 'stock' ? 'STOCK' : diffs.length === 1 && diffs[0].field === 'price' ? 'PRICE' : 'MULTIPLE',
+              summary: subChanges.join(' | '),
+              diffs,
+            });
           }
         }
       });
@@ -502,12 +573,16 @@ export function PosProductManagerModal({
             (detailsList.length > 4 ? ` 외 ${detailsList.length - 4}건` : '')
           : `총 ${modifiedItems.length}개 품목 변경사항 일괄 저장`;
 
-      // 2. Batch save items to Firestore
+      // 2. Batch save items to Firestore with detailed change tracking
       if (modifiedItems.length > 0) {
         await saveBatchPosItemsWithSummary(
           modifiedItems,
           summaryDetails,
-          effectiveIsAdmin ? '관리자' : '근무자'
+          effectiveIsAdmin ? '관리자' : '근무자',
+          {
+            itemChanges,
+            categoriesModified: isCategoriesModified,
+          }
         );
       }
 
@@ -520,6 +595,7 @@ export function PosProductManagerModal({
       onUpdateItems(localItems);
       onUpdateCategories(localCategories);
 
+      isDirtyRef.current = false;
       showToast(`총 ${modifiedItems.length}개 상품의 변경사항이 안전하게 저장되었습니다.`, 'success');
       setShowUnsavedConfirmModal(false);
     } catch (err: any) {
@@ -532,6 +608,7 @@ export function PosProductManagerModal({
 
   // Discard local changes and revert to props
   const handleDiscardChanges = () => {
+    isDirtyRef.current = false;
     setLocalItems(JSON.parse(JSON.stringify(items)));
     setLocalCategories(JSON.parse(JSON.stringify(categories)));
     showToast('변경사항을 취소하고 원래대로 되돌렸습니다.');
@@ -591,14 +668,25 @@ export function PosProductManagerModal({
     }
     if (!applyTargetPreset) return;
 
-    if (onApplyPreset) {
-      onApplyPreset(applyTargetPreset.categories, applyTargetPreset.items, applyTargetPreset.name);
-    } else {
-      onUpdateCategories(applyTargetPreset.categories);
-      onUpdateItems(applyTargetPreset.items);
-      showToast(`'${applyTargetPreset.name}' 프리셋이 적용되었습니다.`, 'success');
-    }
+    const targetPreset = applyTargetPreset;
     setApplyTargetPreset(null);
+
+    // Deep copy preset data
+    const clonedCategories: PosCategory[] = JSON.parse(JSON.stringify(targetPreset.categories));
+    const clonedItems: PosItem[] = JSON.parse(JSON.stringify(targetPreset.items));
+
+    // Reset modification flag & update local modal state immediately
+    isDirtyRef.current = false;
+    setLocalCategories(clonedCategories);
+    setLocalItems(clonedItems);
+
+    if (onApplyPreset) {
+      await onApplyPreset(clonedCategories, clonedItems, targetPreset.name, targetPreset.id);
+    } else {
+      onUpdateCategories(clonedCategories);
+      onUpdateItems(clonedItems);
+      showToast(`'${targetPreset.name}' 프리셋이 적용되었습니다.`, 'success');
+    }
   };
 
   const handleApplyFromSheet = async (
@@ -610,11 +698,18 @@ export function PosProductManagerModal({
       setShowAdminRequiredModal({ isOpen: true, featureName: '시트/엑셀 재고 적용' });
       return;
     }
+    const clonedCategories: PosCategory[] = JSON.parse(JSON.stringify(newCategories));
+    const clonedItems: PosItem[] = JSON.parse(JSON.stringify(newItems));
+
+    isDirtyRef.current = false;
+    setLocalCategories(clonedCategories);
+    setLocalItems(clonedItems);
+
     if (onApplyPreset) {
-      await onApplyPreset(newCategories, newItems, pName);
+      await onApplyPreset(clonedCategories, clonedItems, pName);
     } else {
-      onUpdateCategories(newCategories);
-      onUpdateItems(newItems);
+      onUpdateCategories(clonedCategories);
+      onUpdateItems(clonedItems);
       showToast(`'${pName}' 프리셋이 적용되었습니다.`, 'success');
     }
   };
@@ -1944,15 +2039,20 @@ export function PosProductManagerModal({
                       <div className="p-4 sm:p-5 flex-1 flex flex-col">
                         {/* Type & Meta Header */}
                         <div className="flex items-center justify-between gap-2 mb-2">
-                          {preset.isBuiltIn ? (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                              기본 프리셋
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {preset.isBuiltIn ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                                기본 프리셋
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                사용자 정의
+                              </span>
+                            )}
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-surface-dim border border-white/10" title={`프리셋 고유 ID: ${preset.id}`}>
+                              ID: {preset.id}
                             </span>
-                          ) : (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                              사용자 정의
-                            </span>
-                          )}
+                          </div>
                           {preset.createdAt && (
                             <span className="text-[10px] text-surface-dim/70">
                               {preset.isBuiltIn ? preset.createdAt : new Date(preset.createdAt).toLocaleDateString()}

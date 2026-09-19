@@ -111,6 +111,8 @@ export function subscribePosOrders(
           timestamp: data.timestamp || new Date().toISOString(),
           handlerUid: data.handlerUid || '',
           handlerName: data.handlerName || '판매원',
+          buyerName: data.buyerName || undefined,
+          memo: data.memo || undefined,
           paymentMethod: (data.paymentMethod as PaymentMethod) || 'CASH',
           totalAmount: typeof data.totalAmount === 'number' ? data.totalAmount : 0,
           cashReceived: typeof data.cashReceived === 'number' ? data.cashReceived : undefined,
@@ -285,6 +287,8 @@ export interface RunOrderParams {
   sessionId: string;
   handlerUid: string;
   handlerName: string;
+  buyerName?: string;
+  memo?: string;
   paymentMethod: PaymentMethod;
   totalAmount: number;
   cashReceived?: number;
@@ -344,12 +348,16 @@ export async function runOrderTransaction(params: RunOrderParams): Promise<PosOr
     const orderDocRef = doc(ordersCol);
 
     const nowIso = new Date().toISOString();
+    const cleanBuyerName = params.buyerName?.trim() || undefined;
+    const cleanMemo = params.memo?.trim() || undefined;
     const newOrder: PosOrder = {
       id: orderDocRef.id,
       sessionId: params.sessionId,
       timestamp: nowIso,
       handlerUid: params.handlerUid,
       handlerName: params.handlerName,
+      buyerName: cleanBuyerName,
+      memo: cleanMemo,
       paymentMethod: params.paymentMethod,
       totalAmount: params.totalAmount,
       cashReceived: params.paymentMethod === 'CASH' ? params.cashReceived : undefined,
@@ -385,6 +393,7 @@ export async function runOrderTransaction(params: RunOrderParams): Promise<PosOr
   }).then(async order => {
     // Background audit logging (Non-blocking)
     const itemsSummary = params.cart.map(c => `${c.item.name} x${c.count}`).join(', ');
+    const buyerSuffix = order.buyerName ? ` [결제자: ${order.buyerName}]` : '';
     await logPosActivity({
       action: 'ORDER_CREATED',
       actionTitle: '결제 완료',
@@ -392,9 +401,11 @@ export async function runOrderTransaction(params: RunOrderParams): Promise<PosOr
       actorName: params.handlerName || '판매원',
       actorUid: params.handlerUid,
       sessionId: params.sessionId,
-      details: `${params.paymentMethod === 'TRANSFER' ? '계좌이체' : '현금'} 결제 ${params.totalAmount.toLocaleString()}원 (${itemsSummary})`,
+      details: `${params.paymentMethod === 'TRANSFER' ? '계좌이체' : '현금'} 결제 ${params.totalAmount.toLocaleString()}원 (${itemsSummary})${buyerSuffix}`,
       metadata: {
         orderId: order.id,
+        buyerName: order.buyerName || undefined,
+        memo: order.memo || undefined,
         paymentMethod: params.paymentMethod,
         totalAmount: params.totalAmount,
         cashReceived: params.cashReceived,
@@ -536,7 +547,8 @@ export async function saveSinglePosItemPartial(
 export async function saveBatchPosItemsWithSummary(
   changedItems: PosItem[],
   logSummaryDetails: string,
-  actorName = '근무자'
+  actorName = '근무자',
+  extraMetadata?: Record<string, any>
 ): Promise<void> {
   if (changedItems.length === 0) return;
   await ensurePosAuth();
@@ -571,7 +583,11 @@ export async function saveBatchPosItemsWithSummary(
     category: 'INVENTORY',
     actorName,
     details: logSummaryDetails || `총 ${changedItems.length}개 상품 변경사항 일괄 저장`,
-    metadata: { count: changedItems.length },
+    metadata: {
+      count: changedItems.length,
+      itemNames: changedItems.map(it => it.name).slice(0, 15),
+      ...extraMetadata,
+    },
   }).catch(() => {});
 }
 
@@ -645,13 +661,33 @@ export async function savePosItem(
     { merge: true }
   );
 
+  const diffs: any[] = [];
+  if (item.price !== undefined) diffs.push({ field: 'price', label: '판매 가격', from: isNew ? '신규' : '-', to: `${(item.price || 0).toLocaleString()}원` });
+  if (item.stock !== undefined) diffs.push({ field: 'stock', label: '재고 수량', from: isNew ? '초기' : '-', to: `${item.stock ?? 0}개` });
+  if (item.isActive !== undefined) diffs.push({ field: 'isActive', label: '판매 상태', from: '-', to: item.isActive !== false ? '판매중' : '판매중단' });
+
   logPosActivity({
     action: isNew ? 'ITEM_CREATED' : 'ITEM_UPDATED',
     actionTitle: isNew ? '신규 상품 등록' : '상품 정보 수정',
     category: 'INVENTORY',
     actorName,
     details: `상품 [${item.name || '미정'}] ${isNew ? '신규 등록' : '정보 수정'} (가격: ${(item.price || 0).toLocaleString()}원, 재고: ${item.stock ?? 0}개)`,
-    metadata: { itemId: id, name: item.name, price: item.price, stock: item.stock, barcode: item.barcode },
+    metadata: {
+      itemId: id,
+      name: item.name,
+      price: item.price,
+      stock: item.stock,
+      barcode: item.barcode,
+      itemChanges: [
+        {
+          itemId: id,
+          itemName: item.name || '미정',
+          changeType: isNew ? 'CREATED' : 'MULTIPLE',
+          summary: isNew ? `신규 상품 등록 (가격: ${(item.price || 0).toLocaleString()}원, 초기 재고: ${item.stock ?? 0}개)` : '상품 정보 수정',
+          diffs,
+        },
+      ],
+    },
   }).catch(() => {});
 
   return id;
@@ -674,7 +710,18 @@ export async function deletePosItem(
     category: 'INVENTORY',
     actorName,
     details: `상품 [${itemName || id}] 영구 삭제`,
-    metadata: { itemId: id, itemName },
+    metadata: {
+      itemId: id,
+      itemName,
+      itemChanges: [
+        {
+          itemId: id,
+          itemName: itemName || id,
+          changeType: 'STATUS',
+          summary: '상품 데이터 영구 삭제',
+        },
+      ],
+    },
   }).catch(() => {});
 }
 
@@ -934,7 +981,8 @@ export async function applyPosPreset(
   categories: PosCategory[],
   items: PosItem[],
   presetName = '프리셋',
-  actorName = '관리자'
+  actorName = '관리자',
+  presetId?: string
 ): Promise<void> {
   await ensurePosAuth();
 
@@ -984,8 +1032,11 @@ export async function applyPosPreset(
     actionTitle: '메뉴 프리셋 적용',
     category: 'SYSTEM',
     actorName,
-    details: `[${presetName}] 적용 완료 (카테고리 ${categories.length}개, 품목 ${items.length}개)`,
-    metadata: { presetName, categoriesCount: categories.length, itemsCount: items.length },
+    details: `[${presetName}] 메뉴 프리셋 적용 완료${presetId ? ` (ID: ${presetId})` : ''}`,
+    metadata: {
+      presetId: presetId || '',
+      presetName,
+    },
   }).catch(() => {});
 }
 
@@ -1075,9 +1126,10 @@ export async function deletePosPreset(
  */
 export async function resetPosDataToDefaults(
   defaultCategories: PosCategory[],
-  defaultItems: PosItem[]
+  defaultItems: PosItem[],
+  actorName = '관리자'
 ): Promise<void> {
-  await applyPosPreset(defaultCategories, defaultItems);
+  await applyPosPreset(defaultCategories, defaultItems, '한철고 매점 기본 메뉴 (33종)', actorName, 'preset-default-33');
 }
 
 /**
@@ -1100,6 +1152,16 @@ export async function logPosActivity(
     const now = new Date();
     const defaultSessionId = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
+    // 원문 JSON 또는 메타데이터만 단독으로 열람하더라도
+    // 작업 성격(결제 완료, 상품 수정, 취소 환불 등)을 명확히 식별할 수 있도록 기본 필드 명시 보강
+    const enrichedMetadata: Record<string, any> = {
+      eventType: log.action,
+      eventTitle: log.actionTitle,
+      eventCategory: log.category,
+      summary: log.details,
+      ...(log.metadata || {}),
+    };
+
     const entry: PosAuditLog = {
       id,
       timestamp,
@@ -1109,7 +1171,7 @@ export async function logPosActivity(
       actorName: log.actorName || '시스템',
       actorUid: log.actorUid,
       details: log.details,
-      metadata: log.metadata,
+      metadata: enrichedMetadata,
       sessionId: log.sessionId || defaultSessionId,
     };
 

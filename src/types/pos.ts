@@ -43,6 +43,8 @@ export interface PosOrder {
   timestamp: string; // ISO string
   handlerUid: string;
   handlerName: string;
+  buyerName?: string; // 결제자 이름 (선택사항)
+  memo?: string; // 추가 메모 (선택사항)
   paymentMethod: PaymentMethod;
   totalAmount: number;
   cashReceived?: number;
@@ -109,16 +111,33 @@ export type PosLogAction =
 
 export type PosLogCategory = 'SALE' | 'INVENTORY' | 'SETTLEMENT' | 'SYSTEM' | 'AUTH';
 
+export interface PosFieldDiff {
+  field: string;
+  label: string;
+  from: string | number | boolean;
+  to: string | number | boolean;
+}
+
+export interface PosItemChangeDetail {
+  itemId: string;
+  itemName: string;
+  categoryName?: string;
+  changeType?: 'CREATED' | 'STOCK' | 'PRICE' | 'STATUS' | 'FAVORITE' | 'RENAMED' | 'CATEGORY' | 'MULTIPLE';
+  summary: string;
+  diffs?: PosFieldDiff[];
+}
+
 export interface PosAuditLog {
   id: string;
-  timestamp: string; // ISO string
+  timestamp: string; // ISO string (언제)
   action: PosLogAction;
-  actionTitle: string; // human readable name
-  category: PosLogCategory;
-  actorName: string; // "김철도 (관리자)" or email
+  actionTitle: string; // human readable name (어떤 활동을)
+  category: PosLogCategory; // (어떤 카테고리)
+  actorName: string; // (누가)
   actorUid?: string;
-  details: string; // 요약 설명
-  metadata?: Record<string, any>; // 주문번호, 이전값/이후값, 품목 내역 등
+  details: string; // 한줄 요약 설명
+  metadata?: Record<string, any>; // 세부 정보 (어떻게 무엇을 했는지)
   sessionId?: string; // e.g. "2026-09-16"
 }
+
 

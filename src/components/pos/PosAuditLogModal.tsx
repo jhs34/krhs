@@ -25,6 +25,7 @@ import { PosAuditLog, PosLogCategory, PosUser } from '../../types/pos';
 import { deletePosLog, clearAllPosLogs } from '../../services/posFirestore';
 import { loginWithGoogle, logout as firebaseLogout, auth } from '../../firebase';
 import { createGoogleAdminPosUser } from '../../services/posAuth';
+import { PosAuditLogDetailView } from './PosAuditLogDetailView';
 
 interface PosAuditLogModalProps {
   isOpen: boolean;
@@ -202,8 +203,9 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
     const saleCount = logs.filter(l => l.category === 'SALE').length;
     const inventoryCount = logs.filter(l => l.category === 'INVENTORY').length;
     const settlementCount = logs.filter(l => l.category === 'SETTLEMENT').length;
-    const systemCount = logs.filter(l => l.category === 'SYSTEM' || l.category === 'AUTH').length;
-    return { total, saleCount, inventoryCount, settlementCount, systemCount };
+    const systemCount = logs.filter(l => l.category === 'SYSTEM').length;
+    const authCount = logs.filter(l => l.category === 'AUTH').length;
+    return { total, saleCount, inventoryCount, settlementCount, systemCount, authCount };
   }, [logs]);
 
   const handleExecuteDeleteSingle = async () => {
@@ -260,7 +262,7 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
       case 'SYSTEM':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-            <Settings className="w-3 h-3" /> 시스템
+            <Settings className="w-3 h-3" /> 시스템 설정
           </span>
         );
       case 'AUTH':
@@ -408,7 +410,7 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
               <span className="text-xs sm:text-sm font-bold text-slate-900 font-mono">{stats.total}</span>
             </div>
             <div className="flex-1 px-1.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] sm:text-xs text-emerald-700 font-medium">판매/취소</span>
+              <span className="text-[10px] sm:text-xs text-emerald-700 font-medium">판매/결제</span>
               <span className="text-xs sm:text-sm font-bold text-emerald-700 font-mono">{stats.saleCount}</span>
             </div>
             <div className="flex-1 px-1.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap">
@@ -420,8 +422,12 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
               <span className="text-xs sm:text-sm font-bold text-purple-700 font-mono">{stats.settlementCount}</span>
             </div>
             <div className="flex-1 px-1.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] sm:text-xs text-amber-700 font-medium">시스템</span>
+              <span className="text-[10px] sm:text-xs text-amber-700 font-medium">시스템 설정</span>
               <span className="text-xs sm:text-sm font-bold text-amber-700 font-mono">{stats.systemCount}</span>
+            </div>
+            <div className="flex-1 px-1.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap">
+              <span className="text-[10px] sm:text-xs text-slate-700 font-medium">계정/인증</span>
+              <span className="text-xs sm:text-sm font-bold text-slate-700 font-mono">{stats.authCount}</span>
             </div>
           </div>
         </div>
@@ -595,15 +601,13 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
                       </div>
 
                       <div className="flex items-center gap-1">
-                        {hasMetadata && (
-                          <button
-                            type="button"
-                            className="p-1 text-slate-400 hover:text-blue-600 rounded"
-                            title="상세 데이터 확인"
-                          >
-                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className="p-1 text-slate-400 hover:text-blue-600 rounded transition-colors"
+                          title={isExpanded ? '상세 정보 닫기' : '언제/누가/어떤 카테고리/활동/세부 내역 펼치기'}
+                        >
+                          {isExpanded ? <ChevronUp className="w-4 h-4 text-blue-600" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
                         {effectiveIsAdmin && (
                           <button
                             type="button"
@@ -621,22 +625,17 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Expanded Metadata Drawer */}
+                  {/* Expanded Structured 5-W Audit Report Drawer */}
                   <AnimatePresence>
-                    {isExpanded && hasMetadata && (
+                    {isExpanded && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="px-4 py-3 bg-slate-900 text-slate-200 text-xs font-mono border-t border-slate-800"
+                        transition={{ duration: 0.2, ease: 'easeOut' }}
+                        className="overflow-hidden"
                       >
-                        <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-700 text-slate-400">
-                          <span>세부 정보 및 메타데이터 (JSON)</span>
-                          <span>ID: {log.id}</span>
-                        </div>
-                        <pre className="whitespace-pre-wrap overflow-x-auto text-[11px] leading-relaxed text-blue-200 bg-slate-950 p-2.5 rounded-lg border border-slate-800">
-                          {JSON.stringify(log.metadata, null, 2)}
-                        </pre>
+                        <PosAuditLogDetailView log={log} />
                       </motion.div>
                     )}
                   </AnimatePresence>

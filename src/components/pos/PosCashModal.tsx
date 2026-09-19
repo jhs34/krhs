@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { X, Check, Banknote, Coins, ArrowRight } from 'lucide-react';
+import { X, Check, Banknote, Coins, ArrowRight, User, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface PosCashModalProps {
   totalAmount: number;
-  onConfirmPayment: (received: number, change: number) => void;
+  onConfirmPayment: (received: number, change: number, buyerName?: string, memo?: string) => void;
   onClose: () => void;
 }
 
 export function PosCashModal({ totalAmount, onConfirmPayment, onClose }: PosCashModalProps) {
   const [receivedStr, setReceivedStr] = useState<string>('');
+  const [buyerName, setBuyerName] = useState<string>('');
+  const [memo, setMemo] = useState<string>('');
 
   const receivedAmount = parseInt(receivedStr, 10) || 0;
   const changeAmount = receivedAmount - totalAmount;
@@ -46,7 +48,7 @@ export function PosCashModal({ totalAmount, onConfirmPayment, onClose }: PosCash
 
   const handleComplete = () => {
     if (!isSufficient) return;
-    onConfirmPayment(receivedAmount, changeAmount);
+    onConfirmPayment(receivedAmount, changeAmount, buyerName.trim() || undefined, memo.trim() || undefined);
   };
 
   return (
@@ -120,6 +122,45 @@ export function PosCashModal({ totalAmount, onConfirmPayment, onClose }: PosCash
               ? `${changeAmount.toLocaleString()}원`
               : `-${Math.abs(changeAmount).toLocaleString()}원`}
           </span>
+        </div>
+
+        {/* Optional Buyer Name & Memo Inputs */}
+        <div className="mt-2.5 mb-1 space-y-2">
+          <div>
+            <div className="flex items-center justify-between mb-1 px-1">
+              <label className="text-[11px] font-bold text-surface-dim flex items-center space-x-1">
+                <User className="w-3 h-3 text-emerald-400" />
+                <span>결제자 이름</span>
+              </label>
+              <span className="text-[10px] text-slate-400 bg-white/5 px-1.5 py-0.5 rounded">선택사항</span>
+            </div>
+            <input
+              type="text"
+              value={buyerName}
+              onChange={e => setBuyerName(e.target.value)}
+              placeholder="결제자 이름 (미입력 가능)"
+              maxLength={20}
+              className="w-full bg-black/40 border border-white/10 focus:border-emerald-500/60 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 outline-none transition-all"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1 px-1">
+              <label className="text-[11px] font-bold text-surface-dim flex items-center space-x-1">
+                <FileText className="w-3 h-3 text-emerald-400" />
+                <span>메모</span>
+              </label>
+              <span className="text-[10px] text-slate-400 bg-white/5 px-1.5 py-0.5 rounded">선택사항</span>
+            </div>
+            <input
+              type="text"
+              value={memo}
+              onChange={e => setMemo(e.target.value)}
+              placeholder="주문 메모 (선택사항, 예: 요청사항, 메모 등)"
+              maxLength={100}
+              className="w-full bg-black/40 border border-white/10 focus:border-emerald-500/60 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 outline-none transition-all"
+            />
+          </div>
         </div>
 
         {/* Quick Amount Presets */}
