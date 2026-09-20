@@ -512,6 +512,11 @@ export function PosPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  const getActorId = (defaultRole: '근무자' | '관리자' = '근무자') => {
+    if (!currentUser) return defaultRole;
+    return currentUser.id || defaultRole;
+  };
+
   // Fast atomic single-item updater (instant optimistic response, no subscription delay)
   const handleUpdateSingleItem = async (updatedItem: PosItem) => {
     // 1. Optimistic state update
@@ -541,7 +546,7 @@ export function PosPage() {
 
     // 3. Fast single Firestore write
     try {
-      await savePosItem(updatedItem, currentUser?.name || '근무자');
+      await savePosItem(updatedItem, getActorId('근무자'), currentUser?.id);
     } catch (e) {
       console.error('Failed to sync item with Firestore:', e);
     }
@@ -580,7 +585,7 @@ export function PosPage() {
 
     // 3. Fast single Firestore write
     try {
-      await saveSinglePosItemPartial(itemId, patch, currentUser?.name || '근무자');
+      await saveSinglePosItemPartial(itemId, patch, getActorId('근무자'), currentUser?.id);
     } catch (e) {
       console.error('Failed to sync item patch with Firestore:', e);
     }
@@ -612,7 +617,8 @@ export function PosPage() {
       await resetPosDataToDefaults(
         DEFAULT_POS_CATEGORIES,
         DEFAULT_POS_ITEMS,
-        currentUser?.name || '관리자'
+        getActorId('관리자'),
+        currentUser?.id
       );
       setItems(DEFAULT_POS_ITEMS);
       setCategories(DEFAULT_POS_CATEGORIES);
@@ -631,7 +637,7 @@ export function PosPage() {
     presetId?: string
   ) => {
     try {
-      await applyPosPreset(newCategories, newItems, presetName, currentUser?.name || '관리자', presetId);
+      await applyPosPreset(newCategories, newItems, presetName, getActorId('관리자'), presetId, currentUser?.id);
       setCategories(newCategories);
       setItems(newItems);
       setCart([]);
@@ -644,7 +650,7 @@ export function PosPage() {
 
   const handleClearAllFavorites = async () => {
     try {
-      await clearAllPosFavorites(items);
+      await clearAllPosFavorites(items, getActorId('근무자'), currentUser?.id);
       setItems(prev => prev.map(i => ({ ...i, isFavorite: false })));
       showToast('모든 상품의 즐겨찾기가 일괄 해제되었습니다.', 'success');
     } catch (e: any) {
@@ -1261,12 +1267,17 @@ export function PosPage() {
             categories={categories}
             items={items}
             isAdmin={currentUser?.role === 'admin'}
+            currentUser={currentUser}
             onUpdateItems={handleUpdateItems}
             onUpdateSingleItem={handleUpdateSingleItem}
             onPatchItem={handlePatchSingleItem}
             onUpdateCategories={handleUpdateCategories}
-            onDeleteItem={deletePosItem}
-            onDeleteCategory={deletePosCategory}
+            onDeleteItem={(id: string) => {
+              deletePosItem(id, getActorId('근무자'), currentUser?.id);
+            }}
+            onDeleteCategory={(id: string) => {
+              deletePosCategory(id, getActorId('근무자'), currentUser?.id);
+            }}
             onResetToDefault={handleResetToDefault}
             onApplyPreset={handleApplyPreset}
             onClearAllFavorites={handleClearAllFavorites}
@@ -1310,7 +1321,7 @@ export function PosPage() {
         onClose={() => setShowAuditLogModal(false)}
         logs={logs}
         isAdmin={currentUser?.role === 'admin'}
-        actorName={currentUser?.name || '관리자'}
+        actorId={currentUser?.id || '관리자'}
         onGoogleAdminLogin={adminUser => {
           setCurrentUser(adminUser);
           showToast(`구글 관리자(${adminUser.name}) 계정으로 연결되었습니다.`);

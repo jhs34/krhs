@@ -133,8 +133,9 @@ export interface PosAuditLog {
   action: PosLogAction;
   actionTitle: string; // human readable name (어떤 활동을)
   category: PosLogCategory; // (어떤 카테고리)
-  actorName: string; // (누가)
-  actorUid?: string;
+  actorId?: string; // 작업자 ID
+  actorName?: string; // (호환용)
+  actorUid?: string; // 작업자 ID
   details: string; // 한줄 요약 설명
   metadata?: Record<string, any>; // 세부 정보 (어떻게 무엇을 했는지)
   sessionId?: string; // e.g. "2026-09-16"

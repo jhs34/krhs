@@ -29,6 +29,7 @@ import {
   Copy,
 } from 'lucide-react';
 import { PosAuditLog, PosItemChangeDetail, PosLogCategory } from '../../types/pos';
+import { POS_ACCOUNTS } from '../../services/posAuth';
 
 interface PosAuditLogDetailViewProps {
   log: PosAuditLog;
@@ -37,6 +38,28 @@ interface PosAuditLogDetailViewProps {
 export const PosAuditLogDetailView: React.FC<PosAuditLogDetailViewProps> = ({ log }) => {
   const [showRawJson, setShowRawJson] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const operatorId = (() => {
+    if (log.actorUid) {
+      if (log.actorUid.startsWith('pos-')) {
+        const pin = log.actorUid.replace('pos-', '');
+        const found = POS_ACCOUNTS.find(a => a.pin === pin);
+        if (found) return found.id;
+      }
+      return log.actorUid;
+    }
+    if (log.actorId) return log.actorId;
+    if (log.actorName) {
+      return log.actorName.replace(/\s*\(관리자\)\s*/g, '').trim() || log.actorName;
+    }
+    return '시스템';
+  })();
+
+  const isAdmin = Boolean(
+    (log.actorName && log.actorName.includes('관리자')) ||
+    (log.actorUid && (log.actorUid.includes('@') || log.actorUid.startsWith('google-') || log.actorUid === 'admin')) ||
+    log.metadata?.role === 'admin'
+  );
 
   const formatFullDateTime = (iso: string) => {
     try {
@@ -119,12 +142,12 @@ export const PosAuditLogDetailView: React.FC<PosAuditLogDetailViewProps> = ({ lo
   const itemChanges: PosItemChangeDetail[] = Array.isArray(meta.itemChanges) ? meta.itemChanges : [];
 
   return (
-    <div className="bg-slate-50 border-t border-slate-200/90 text-slate-800 p-3.5 sm:p-5 flex flex-col gap-4 text-xs font-sans">
+    <div className="bg-slate-50 border-t border-slate-200/90 text-slate-800 p-3 sm:p-4 flex flex-col gap-3 text-xs font-sans">
       {/* 1. 핵심 감사 지표 (일시 / 작업자 / 업무 분류 / 활동 내용) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
         {/* 일시 (Timestamp) */}
-        <div className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center gap-1.5 text-slate-500 font-semibold text-[11px] mb-1">
+        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-200/90 shadow-2xs flex flex-col justify-start gap-1">
+          <div className="flex items-center gap-1.5 text-slate-500 font-semibold text-[11px]">
             <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
             <span>기록 일시 (Timestamp)</span>
           </div>
@@ -132,8 +155,8 @@ export const PosAuditLogDetailView: React.FC<PosAuditLogDetailViewProps> = ({ lo
             <div className="font-bold text-slate-900 text-xs font-mono">
               {formatFullDateTime(log.timestamp)}
             </div>
-            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-500">
-              <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">
+            <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500">
+              <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 font-medium text-[10px]">
                 {getRelativeTime(log.timestamp)}
               </span>
               {log.sessionId && (
@@ -145,49 +168,44 @@ export const PosAuditLogDetailView: React.FC<PosAuditLogDetailViewProps> = ({ lo
           </div>
         </div>
 
-        {/* 작업자 (Operator / Actor) */}
-        <div className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center gap-1.5 text-slate-500 font-semibold text-[11px] mb-1">
+        {/* 작업자 ID */}
+        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-200/90 shadow-2xs flex flex-col justify-start gap-1">
+          <div className="flex items-center gap-1.5 text-slate-500 font-semibold text-[11px]">
             <User className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span>작업 담당자 (Actor)</span>
+            <span>작업자 ID</span>
           </div>
-          <div>
-            <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5 flex-wrap">
-              <span>{log.actorName || '시스템'}</span>
-              {log.actorName.includes('관리자') && (
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                  관리자 권한
-                </span>
-              )}
-            </div>
-            <div className="text-[11px] text-slate-400 mt-1 font-mono truncate">
-              {log.actorUid ? `UID: ${log.actorUid.slice(0, 12)}...` : 'POS 인증 계정'}
-            </div>
+          <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5 flex-wrap font-mono">
+            <span>{operatorId}</span>
+            {isAdmin && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 font-sans">
+                관리자
+              </span>
+            )}
           </div>
         </div>
 
         {/* 업무 분류 (Category) */}
-        <div className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center gap-1.5 text-slate-500 font-semibold text-[11px] mb-1">
+        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-200/90 shadow-2xs flex flex-col justify-start gap-1">
+          <div className="flex items-center gap-1.5 text-slate-500 font-semibold text-[11px]">
             <Tag className="w-3.5 h-3.5 text-purple-600 shrink-0" />
             <span>업무 영역 (Category)</span>
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs border ${catInfo.bg}`}>
-                <catInfo.icon className="w-3.5 h-3.5" />
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg font-bold text-xs border ${catInfo.bg}`}>
+                <catInfo.icon className="w-3 h-3" />
                 {catInfo.name}
               </span>
             </div>
-            <div className="text-[10px] text-slate-400 mt-1 font-mono">
+            <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
               분류 코드: {log.category}
             </div>
           </div>
         </div>
 
         {/* 활동 내용 (Action) */}
-        <div className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center gap-1.5 text-slate-500 font-semibold text-[11px] mb-1">
+        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-200/90 shadow-2xs flex flex-col justify-start gap-1">
+          <div className="flex items-center gap-1.5 text-slate-500 font-semibold text-[11px]">
             <Activity className="w-3.5 h-3.5 text-rose-600 shrink-0" />
             <span>작업 활동 (Action)</span>
           </div>
@@ -195,7 +213,7 @@ export const PosAuditLogDetailView: React.FC<PosAuditLogDetailViewProps> = ({ lo
             <div className="font-bold text-slate-900 text-xs truncate" title={log.actionTitle}>
               {log.actionTitle}
             </div>
-            <div className="text-[10px] text-slate-500 font-mono mt-1">
+            <div className="text-[10px] text-slate-500 font-mono mt-0.5">
               ACTION: {log.action}
             </div>
           </div>
@@ -564,8 +582,7 @@ export const PosAuditLogDetailView: React.FC<PosAuditLogDetailViewProps> = ({ lo
                   action: log.action,
                   actionTitle: log.actionTitle,
                   category: log.category,
-                  actorName: log.actorName,
-                  actorUid: log.actorUid,
+                  actorId: operatorId,
                   details: log.details,
                   sessionId: log.sessionId,
                   metadata: log.metadata || {},
@@ -602,8 +619,7 @@ export const PosAuditLogDetailView: React.FC<PosAuditLogDetailViewProps> = ({ lo
                   action: log.action,
                   actionTitle: log.actionTitle,
                   category: log.category,
-                  actorName: log.actorName,
-                  actorUid: log.actorUid,
+                  actorId: operatorId,
                   details: log.details,
                   sessionId: log.sessionId,
                   metadata: log.metadata || {},

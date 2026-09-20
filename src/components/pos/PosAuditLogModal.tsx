@@ -24,15 +24,33 @@ import {
 import { PosAuditLog, PosLogCategory, PosUser } from '../../types/pos';
 import { deletePosLog, clearAllPosLogs } from '../../services/posFirestore';
 import { loginWithGoogle, logout as firebaseLogout, auth } from '../../firebase';
-import { createGoogleAdminPosUser } from '../../services/posAuth';
+import { createGoogleAdminPosUser, POS_ACCOUNTS } from '../../services/posAuth';
 import { PosAuditLogDetailView } from './PosAuditLogDetailView';
+
+export function getLogOperatorId(log: PosAuditLog): string {
+  if (log.actorUid) {
+    if (log.actorUid.startsWith('pos-')) {
+      const pin = log.actorUid.replace('pos-', '');
+      const found = POS_ACCOUNTS.find(a => a.pin === pin);
+      if (found) return found.id;
+    }
+    return log.actorUid;
+  }
+  if (log.actorId) return log.actorId;
+  if (log.actorName) {
+    const clean = log.actorName.replace(/\s*\(관리자\)\s*/g, '').trim();
+    if (clean) return clean;
+  }
+  return '시스템';
+}
 
 interface PosAuditLogModalProps {
   isOpen: boolean;
   onClose: () => void;
   logs: PosAuditLog[];
   isAdmin: boolean;
-  actorName: string;
+  actorName?: string;
+  actorId?: string;
   onGoogleAdminLogin?: (user: PosUser) => void;
   onGoogleAdminLogout?: () => void;
 }
@@ -186,7 +204,8 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const inDetails = log.details.toLowerCase().includes(q);
-        const inActor = log.actorName.toLowerCase().includes(q);
+        const operatorId = getLogOperatorId(log).toLowerCase();
+        const inActor = operatorId.includes(q) || (log.actorName ? log.actorName.toLowerCase().includes(q) : false);
         const inTitle = log.actionTitle.toLowerCase().includes(q);
         const inAction = log.action.toLowerCase().includes(q);
         const inMeta = log.metadata ? JSON.stringify(log.metadata).toLowerCase().includes(q) : false;
@@ -597,7 +616,7 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
                     <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60">
                       <div className="flex items-center gap-1 text-xs text-slate-600 bg-white/80 px-2 py-1 rounded-md border border-slate-200">
                         <User className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="font-medium">{log.actorName}</span>
+                        <span className="font-medium font-mono">{getLogOperatorId(log)}</span>
                       </div>
 
                       <div className="flex items-center gap-1">
@@ -794,7 +813,7 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
                     {logToDelete.details}
                   </p>
                   <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
-                    <span>작성자: {logToDelete.actorName}</span>
+                    <span>작업자 ID: {getLogOperatorId(logToDelete)}</span>
                     <span>분류: {logToDelete.category}</span>
                   </div>
                 </div>

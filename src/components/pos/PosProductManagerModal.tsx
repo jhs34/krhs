@@ -51,6 +51,7 @@ interface PosProductManagerModalProps {
   categories: PosCategory[];
   items: PosItem[];
   isAdmin?: boolean;
+  currentUser?: PosUser | null;
   onUpdateItems: (newItems: PosItem[]) => void;
   onUpdateSingleItem?: (item: PosItem) => void;
   onPatchItem?: (itemId: string, patch: Partial<PosItem>) => void;
@@ -71,6 +72,7 @@ export function PosProductManagerModal({
   categories,
   items,
   isAdmin = false,
+  currentUser,
   onUpdateItems,
   onUpdateCategories,
   onDeleteItem,
@@ -148,6 +150,9 @@ export function PosProductManagerModal({
   }>({ isOpen: false, featureName: '' });
 
   const effectiveIsAdmin = isAdmin || localIsAdmin;
+  const currentActorId = currentUser?.id || (effectiveIsAdmin ? '관리자' : '근무자');
+  const currentActorName = currentActorId;
+  const currentActorUid = currentUser?.id || currentActorId;
 
   const handleGoogleAdminLogin = async () => {
     setIsGoogleLoading(true);
@@ -578,17 +583,18 @@ export function PosProductManagerModal({
         await saveBatchPosItemsWithSummary(
           modifiedItems,
           summaryDetails,
-          effectiveIsAdmin ? '관리자' : '근무자',
+          currentActorName,
           {
             itemChanges,
             categoriesModified: isCategoriesModified,
-          }
+          },
+          currentActorUid
         );
       }
 
       // 3. Save categories only if actually modified
       if (isCategoriesModified) {
-        await saveBatchPosCategories(localCategories, effectiveIsAdmin ? '관리자' : '근무자');
+        await saveBatchPosCategories(localCategories, currentActorName, currentActorUid);
       }
 
       // 4. Update parent local state
@@ -647,7 +653,7 @@ export function PosProductManagerModal({
         updatedAt: new Date().toISOString(),
       };
 
-      await savePosPreset(newPreset);
+      await savePosPreset(newPreset, currentActorName, currentActorUid);
       setCustomPresets(prev => [newPreset, ...prev.filter(p => p.id !== presetId)]);
       setNewPresetName('');
       setNewPresetDesc('');
@@ -719,7 +725,7 @@ export function PosProductManagerModal({
       setShowAdminRequiredModal({ isOpen: true, featureName: '시트/엑셀 프리셋 저장' });
       return;
     }
-    await savePosPreset(preset);
+    await savePosPreset(preset, currentActorName, currentActorUid);
     setCustomPresets(prev => {
       const idx = prev.findIndex(p => p.id === preset.id);
       if (idx >= 0) {
@@ -756,7 +762,7 @@ export function PosProductManagerModal({
         updatedAt: new Date().toISOString(),
       };
 
-      await savePosPreset(updated);
+      await savePosPreset(updated, currentActorName, currentActorUid);
       setCustomPresets(prev => prev.map(p => (p.id === updated.id ? updated : p)));
       showToast(`'${updated.name}' 프리셋 정보가 수정되었습니다.`, 'success');
       setEditingPreset(null);
@@ -779,7 +785,7 @@ export function PosProductManagerModal({
         updatedAt: new Date().toISOString(),
       };
 
-      await savePosPreset(updated);
+      await savePosPreset(updated, currentActorName, currentActorUid);
       setCustomPresets(prev => prev.map(p => (p.id === updated.id ? updated : p)));
       showToast(`'${preset.name}' 프리셋 내용이 현재 메뉴(${items.length}종)로 갱신되었습니다.`, 'success');
     } catch (err: any) {
@@ -797,7 +803,7 @@ export function PosProductManagerModal({
     if (!deleteTargetPreset) return;
 
     try {
-      await deletePosPreset(deleteTargetPreset.id);
+      await deletePosPreset(deleteTargetPreset.id, deleteTargetPreset.name, currentActorName, currentActorUid);
       setCustomPresets(prev => prev.filter(p => p.id !== deleteTargetPreset.id));
       showToast(`'${deleteTargetPreset.name}' 프리셋이 삭제되었습니다.`);
     } catch (err: any) {

@@ -398,7 +398,7 @@ export async function runOrderTransaction(params: RunOrderParams): Promise<PosOr
       action: 'ORDER_CREATED',
       actionTitle: '결제 완료',
       category: 'SALE',
-      actorName: params.handlerName || '판매원',
+      actorId: params.handlerUid || params.handlerName || '판매원',
       actorUid: params.handlerUid,
       sessionId: params.sessionId,
       details: `${params.paymentMethod === 'TRANSFER' ? '계좌이체' : '현금'} 결제 ${params.totalAmount.toLocaleString()}원 (${itemsSummary})${buyerSuffix}`,
@@ -497,7 +497,8 @@ export async function runCancelOrderTransaction(
       action: 'ORDER_CANCELLED',
       actionTitle: '주문 결제 취소 (환불)',
       category: 'SALE',
-      actorName: cancelledBy || '관리자',
+      actorId: cancelledBy || '관리자',
+      actorUid: cancelledBy,
       sessionId: cancelledOrderData.sessionId,
       details: `주문번호 #${orderId.slice(-6)} 취소 완료 (${(cancelledOrderData.totalAmount || 0).toLocaleString()}원 환불, 사유: ${cancelReason || '단순 변심'})`,
       metadata: {
@@ -516,7 +517,8 @@ export async function runCancelOrderTransaction(
 export async function saveSinglePosItemPartial(
   itemId: string,
   patch: Partial<PosItem>,
-  actorName = '근무자'
+  actorName = '근무자',
+  actorUid?: string
 ): Promise<void> {
   await ensurePosAuth();
   const itemRef = doc(db, 'items', itemId);
@@ -533,6 +535,7 @@ export async function saveSinglePosItemPartial(
       actionTitle: '상품 정보 수정',
       category: 'INVENTORY',
       actorName,
+      actorUid,
       details: `상품 [#${itemId.slice(-6)}] 업데이트 (${Object.entries(patch)
         .map(([k, v]) => `${k}: ${v}`)
         .join(', ')})`,
@@ -548,7 +551,8 @@ export async function saveBatchPosItemsWithSummary(
   changedItems: PosItem[],
   logSummaryDetails: string,
   actorName = '근무자',
-  extraMetadata?: Record<string, any>
+  extraMetadata?: Record<string, any>,
+  actorUid?: string
 ): Promise<void> {
   if (changedItems.length === 0) return;
   await ensurePosAuth();
@@ -582,6 +586,7 @@ export async function saveBatchPosItemsWithSummary(
     actionTitle: '상품 재고/정보 일괄 저장',
     category: 'INVENTORY',
     actorName,
+    actorUid,
     details: logSummaryDetails || `총 ${changedItems.length}개 상품 변경사항 일괄 저장`,
     metadata: {
       count: changedItems.length,
@@ -596,7 +601,8 @@ export async function saveBatchPosItemsWithSummary(
  */
 export async function saveMultiplePosItems(
   items: PosItem[],
-  actorName = '관리자'
+  actorName = '관리자',
+  actorUid?: string
 ): Promise<void> {
   if (items.length === 0) return;
   await ensurePosAuth();
@@ -630,6 +636,7 @@ export async function saveMultiplePosItems(
     actionTitle: '상품 다중 일괄 업데이트',
     category: 'INVENTORY',
     actorName,
+    actorUid,
     details: `총 ${items.length}개 상품 데이터 일괄 동기화`,
     metadata: { count: items.length },
   }).catch(() => {});
@@ -640,7 +647,8 @@ export async function saveMultiplePosItems(
  */
 export async function savePosItem(
   item: Partial<PosItem> & { id?: string },
-  actorName = '관리자'
+  actorName = '관리자',
+  actorUid?: string
 ): Promise<string> {
   await ensurePosAuth();
   const isNew = !item.id;
@@ -671,6 +679,7 @@ export async function savePosItem(
     actionTitle: isNew ? '신규 상품 등록' : '상품 정보 수정',
     category: 'INVENTORY',
     actorName,
+    actorUid,
     details: `상품 [${item.name || '미정'}] ${isNew ? '신규 등록' : '정보 수정'} (가격: ${(item.price || 0).toLocaleString()}원, 재고: ${item.stock ?? 0}개)`,
     metadata: {
       itemId: id,
@@ -699,7 +708,8 @@ export async function savePosItem(
 export async function deletePosItem(
   id: string,
   itemName?: string,
-  actorName = '관리자'
+  actorName = '관리자',
+  actorUid?: string
 ): Promise<void> {
   await ensurePosAuth();
   await deleteDoc(doc(db, 'items', id));
@@ -709,6 +719,7 @@ export async function deletePosItem(
     actionTitle: '상품 삭제',
     category: 'INVENTORY',
     actorName,
+    actorUid,
     details: `상품 [${itemName || id}] 영구 삭제`,
     metadata: {
       itemId: id,
@@ -730,7 +741,8 @@ export async function deletePosItem(
  */
 export async function saveBatchPosCategories(
   categories: PosCategory[],
-  actorName = '관리자'
+  actorName = '관리자',
+  actorUid?: string
 ): Promise<void> {
   if (categories.length === 0) return;
   await ensurePosAuth();
@@ -753,6 +765,7 @@ export async function saveBatchPosCategories(
     actionTitle: '카테고리 구성 변경',
     category: 'INVENTORY',
     actorName,
+    actorUid,
     details: `카테고리 목록 (${categories.map(c => c.name).join(', ')}) 일괄 변경 저장`,
     metadata: { count: categories.length },
   }).catch(() => {});
@@ -764,7 +777,8 @@ export async function saveBatchPosCategories(
 export async function savePosCategory(
   cat: PosCategory,
   actorName = '관리자',
-  shouldLog = true
+  shouldLog = true,
+  actorUid?: string
 ): Promise<void> {
   await ensurePosAuth();
   const catRef = doc(db, 'categories', cat.id);
@@ -783,6 +797,7 @@ export async function savePosCategory(
       actionTitle: '카테고리 저장',
       category: 'INVENTORY',
       actorName,
+      actorUid,
       details: `카테고리 [${cat.name}] 정보 저장 (순서: ${cat.orderIndex})`,
       metadata: { categoryId: cat.id, name: cat.name, orderIndex: cat.orderIndex },
     }).catch(() => {});
@@ -795,7 +810,8 @@ export async function savePosCategory(
 export async function deletePosCategory(
   id: string,
   catName?: string,
-  actorName = '관리자'
+  actorName = '관리자',
+  actorUid?: string
 ): Promise<void> {
   await ensurePosAuth();
   await deleteDoc(doc(db, 'categories', id));
@@ -805,6 +821,7 @@ export async function deletePosCategory(
     actionTitle: '카테고리 삭제',
     category: 'INVENTORY',
     actorName,
+    actorUid,
     details: `카테고리 [${catName || id}] 삭제`,
     metadata: { categoryId: id, catName },
   }).catch(() => {});
@@ -948,7 +965,11 @@ export async function deleteMultiplePosOrders(orderIds: string[], actorName = '�
 /**
  * [즐겨찾기 관리] 모든 상품의 즐겨찾기 일괄 해제
  */
-export async function clearAllPosFavorites(items: PosItem[], actorName = '관리자'): Promise<void> {
+export async function clearAllPosFavorites(
+  items: PosItem[],
+  actorName = '관리자',
+  actorUid?: string
+): Promise<void> {
   const favoriteItems = items.filter(i => i.isFavorite);
   if (favoriteItems.length === 0) return;
   await ensurePosAuth();
@@ -969,6 +990,7 @@ export async function clearAllPosFavorites(items: PosItem[], actorName = '관리
     actionTitle: '즐겨찾기 전체 해제',
     category: 'INVENTORY',
     actorName,
+    actorUid,
     details: `즐겨찾기 등록 상품 ${favoriteItems.length}개 일괄 해제`,
     metadata: { count: favoriteItems.length },
   }).catch(() => {});
@@ -982,7 +1004,8 @@ export async function applyPosPreset(
   items: PosItem[],
   presetName = '프리셋',
   actorName = '관리자',
-  presetId?: string
+  presetId?: string,
+  actorUid?: string
 ): Promise<void> {
   await ensurePosAuth();
 
@@ -1032,6 +1055,7 @@ export async function applyPosPreset(
     actionTitle: '메뉴 프리셋 적용',
     category: 'SYSTEM',
     actorName,
+    actorUid,
     details: `[${presetName}] 메뉴 프리셋 적용 완료${presetId ? ` (ID: ${presetId})` : ''}`,
     metadata: {
       presetId: presetId || '',
@@ -1076,7 +1100,11 @@ export function subscribePosPresets(
 /**
  * Save or update a custom POS preset
  */
-export async function savePosPreset(preset: PosPreset, actorName = '관리자'): Promise<void> {
+export async function savePosPreset(
+  preset: PosPreset,
+  actorName = '관리자',
+  actorUid?: string
+): Promise<void> {
   await ensurePosAuth();
   const presetRef = doc(db, 'pos_presets', preset.id);
   await setDoc(
@@ -1094,6 +1122,7 @@ export async function savePosPreset(preset: PosPreset, actorName = '관리자'):
     actionTitle: '메뉴 프리셋 저장',
     category: 'SYSTEM',
     actorName,
+    actorUid,
     details: `커스텀 프리셋 [${preset.name}] 저장 (품목 ${preset.items?.length || 0}개, 카테고리 ${preset.categories?.length || 0}개)`,
     metadata: { presetId: preset.id, presetName: preset.name },
   }).catch(() => {});
@@ -1105,7 +1134,8 @@ export async function savePosPreset(preset: PosPreset, actorName = '관리자'):
 export async function deletePosPreset(
   presetId: string,
   presetName?: string,
-  actorName = '관리자'
+  actorName = '관리자',
+  actorUid?: string
 ): Promise<void> {
   await ensurePosAuth();
   const presetRef = doc(db, 'pos_presets', presetId);
@@ -1116,6 +1146,7 @@ export async function deletePosPreset(
     actionTitle: '메뉴 프리셋 삭제',
     category: 'SYSTEM',
     actorName,
+    actorUid,
     details: `커스텀 프리셋 [${presetName || presetId}] 삭제`,
     metadata: { presetId, presetName },
   }).catch(() => {});
@@ -1127,9 +1158,10 @@ export async function deletePosPreset(
 export async function resetPosDataToDefaults(
   defaultCategories: PosCategory[],
   defaultItems: PosItem[],
-  actorName = '관리자'
+  actorName = '관리자',
+  actorUid?: string
 ): Promise<void> {
-  await applyPosPreset(defaultCategories, defaultItems, '한철고 매점 기본 메뉴 (33종)', actorName, 'preset-default-33');
+  await applyPosPreset(defaultCategories, defaultItems, '한철고 매점 기본 메뉴 (33종)', actorName, 'preset-default-33', actorUid);
 }
 
 /**
@@ -1162,14 +1194,16 @@ export async function logPosActivity(
       ...(log.metadata || {}),
     };
 
+    const actorId = log.actorId || log.actorUid || (log.actorName ? log.actorName.replace(/\s*\(관리자\)\s*/g, '').trim() : undefined) || '관리자';
     const entry: PosAuditLog = {
       id,
       timestamp,
       action: log.action,
       actionTitle: log.actionTitle,
       category: log.category,
-      actorName: log.actorName || '시스템',
-      actorUid: log.actorUid,
+      actorId,
+      actorName: log.actorName || actorId,
+      actorUid: log.actorUid || actorId,
       details: log.details,
       metadata: enrichedMetadata,
       sessionId: log.sessionId || defaultSessionId,
@@ -1200,14 +1234,16 @@ export function subscribePosLogs(
 ): () => void {
   const mapDocToLog = (docSnap: any): PosAuditLog => {
     const data = docSnap.data();
+    const actorId = data.actorId || data.actorUid || (data.actorName ? data.actorName.replace(/\s*\(관리자\)\s*/g, '').trim() : undefined) || '관리자';
     return {
       id: docSnap.id,
       timestamp: data.timestamp || new Date().toISOString(),
       action: data.action || 'SYSTEM',
       actionTitle: data.actionTitle || '시스템 작업',
       category: data.category || 'SYSTEM',
-      actorName: data.actorName || '관리자',
-      actorUid: data.actorUid,
+      actorId,
+      actorName: data.actorName || actorId,
+      actorUid: data.actorUid || actorId,
       details: data.details || '',
       metadata: data.metadata || undefined,
       sessionId: data.sessionId,
