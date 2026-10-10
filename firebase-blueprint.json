@@ -99,6 +99,21 @@
       },
       "required": ["name", "categoryId", "price", "stock"]
     },
+    "PosGifticon": {
+      "title": "PosGifticon",
+      "description": "Store discount gifticon with face value and status",
+      "type": "object",
+      "properties": {
+        "amount": { "type": "number" },
+        "status": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "usedAt": { "type": "string" },
+        "usedOrderId": { "type": "string" }
+      },
+      "required": ["amount", "status"]
+    },
     "PosOrder": {
       "title": "PosOrder",
       "description": "Order transaction log for POS",
@@ -110,6 +125,8 @@
         "handlerName": { "type": "string" },
         "paymentMethod": { "type": "string" },
         "totalAmount": { "type": "number" },
+        "gifticonDiscountAmount": { "type": "number" },
+        "actualPaidAmount": { "type": "number" },
         "items": { "type": "array" },
         "isCancelled": { "type": "boolean" }
       },
@@ -129,7 +146,7 @@
     },
     "PosAuditLog": {
       "title": "PosAuditLog",
-      "description": "Audit and activity log of POS transactions, inventory updates, settlements, and operations.",
+      "description": "Audit and activity log of POS transactions, inventory updates, settlements, gifticons, and operations.",
       "type": "object",
       "properties": {
         "timestamp": { "type": "string", "format": "date-time" },
@@ -153,6 +170,10 @@
       "schema": { "$ref": "#/entities/PosItem" },
       "description": "POS items and inventory"
     },
+    "/gifticons/{gifticonId}": {
+      "schema": { "$ref": "#/entities/PosGifticon" },
+      "description": "POS discount gifticons"
+    },
     "/orders/{orderId}": {
       "schema": { "$ref": "#/entities/PosOrder" },
       "description": "POS transaction orders"
@@ -160,6 +181,10 @@
     "/settlements/{sessionId}": {
       "schema": { "$ref": "#/entities/PosSettlement" },
       "description": "POS daily settlement records"
+    },
+    "/pos_presets/{presetId}": {
+      "schema": { "$ref": "#/entities/PosCategory" },
+      "description": "POS preset templates"
     },
     "/pos_logs/{logId}": {
       "schema": { "$ref": "#/entities/PosAuditLog" },

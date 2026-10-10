@@ -12,7 +12,6 @@ import {
   ArrowUp,
   ArrowDown,
   AlertTriangle,
-  PackageCheck,
   Check,
   Layers,
   BookmarkPlus,
@@ -168,7 +167,7 @@ export function PosProductManagerModal({
         if (onGoogleAdminLogin) {
           onGoogleAdminLogin(adminUser);
         }
-        showToast(`구글 관리자 계정으로 인증되었습니다.`, 'success');
+        showToast('관리자 계정으로 인증되었습니다.', 'success');
         setShowAdminRequiredModal({ isOpen: false, featureName: '' });
       }
     } catch (err: any) {
@@ -438,13 +437,6 @@ export function PosProductManagerModal({
     setLocalCategories(prev => prev.filter(c => c.id !== deleteConfirmCat.id));
     showToast(`'${deleteConfirmCat.name}' 카테고리가 삭제되었습니다.`);
     setDeleteConfirmCat(null);
-  };
-
-  // Bulk Quick Actions (Local)
-  const handleReplenishAllSoldOut = () => {
-    isDirtyRef.current = true;
-    setLocalItems(prev => prev.map(it => (it.stock <= 0 ? { ...it, stock: 10 } : it)));
-    showToast(`품절 상품 ${outOfStockCount}종의 재고를 각 10개씩 일괄 입고 설정했습니다. (저장 버튼을 눌러 확정)`);
   };
 
   const handleExecuteClearAllFavorites = () => {
@@ -852,13 +844,12 @@ export function PosProductManagerModal({
               </div>
             </div>
 
-            {/* If not admin, show Google Admin login button in header */}
+            {/* If not admin, show Admin login button in header */}
             {!effectiveIsAdmin && (
               <button
                 type="button"
                 onClick={handleGoogleAdminLogin}
                 disabled={isGoogleLoading}
-                title="Google 관리자 계정으로 로그인하여 삭제 및 프리셋 권한 획득"
                 className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition-all cursor-pointer shrink-0 disabled:opacity-50"
               >
                 {isGoogleLoading ? (
@@ -866,7 +857,7 @@ export function PosProductManagerModal({
                 ) : (
                   <LogIn className="w-3.5 h-3.5" />
                 )}
-                <span>Google 관리자 로그인</span>
+                <span>{isGoogleLoading ? '...' : '관리자 로그인'}</span>
               </button>
             )}
 
@@ -1208,7 +1199,7 @@ export function PosProductManagerModal({
                             </div>
 
                             <div className="text-right shrink-0">
-                              <div className="text-sm font-mono font-bold text-secondary">
+                              <div className="text-sm font-mono font-bold text-amber-300">
                                 {item.price.toLocaleString()}원
                               </div>
                               <button
@@ -1259,7 +1250,7 @@ export function PosProductManagerModal({
                                 <button
                                   type="button"
                                   onClick={() => handleAdjustStock(item.id, 10)}
-                                  className="px-1.5 h-5 rounded bg-secondary/15 hover:bg-secondary/25 text-secondary text-[10px] font-bold cursor-pointer"
+                                  className="px-1.5 h-5 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-[10px] font-bold cursor-pointer"
                                 >
                                   +10
                                 </button>
@@ -1278,28 +1269,16 @@ export function PosProductManagerModal({
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (!effectiveIsAdmin) {
-                                    setShowAdminRequiredModal({ isOpen: true, featureName: '상품 삭제' });
-                                    return;
-                                  }
-                                  setDeleteConfirmItem(item);
-                                }}
-                                title={effectiveIsAdmin ? "상품 삭제" : "상품 삭제 (관리자 전용)"}
-                                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                  effectiveIsAdmin
-                                    ? 'bg-red-500/10 hover:bg-red-500/20 text-red-300'
-                                    : 'bg-white/5 hover:bg-amber-500/15 text-surface-dim hover:text-amber-300'
-                                }`}
-                              >
-                                {effectiveIsAdmin ? (
+                              {effectiveIsAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteConfirmItem(item)}
+                                  title="상품 삭제"
+                                  className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 transition-colors cursor-pointer"
+                                >
                                   <Trash2 className="w-3.5 h-3.5" />
-                                ) : (
-                                  <Lock className="w-3.5 h-3.5" />
-                                )}
-                              </button>
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1357,7 +1336,7 @@ export function PosProductManagerModal({
                                   {category?.name || '미분류'}
                                 </span>
                               </td>
-                              <td className="py-3 px-4 text-right font-mono font-bold text-secondary">
+                              <td className="py-3 px-4 text-right font-mono font-bold text-amber-300">
                                 {item.price.toLocaleString()}원
                               </td>
                               <td className="py-3 px-3">
@@ -1392,7 +1371,7 @@ export function PosProductManagerModal({
                                     <button
                                       type="button"
                                       onClick={() => handleAdjustStock(item.id, 10)}
-                                      className="px-1 h-5 rounded bg-secondary/15 hover:bg-secondary/25 text-secondary text-[10px] font-bold cursor-pointer"
+                                      className="px-1 h-5 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-[10px] font-bold cursor-pointer"
                                     >
                                       +10
                                     </button>
@@ -1425,28 +1404,16 @@ export function PosProductManagerModal({
                                   >
                                     <Edit2 className="w-3.5 h-3.5" />
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (!effectiveIsAdmin) {
-                                        setShowAdminRequiredModal({ isOpen: true, featureName: '상품 삭제' });
-                                        return;
-                                      }
-                                      setDeleteConfirmItem(item);
-                                    }}
-                                    title={effectiveIsAdmin ? "상품 삭제" : "상품 삭제 (관리자 전용)"}
-                                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                      effectiveIsAdmin
-                                        ? 'bg-red-500/10 hover:bg-red-500/20 text-red-300'
-                                        : 'bg-white/5 hover:bg-amber-500/15 text-surface-dim hover:text-amber-300'
-                                    }`}
-                                  >
-                                    {effectiveIsAdmin ? (
+                                  {effectiveIsAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setDeleteConfirmItem(item)}
+                                      title="상품 삭제"
+                                      className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 transition-colors cursor-pointer"
+                                    >
                                       <Trash2 className="w-3.5 h-3.5" />
-                                    ) : (
-                                      <Lock className="w-3.5 h-3.5" />
-                                    )}
-                                  </button>
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -1496,7 +1463,7 @@ export function PosProductManagerModal({
                               </span>
                             </div>
                             <h3 className="text-sm font-bold text-white truncate">{item.name}</h3>
-                            <div className="text-xs font-mono font-bold text-secondary mt-0.5">
+                            <div className="text-xs font-mono font-bold text-amber-300 mt-0.5">
                               {item.price.toLocaleString()}원
                             </div>
                           </div>
@@ -1564,7 +1531,7 @@ export function PosProductManagerModal({
                             <button
                               type="button"
                               onClick={() => handleAdjustStock(item.id, 10)}
-                              className="px-1.5 h-6 rounded bg-secondary/15 hover:bg-secondary/25 text-secondary text-[10px] font-bold"
+                              className="px-1.5 h-6 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-[10px] font-bold cursor-pointer"
                             >
                               +10
                             </button>
@@ -1602,28 +1569,16 @@ export function PosProductManagerModal({
                             </button>
 
                             {/* Delete */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (!effectiveIsAdmin) {
-                                  setShowAdminRequiredModal({ isOpen: true, featureName: '상품 삭제' });
-                                  return;
-                                }
-                                setDeleteConfirmItem(item);
-                              }}
-                              title={effectiveIsAdmin ? "상품 삭제" : "상품 삭제 (관리자 전용)"}
-                              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors cursor-pointer ${
-                                effectiveIsAdmin
-                                  ? 'bg-red-500/10 hover:bg-red-500/20 text-red-300'
-                                  : 'bg-white/5 hover:bg-amber-500/15 text-surface-dim hover:text-amber-300'
-                              }`}
-                            >
-                              {effectiveIsAdmin ? (
+                            {effectiveIsAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirmItem(item)}
+                                title="상품 삭제"
+                                className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-300"
+                              >
                                 <Trash2 className="w-3.5 h-3.5" />
-                              ) : (
-                                <Lock className="w-3.5 h-3.5" />
-                              )}
-                            </button>
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1803,28 +1758,16 @@ export function PosProductManagerModal({
                       )}
 
                       {/* Delete */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!effectiveIsAdmin) {
-                            setShowAdminRequiredModal({ isOpen: true, featureName: '카테고리 삭제' });
-                            return;
-                          }
-                          setDeleteConfirmCat(cat);
-                        }}
-                        title={effectiveIsAdmin ? "카테고리 삭제" : "카테고리 삭제 (관리자 전용)"}
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center ml-1 cursor-pointer transition-colors ${
-                          effectiveIsAdmin
-                            ? 'bg-red-500/10 hover:bg-red-500/20 text-red-300'
-                            : 'bg-white/5 hover:bg-amber-500/15 text-surface-dim hover:text-amber-300'
-                        }`}
-                      >
-                        {effectiveIsAdmin ? (
+                      {effectiveIsAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmCat(cat)}
+                          title="카테고리 삭제"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center ml-1 cursor-pointer transition-colors bg-red-500/10 hover:bg-red-500/20 text-red-300"
+                        >
                           <Trash2 className="w-3.5 h-3.5" />
-                        ) : (
-                          <Lock className="w-3.5 h-3.5" />
-                        )}
-                      </button>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -1837,7 +1780,7 @@ export function PosProductManagerModal({
         {activeTab === 'presets' && (
           <div className="flex-1 p-3.5 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6 custom-scrollbar">
             {/* Admin Permission Status Banner */}
-            {effectiveIsAdmin ? (
+            {effectiveIsAdmin && (
               <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-between gap-3 shadow-sm">
                 <div className="flex items-center space-x-2.5">
                   <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0">
@@ -1851,134 +1794,87 @@ export function PosProductManagerModal({
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="p-4 sm:p-5 rounded-2xl bg-[#162035] border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 shadow-lg">
-                <div className="flex items-start space-x-3">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center shrink-0 mt-0.5">
-                    <Lock className="w-4.5 h-4.5" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-amber-200">
-                      프리셋 설정 및 메뉴 동기화는 관리자 전용 권한입니다
-                    </h4>
-                    <p className="text-[11px] sm:text-xs text-surface-dim mt-0.5 leading-relaxed">
-                      등록된 프리셋 목록과 상세 품목 구성은 자유롭게 둘러볼 수 있으며, 프리셋 적용·저장·수정·삭제 및 시트 가져오기는 Google 관리자 계정으로 로그인 후 실행할 수 있습니다.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleGoogleAdminLogin}
-                  disabled={isGoogleLoading}
-                  className="w-full sm:w-auto px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center space-x-1.5 shrink-0 transition-all cursor-pointer shadow active:scale-95 disabled:opacity-50"
-                >
-                  {isGoogleLoading ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <LogIn className="w-3.5 h-3.5" />
-                  )}
-                  <span>Google 관리자 로그인</span>
-                </button>
-              </div>
             )}
 
-            {/* Section 0: Google Sheets / Excel Import Card */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#0c223a] via-[#0f1d3d] to-[#0a172e] border-2 border-secondary/40 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div className="flex items-start space-x-3.5">
-                <div className="w-11 h-11 rounded-2xl bg-secondary text-on-secondary flex items-center justify-center shrink-0 shadow-lg shadow-secondary/30">
-                  <FileSpreadsheet className="w-6 h-6" />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
-                      구글 시트 / 엑셀 재고로 새 프리셋 만들기
-                    </h3>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary/20 text-secondary border border-secondary/30">
-                      5열 표준 양식
-                    </span>
-                    {!effectiveIsAdmin && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center space-x-1">
-                        <Lock className="w-2.5 h-2.5" />
-                        <span>관리자 전용</span>
-                      </span>
-                    )}
+            {/* Section 0 & 1: Admin Only - Sheet Import & Save Current As Preset */}
+            {effectiveIsAdmin && (
+              <>
+                {/* Section 0: Google Sheets / Excel Import Card */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#0c223a] via-[#0f1d3d] to-[#0a172e] border-2 border-secondary/40 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex items-start space-x-3.5">
+                    <div className="w-11 h-11 rounded-2xl bg-secondary text-on-secondary flex items-center justify-center shrink-0 shadow-lg shadow-secondary/30">
+                      <FileSpreadsheet className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                          구글 시트 / 엑셀 재고로 새 프리셋 만들기
+                        </h3>
+                      </div>
+                      <p className="text-xs text-surface-dim leading-relaxed">
+                        시트의 [<strong>상품명, 카테고리, 판매가, 재고, 즐겨찾기</strong>] 데이터를 복사-붙여넣기하거나 파일을 올려 한 번에 새 프리셋을 생성하고 포스기에 즉시 세팅합니다.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-xs text-surface-dim leading-relaxed">
-                    시트의 [<strong>상품명, 카테고리, 판매가, 재고, 즐겨찾기</strong>] 데이터를 복사-붙여넣기하거나 파일을 올려 한 번에 새 프리셋을 생성하고 포스기에 즉시 세팅합니다.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!effectiveIsAdmin) {
-                    setShowAdminRequiredModal({ isOpen: true, featureName: '시트/엑셀 재고 가져오기' });
-                    return;
-                  }
-                  setShowSheetImportModal(true);
-                }}
-                className={`w-full md:w-auto px-4.5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center space-x-2 shrink-0 shadow-lg active:scale-[0.98] cursor-pointer ${
-                  effectiveIsAdmin
-                    ? 'bg-secondary hover:brightness-110 text-on-secondary shadow-secondary/25'
-                    : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40'
-                }`}
-              >
-                {effectiveIsAdmin ? (
-                  <FileSpreadsheet className="w-4 h-4" />
-                ) : (
-                  <Lock className="w-4 h-4" />
-                )}
-                <span>시트/엑셀 재고 가져오기</span>
-              </button>
-            </div>
-
-            {/* Section 1: Save Current Menu as New Preset */}
-            <div className="p-3.5 sm:p-5 rounded-2xl bg-[#111c33] border border-white/10 space-y-3 sm:space-y-4">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-xl bg-secondary/15 text-secondary flex items-center justify-center shrink-0">
-                  <BookmarkPlus className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-bold text-white">
-                    현재 메뉴 구성을 새 프리셋으로 저장
-                  </h3>
-                  <p className="text-[11px] sm:text-xs text-surface-dim">
-                    현재 활성화된 카테고리({categories.length}개) 및 상품({items.length}종)을 스냅샷으로 저장합니다.
-                  </p>
-                </div>
-              </div>
-
-              <form onSubmit={handleCreatePresetFromCurrent} className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 pt-1">
-                <div className="sm:col-span-4">
-                  <input
-                    type="text"
-                    value={newPresetName}
-                    onChange={e => setNewPresetName(e.target.value)}
-                    placeholder="프리셋 이름 (예: 축제 매점 특별메뉴)"
-                    className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-secondary placeholder:text-surface-dim/50"
-                  />
-                </div>
-                <div className="sm:col-span-5 md:col-span-6">
-                  <input
-                    type="text"
-                    value={newPresetDesc}
-                    onChange={e => setNewPresetDesc(e.target.value)}
-                    placeholder="프리셋 설명 (선택 사항)"
-                    className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-secondary placeholder:text-surface-dim/50"
-                  />
-                </div>
-                <div className="sm:col-span-3 md:col-span-2">
                   <button
-                    type="submit"
-                    disabled={!newPresetName.trim() || isSavingPreset}
-                    className="w-full h-full py-2.5 px-3 rounded-xl text-xs font-bold bg-secondary text-on-secondary disabled:opacity-40 hover:brightness-110 transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow min-h-[38px]"
+                    type="button"
+                    onClick={() => setShowSheetImportModal(true)}
+                    className="w-full md:w-auto px-4.5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center space-x-2 shrink-0 shadow-lg active:scale-[0.98] cursor-pointer bg-secondary hover:brightness-110 text-on-secondary shadow-secondary/25"
                   >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>{isSavingPreset ? '저장 중...' : '프리셋 저장'}</span>
+                    <FileSpreadsheet className="w-4 h-4" />
+                    <span>시트/엑셀 재고 가져오기</span>
                   </button>
                 </div>
-              </form>
-            </div>
+
+                {/* Section 1: Save Current Menu as New Preset */}
+                <div className="p-3.5 sm:p-5 rounded-2xl bg-[#111c33] border border-white/10 space-y-3 sm:space-y-4">
+                  <div className="flex items-center space-x-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-secondary/15 text-secondary flex items-center justify-center shrink-0">
+                      <BookmarkPlus className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-bold text-white">
+                        현재 메뉴 구성을 새 프리셋으로 저장
+                      </h3>
+                      <p className="text-[11px] sm:text-xs text-surface-dim">
+                        현재 활성화된 카테고리({categories.length}개) 및 상품({items.length}종)을 스냅샷으로 저장합니다.
+                      </p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleCreatePresetFromCurrent} className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 pt-1">
+                    <div className="sm:col-span-4">
+                      <input
+                        type="text"
+                        value={newPresetName}
+                        onChange={e => setNewPresetName(e.target.value)}
+                        placeholder="프리셋 이름 (예: 축제 매점 특별메뉴)"
+                        className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-secondary placeholder:text-surface-dim/50"
+                      />
+                    </div>
+                    <div className="sm:col-span-5 md:col-span-6">
+                      <input
+                        type="text"
+                        value={newPresetDesc}
+                        onChange={e => setNewPresetDesc(e.target.value)}
+                        placeholder="프리셋 설명 (선택 사항)"
+                        className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-secondary placeholder:text-surface-dim/50"
+                      />
+                    </div>
+                    <div className="sm:col-span-3 md:col-span-2">
+                      <button
+                        type="submit"
+                        disabled={!newPresetName.trim() || isSavingPreset}
+                        className="w-full h-full py-2.5 px-3 rounded-xl text-xs font-bold bg-secondary text-on-secondary disabled:opacity-40 hover:brightness-110 transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow min-h-[38px]"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{isSavingPreset ? '저장 중...' : '프리셋 저장'}</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </>
+            )}
 
             {/* Section 2: Preset List */}
             <div className="space-y-3">
@@ -2084,7 +1980,7 @@ export function PosProductManagerModal({
                           </div>
                           <div className="bg-white/5 p-1.5 rounded-lg">
                             <span className="text-surface-dim block text-[10px]">총 재고</span>
-                            <strong className="text-secondary font-mono">{totalStock.toLocaleString()}개</strong>
+                            <strong className="text-emerald-400 font-mono">{totalStock.toLocaleString()}개</strong>
                           </div>
                         </div>
 
@@ -2117,9 +2013,9 @@ export function PosProductManagerModal({
                                   preset.items.map(it => (
                                     <div key={it.id} className="flex items-center justify-between text-[11px] p-1.5 rounded bg-black/20 border border-white/5">
                                       <span className="text-white truncate pr-2">{it.name}</span>
-                                      <div className="flex items-center space-x-2 shrink-0 font-mono text-surface-dim text-[10px]">
-                                        <span>{it.price.toLocaleString()}원</span>
-                                        <span className="text-secondary font-bold">{it.stock}개</span>
+                                      <div className="flex items-center space-x-2 shrink-0 font-mono text-[10px]">
+                                        <span className="text-amber-300 font-semibold">{it.price.toLocaleString()}원</span>
+                                        <span className="text-emerald-400 font-bold">{it.stock}개</span>
                                       </div>
                                     </div>
                                   ))
@@ -2179,61 +2075,22 @@ export function PosProductManagerModal({
                         </div>
 
                         {/* Row 2: Full-width Primary Apply CTA Button */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!effectiveIsAdmin) {
-                              setShowAdminRequiredModal({ isOpen: true, featureName: '프리셋 메뉴 설정' });
-                              return;
-                            }
-                            setApplyTargetPreset(preset);
-                          }}
-                          className={`w-full py-2 px-3 rounded-xl text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer active:scale-[0.99] ${
-                            effectiveIsAdmin
-                              ? 'bg-secondary hover:brightness-110 text-on-secondary'
-                              : 'bg-white/10 hover:bg-white/15 text-surface-dim hover:text-white border border-white/10'
-                          }`}
-                        >
-                          {effectiveIsAdmin ? (
+                        {effectiveIsAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setApplyTargetPreset(preset);
+                            }}
+                            className="w-full py-2 px-3 rounded-xl text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer active:scale-[0.99] bg-secondary hover:brightness-110 text-on-secondary"
+                          >
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                          ) : (
-                            <Lock className="w-3.5 h-3.5 text-amber-400" />
-                          )}
-                          <span>{effectiveIsAdmin ? '이 프리셋으로 설정하기' : '이 프리셋으로 설정하기 (관리자 전용)'}</span>
-                        </button>
+                            <span>이 프리셋으로 설정하기</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
                 })}
-              </div>
-            </div>
-
-            {/* Section 3: Additional Quick Tools */}
-            <div className="p-5 rounded-2xl bg-[#111c33] border border-white/10 space-y-3">
-              <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-                <PackageCheck className="w-4 h-4 text-secondary" />
-                <span>기타 보조 도구</span>
-              </h3>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={handleReplenishAllSoldOut}
-                  disabled={outOfStockCount === 0}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-secondary/20 hover:bg-secondary/30 text-secondary-fixed border border-secondary/40 disabled:opacity-30 transition-all flex items-center space-x-2 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>품절 상품 전체에 재고 +10개 채우기 ({outOfStockCount}종)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowClearFavoritesConfirm(true)}
-                  disabled={favoritesCount === 0}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 disabled:opacity-30 transition-all flex items-center space-x-2 cursor-pointer"
-                >
-                  <StarOff className="w-4 h-4" />
-                  <span>즐겨찾기 전체 해제 (모두 비우기)</span>
-                </button>
               </div>
             </div>
           </div>
@@ -2508,10 +2365,10 @@ export function PosProductManagerModal({
               <div>
                 <h4 className="text-base font-bold text-white">관리자 권한이 필요합니다</h4>
                 <p className="text-xs text-surface-dim mt-1.5 leading-relaxed">
-                  <strong className="text-amber-300">'{showAdminRequiredModal.featureName}'</strong> 기능은 매점 관리자(Google 관리자 계정) 전용 작업입니다.
+                  <strong className="text-amber-300">'{showAdminRequiredModal.featureName}'</strong> 기능은 매점 관리자 전용 작업입니다.
                 </p>
                 <div className="mt-2.5 p-2 rounded-xl bg-white/5 border border-white/10 text-[11px] text-surface-dim">
-                  등록된 Google 관리자 계정으로 로그인하시면 즉시 실행하실 수 있습니다.
+                  관리자 계정으로 로그인하시면 즉시 실행하실 수 있습니다.
                 </div>
               </div>
               <div className="space-y-2 pt-2">
@@ -2526,7 +2383,7 @@ export function PosProductManagerModal({
                   ) : (
                     <LogIn className="w-4 h-4" />
                   )}
-                  <span>Google 관리자로 로그인</span>
+                  <span>관리자 로그인</span>
                 </button>
                 <button
                   type="button"

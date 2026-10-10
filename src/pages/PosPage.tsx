@@ -15,11 +15,13 @@ import { PosProductManagerModal } from '../components/pos/PosProductManagerModal
 import { PosSalesHistoryModal } from '../components/pos/PosSalesHistoryModal';
 import { PosSettlementModal } from '../components/pos/PosSettlementModal';
 import { PosAuditLogModal } from '../components/pos/PosAuditLogModal';
+import { PosGifticonInputModal } from '../components/pos/PosGifticonInputModal';
+import { PosGifticonManagerModal } from '../components/pos/PosGifticonManagerModal';
 import { PosSplitDivider } from '../components/pos/PosSplitDivider';
 import { PosHubHome } from '../components/pos/PosHubHome';
 import { getStoredPosUser, logoutPosUser } from '../services/posAuth';
 import { DEFAULT_POS_CATEGORIES, DEFAULT_POS_ITEMS } from '../data/defaultPosData';
-import { PosCategory, PosItem, CartItem, PosUser, PosOrder, PosSettlement, PosPreset, PosAuditLog } from '../types/pos';
+import { PosCategory, PosItem, CartItem, PosUser, PosOrder, PosSettlement, PosPreset, PosAuditLog, PosGifticon } from '../types/pos';
 import { PosFeedback } from '../utils/posFeedback';
 import {
   ensurePosAuth,
@@ -28,6 +30,8 @@ import {
   subscribePosOrders,
   subscribePosSettlement,
   subscribePosLogs,
+  IS_POS_AUDIT_LOG_ENABLED,
+  subscribePosGifticons,
   seedInitialPosData,
   resetPosDataToDefaults,
   clearAllPosFavorites,
@@ -162,6 +166,12 @@ export function PosPage() {
   const [showSalesHistoryModal, setShowSalesHistoryModal] = useState<boolean>(false);
   const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
   const [showAuditLogModal, setShowAuditLogModal] = useState<boolean>(false);
+  const [showGifticonModal, setShowGifticonModal] = useState<boolean>(false);
+  const [showGifticonManagerModal, setShowGifticonManagerModal] = useState<boolean>(false);
+
+  // Gifticon State
+  const [gifticons, setGifticons] = useState<PosGifticon[]>([]);
+  const [appliedGifticons, setAppliedGifticons] = useState<PosGifticon[]>([]);
 
   // Responsive Viewport & Orientation Detection
   // 데스크톱 가로 모드 및 태블릿 가로 모드일 때만 좌우 2분할(Split) 레이아웃 적용.
@@ -414,6 +424,7 @@ export function PosPage() {
     let unsubOrders: (() => void) | null = null;
     let unsubSettlement: (() => void) | null = null;
     let unsubLogs: (() => void) | null = null;
+    let unsubGifticons: (() => void) | null = null;
 
     const init = async () => {
       await ensurePosAuth();
@@ -456,6 +467,18 @@ export function PosPage() {
           setLogs(firestoreLogs);
         }
       });
+
+      // Subscribe to Gifticons
+      unsubGifticons = subscribePosGifticons(firestoreGifticons => {
+        if (firestoreGifticons) {
+          setGifticons(firestoreGifticons);
+          // If any applied gifticon becomes inactive in real-time, update applied list
+          setAppliedGifticons(prev => {
+            const activeIds = new Set(firestoreGifticons.filter(c => c.status === 'ACTIVE').map(c => c.id));
+            return prev.filter(c => activeIds.has(c.id));
+          });
+        }
+      });
     };
 
     init().catch(err => {
@@ -468,6 +491,7 @@ export function PosPage() {
       if (unsubOrders) unsubOrders();
       if (unsubSettlement) unsubSettlement();
       if (unsubLogs) unsubLogs();
+      if (unsubGifticons) unsubGifticons();
     };
   }, [todayDateStr]);
 
@@ -716,7 +740,7 @@ export function PosPage() {
     setKeypadTarget(null);
   };
 
-  // [트랜잭션 결제] runOrderTransaction: orders 문서 생성과 items.stock 차감을 Firestore 단일 트랜잭션으로 원자적 처리
+  // [트랜잭션 결제] runOrderTransaction: orders 문서 생성과 items.stock 차감, 기프티콘 USED 처리를 Firestore 단일 트랜잭션으로 원자적 처리
   const executeOrder = async (
     method: 'CASH' | 'TRANSFER',
     total: number,
@@ -730,6 +754,9 @@ export function PosPage() {
     setIsProcessingOrder(true);
 
     try {
+      const gifticonDiscountAmount = appliedGifticons.reduce((sum, c) => sum + c.amount, 0);
+      const actualPaidAmount = Math.max(0, total - gifticonDiscountAmount);
+
       const newOrder = await runOrderTransaction({
         sessionId: todayDateStr,
         handlerUid: currentUser?.id || 'staff',
@@ -738,19 +765,27 @@ export function PosPage() {
         memo,
         paymentMethod: method,
         totalAmount: total,
+        gifticonDiscountAmount,
+        actualPaidAmount,
+        gifticonsToUse: appliedGifticons,
         cashReceived,
         changeAmount,
         cart,
       });
 
-      // Cart reset upon success
+      // Reset cart and applied gifticons upon success
       setCart([]);
+      setAppliedGifticons([]);
 
       if (!isSoundMuted) PosFeedback.playSuccess();
 
       const buyerText = buyerName ? ` (결제자: ${buyerName})` : '';
+      const gifticonNotice = gifticonDiscountAmount > 0
+        ? ` [기프티콘 할인 -${gifticonDiscountAmount.toLocaleString()}원 / 실결제 ${actualPaidAmount.toLocaleString()}원]`
+        : '';
+
       showToast(
-        `${method === 'CASH' ? '현금' : '계좌이체'} 결제가 완료되었습니다! (${total.toLocaleString()}원)${buyerText}${extraDetails ? ` - ${extraDetails}` : ''}`,
+        `${method === 'CASH' ? '현금' : '계좌이체'} 결제가 완료되었습니다! (${(gifticonDiscountAmount > 0 ? actualPaidAmount : total).toLocaleString()}원)${buyerText}${gifticonNotice}${extraDetails ? ` - ${extraDetails}` : ''}`,
         'success'
       );
     } catch (error: any) {
@@ -906,6 +941,7 @@ export function PosPage() {
           user={currentUser}
           items={items}
           categories={categories}
+          gifticons={gifticons}
           totalSalesToday={totalSalesToday}
           cashSalesToday={cashSalesToday}
           transferSalesToday={transferSalesToday}
@@ -913,9 +949,10 @@ export function PosPage() {
           hasActiveCart={cart.length > 0}
           onStartSales={() => setPosScreenMode('register')}
           onOpenProductManager={() => setShowProductManager(true)}
+          onOpenGifticonManager={() => setShowGifticonManagerModal(true)}
           onOpenSalesHistory={() => setShowSalesHistoryModal(true)}
           onOpenSettlement={() => setShowSettlementModal(true)}
-          onOpenAuditLog={() => setShowAuditLogModal(true)}
+          onOpenAuditLog={IS_POS_AUDIT_LOG_ENABLED ? () => setShowAuditLogModal(true) : undefined}
           onLogout={handleLogout}
           onExitToPortal={handleExitToPortal}
         />
@@ -933,8 +970,9 @@ export function PosPage() {
             onToggleSound={toggleSound}
             onExitToPortal={handleExitToPortal}
             onOpenProductManager={() => setShowProductManager(true)}
+            onOpenGifticonManager={() => setShowGifticonManagerModal(true)}
             onOpenSalesHistory={() => setShowSalesHistoryModal(true)}
-            onOpenAuditLog={() => setShowAuditLogModal(true)}
+            onOpenAuditLog={IS_POS_AUDIT_LOG_ENABLED ? () => setShowAuditLogModal(true) : undefined}
             onOpenSettlement={() => setShowSettlementModal(true)}
             onEndShift={() => setShowEndShiftConfirm(true)}
             totalSalesToday={totalSalesToday}
@@ -985,6 +1023,9 @@ export function PosPage() {
               >
                 <PosCart
                   cart={cart}
+                  appliedGifticons={appliedGifticons}
+                  onOpenGifticonModal={() => setShowGifticonModal(true)}
+                  onRemoveGifticon={gifticonId => setAppliedGifticons(prev => prev.filter(c => c.id !== gifticonId))}
                   isProcessing={isProcessingOrder}
                   isOnline={isOnline}
                   onUpdateCount={handleUpdateCount}
@@ -1127,6 +1168,9 @@ export function PosPage() {
                     <div className="flex-1 overflow-hidden">
                       <PosCart
                         cart={cart}
+                        appliedGifticons={appliedGifticons}
+                        onOpenGifticonModal={() => setShowGifticonModal(true)}
+                        onRemoveGifticon={gifticonId => setAppliedGifticons(prev => prev.filter(c => c.id !== gifticonId))}
                         isProcessing={isProcessingOrder}
                         isOnline={isOnline}
                         onUpdateCount={handleUpdateCount}
@@ -1242,7 +1286,11 @@ export function PosPage() {
       <AnimatePresence>
         {showCashModal && (
           <PosCashModal
-            totalAmount={totalCartAmount}
+            totalAmount={Math.max(0, totalCartAmount - appliedGifticons.reduce((s, c) => s + c.amount, 0))}
+            originalTotalAmount={totalCartAmount}
+            appliedGifticons={appliedGifticons}
+            onOpenGifticonModal={() => setShowGifticonModal(true)}
+            onRemoveGifticon={gifticonId => setAppliedGifticons(prev => prev.filter(c => c.id !== gifticonId))}
             onConfirmPayment={handleConfirmCashPayment}
             onClose={() => setShowCashModal(false)}
           />
@@ -1253,7 +1301,11 @@ export function PosPage() {
       <AnimatePresence>
         {showTransferModal && (
           <PosTransferModal
-            totalAmount={totalCartAmount}
+            totalAmount={Math.max(0, totalCartAmount - appliedGifticons.reduce((s, c) => s + c.amount, 0))}
+            originalTotalAmount={totalCartAmount}
+            appliedGifticons={appliedGifticons}
+            onOpenGifticonModal={() => setShowGifticonModal(true)}
+            onRemoveGifticon={gifticonId => setAppliedGifticons(prev => prev.filter(c => c.id !== gifticonId))}
             onConfirmPayment={handleConfirmTransferPayment}
             onClose={() => setShowTransferModal(false)}
           />
@@ -1315,21 +1367,51 @@ export function PosPage() {
         isAdmin={currentUser?.role === 'admin'}
       />
 
-      {/* Modal: Activity & Audit Logs (감사 로그) */}
-      <PosAuditLogModal
-        isOpen={showAuditLogModal}
-        onClose={() => setShowAuditLogModal(false)}
-        logs={logs}
-        isAdmin={currentUser?.role === 'admin'}
-        actorId={currentUser?.id || '관리자'}
-        onGoogleAdminLogin={adminUser => {
-          setCurrentUser(adminUser);
-          showToast(`구글 관리자(${adminUser.name}) 계정으로 연결되었습니다.`);
-        }}
-        onGoogleAdminLogout={() => {
-          handleLogout();
-        }}
-      />
+      {/* Modal: Activity & Audit Logs (감사 로그 - 개편 전 전역 비활성화 상태) */}
+      {IS_POS_AUDIT_LOG_ENABLED && (
+        <PosAuditLogModal
+          isOpen={showAuditLogModal}
+          onClose={() => setShowAuditLogModal(false)}
+          logs={logs}
+          isAdmin={currentUser?.role === 'admin'}
+          actorId={currentUser?.id || '관리자'}
+          onGoogleAdminLogin={adminUser => {
+            setCurrentUser(adminUser);
+            showToast(`구글 관리자(${adminUser.name}) 계정으로 연결되었습니다.`);
+          }}
+          onGoogleAdminLogout={() => {
+            handleLogout();
+          }}
+        />
+      )}
+
+      {/* Modal: Gifticon Input Modal (결제창 기프티콘 입력) */}
+      <AnimatePresence>
+        {showGifticonModal && (
+          <PosGifticonInputModal
+            isOpen={showGifticonModal}
+            onClose={() => setShowGifticonModal(false)}
+            originalTotalAmount={totalCartAmount}
+            availableGifticons={gifticons}
+            appliedGifticons={appliedGifticons}
+            onApplyGifticons={newSelected => setAppliedGifticons(newSelected)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Modal: Gifticon Manager Modal (기프티콘 관리 - 번호 등록/시트 붙여넣기/현황) */}
+      <AnimatePresence>
+        {showGifticonManagerModal && (
+          <PosGifticonManagerModal
+            isOpen={showGifticonManagerModal}
+            onClose={() => setShowGifticonManagerModal(false)}
+            gifticons={gifticons}
+            currentUserName={currentUser?.name || '관리자'}
+            currentUserId={currentUser?.id || 'admin'}
+            isAdmin={currentUser?.role === 'admin'}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -167,6 +167,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // POS Gifticons Collection
+    match /gifticons/{gifticonId} {
+      allow read, write: if true;
+    }
+
     // POS Orders Collection
     match /orders/{orderId} {
       allow read, write: if true;

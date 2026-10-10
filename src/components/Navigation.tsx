@@ -108,12 +108,9 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
                             <Store className="w-5 h-5" />
                           </div>
                           <div className="flex-1 min-w-0 text-left">
-                            <div className="flex items-center justify-between">
+                            <div>
                               <span className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
                                 학생회 매점 POS
-                              </span>
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                                수요매점
                               </span>
                             </div>
                             <p className="text-[11px] text-surface-dim mt-0.5 leading-snug line-clamp-1">
@@ -242,7 +239,6 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
                       <span className="truncate">학생회 매점 POS</span>
-                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">수요매점</span>
                     </div>
                     <p className="text-[11px] text-surface-dim font-normal mt-0.5 truncate">결제, 재고 관리 및 마감 정산</p>
                   </div>

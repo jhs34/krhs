@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   onSnapshot,
   query,
   orderBy,
@@ -14,7 +15,18 @@ import {
 } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { db, auth } from '../firebase';
-import { PosCategory, PosItem, PosOrder, PosSettlement, CartItem, PaymentMethod, PosPreset, PosAuditLog } from '../types/pos';
+import {
+  PosCategory,
+  PosItem,
+  PosOrder,
+  PosSettlement,
+  CartItem,
+  PaymentMethod,
+  PosPreset,
+  PosAuditLog,
+  PosGifticon,
+  PosUsedGifticonSummary,
+} from '../types/pos';
 
 /**
  * Ensures a valid Firebase Authentication session for the POS tablet.
@@ -115,6 +127,9 @@ export function subscribePosOrders(
           memo: data.memo || undefined,
           paymentMethod: (data.paymentMethod as PaymentMethod) || 'CASH',
           totalAmount: typeof data.totalAmount === 'number' ? data.totalAmount : 0,
+          gifticonDiscountAmount: typeof data.gifticonDiscountAmount === 'number' ? data.gifticonDiscountAmount : 0,
+          actualPaidAmount: typeof data.actualPaidAmount === 'number' ? data.actualPaidAmount : (typeof data.totalAmount === 'number' ? data.totalAmount : 0),
+          usedGifticons: Array.isArray(data.usedGifticons) ? data.usedGifticons : [],
           cashReceived: typeof data.cashReceived === 'number' ? data.cashReceived : undefined,
           changeAmount: typeof data.changeAmount === 'number' ? data.changeAmount : undefined,
           items: Array.isArray(data.items) ? data.items : [],
@@ -160,6 +175,8 @@ export function subscribePosSettlement(
         transferSales: typeof data.transferSales === 'number' ? data.transferSales : 0,
         cashSales: typeof data.cashSales === 'number' ? data.cashSales : 0,
         totalSales: typeof data.totalSales === 'number' ? data.totalSales : 0,
+        grossSales: typeof data.grossSales === 'number' ? data.grossSales : undefined,
+        gifticonSales: typeof data.gifticonSales === 'number' ? data.gifticonSales : undefined,
         actualCashInput: typeof data.actualCashInput === 'number' ? data.actualCashInput : undefined,
         discrepancy: typeof data.discrepancy === 'number' ? data.discrepancy : undefined,
         status: (data.status as 'OPEN' | 'CLOSED') || 'OPEN',
@@ -196,6 +213,8 @@ export function subscribePosSettlements(
           transferSales: typeof data.transferSales === 'number' ? data.transferSales : 0,
           cashSales: typeof data.cashSales === 'number' ? data.cashSales : 0,
           totalSales: typeof data.totalSales === 'number' ? data.totalSales : 0,
+          grossSales: typeof data.grossSales === 'number' ? data.grossSales : undefined,
+          gifticonSales: typeof data.gifticonSales === 'number' ? data.gifticonSales : undefined,
           actualCashInput: typeof data.actualCashInput === 'number' ? data.actualCashInput : undefined,
           discrepancy: typeof data.discrepancy === 'number' ? data.discrepancy : undefined,
           status: (data.status as 'OPEN' | 'CLOSED') || 'OPEN',
@@ -290,14 +309,21 @@ export interface RunOrderParams {
   buyerName?: string;
   memo?: string;
   paymentMethod: PaymentMethod;
-  totalAmount: number;
+  totalAmount: number; // 원래 상품 합계 금액
+  gifticonDiscountAmount?: number; // 기프티콘 총 할인 금액
+  actualPaidAmount?: number; // 실제 수납 금액 (totalAmount - gifticonDiscountAmount, 최소 0원)
+  gifticonsToUse?: PosGifticon[]; // 적용할 기프티콘 목록
   cashReceived?: number;
   changeAmount?: number;
   cart: CartItem[];
 }
 
 /**
- * [트랜잭션 일관성] 결제 완료 처리 시 orders 생성과 items.stock 차감을 단일 트랜잭션으로 처리하여 재고 불일치 방지.
+ * [트랜잭션 일관성] 결제 완료 처리 시:
+ * 1. 장바구니 상품들의 실시간 재고 확인 및 차감
+ * 2. 사용된 기프티콘들의 상태 확인(ACTIVE 여부) 및 USED로 전환
+ * 3. orders 문서 생성
+ * 을 단일 트랜잭션으로 원자적 처리하여 중복 사용 및 재고 불일치 방지.
  */
 export async function runOrderTransaction(params: RunOrderParams): Promise<PosOrder> {
   await ensurePosAuth();
@@ -305,6 +331,10 @@ export async function runOrderTransaction(params: RunOrderParams): Promise<PosOr
   if (params.cart.length === 0) {
     throw new Error('장바구니가 비어 있습니다.');
   }
+
+  const gifticons = params.gifticonsToUse || [];
+  const gifticonDiscount = params.gifticonDiscountAmount ?? gifticons.reduce((sum, c) => sum + c.amount, 0);
+  const actualPaid = Math.max(0, params.totalAmount - gifticonDiscount);
 
   return await runTransaction(db, async transaction => {
     // 1. Transaction Read Phase: Read fresh stock for all items
@@ -343,13 +373,44 @@ export async function runOrderTransaction(params: RunOrderParams): Promise<PosOr
       });
     }
 
-    // 2. Transaction Write Phase: Create Order document and deduct stock
+    // 1-B. Transaction Read Phase: Read and validate all gifticons
+    const gifticonReads: Array<{
+      ref: ReturnType<typeof doc>;
+      gifticon: PosGifticon;
+    }> = [];
+
+    for (const c of gifticons) {
+      const gifticonRef = doc(db, 'gifticons', c.id.trim());
+      const gifticonDoc = await transaction.get(gifticonRef);
+
+      if (!gifticonDoc.exists()) {
+        throw new Error(`기프티콘 [${c.id}]을(를) 시스템에서 찾을 수 없습니다.`);
+      }
+
+      const cData = gifticonDoc.data() as PosGifticon;
+      if (cData.status !== 'ACTIVE') {
+        throw new Error(`기프티콘 [${c.id}]은(는) 이미 사용되었거나 비활성 상태입니다. (상태: ${cData.status})`);
+      }
+
+      gifticonReads.push({
+        ref: gifticonRef,
+        gifticon: { ...cData, id: gifticonDoc.id },
+      });
+    }
+
+    // 2. Transaction Write Phase: Create Order document, deduct stock, mark gifticons as USED
     const ordersCol = collection(db, 'orders');
     const orderDocRef = doc(ordersCol);
 
     const nowIso = new Date().toISOString();
     const cleanBuyerName = params.buyerName?.trim() || undefined;
     const cleanMemo = params.memo?.trim() || undefined;
+
+    const usedGifticonsSummary: PosUsedGifticonSummary[] = gifticonReads.map(gr => ({
+      gifticonId: gr.gifticon.id,
+      amount: gr.gifticon.amount,
+    }));
+
     const newOrder: PosOrder = {
       id: orderDocRef.id,
       sessionId: params.sessionId,
@@ -360,6 +421,9 @@ export async function runOrderTransaction(params: RunOrderParams): Promise<PosOr
       memo: cleanMemo,
       paymentMethod: params.paymentMethod,
       totalAmount: params.totalAmount,
+      gifticonDiscountAmount: gifticonDiscount,
+      actualPaidAmount: actualPaid,
+      usedGifticons: usedGifticonsSummary.length > 0 ? usedGifticonsSummary : undefined,
       cashReceived: params.paymentMethod === 'CASH' ? params.cashReceived : undefined,
       changeAmount: params.paymentMethod === 'CASH' ? params.changeAmount : undefined,
       items: params.cart.map(ci => ({
@@ -389,37 +453,77 @@ export async function runOrderTransaction(params: RunOrderParams): Promise<PosOr
       });
     }
 
+    // Mark gifticons as USED atomically
+    for (const gr of gifticonReads) {
+      transaction.update(gr.ref, {
+        status: 'USED',
+        usedAt: nowIso,
+        usedOrderId: orderDocRef.id,
+        usedBy: cleanBuyerName || params.handlerName,
+      });
+    }
+
     return newOrder;
   }).then(async order => {
     // Background audit logging (Non-blocking)
     const itemsSummary = params.cart.map(c => `${c.item.name} x${c.count}`).join(', ');
     const buyerSuffix = order.buyerName ? ` [결제자: ${order.buyerName}]` : '';
+    const gifticonSuffix = order.gifticonDiscountAmount && order.gifticonDiscountAmount > 0
+      ? ` (기프티콘 할인 -${order.gifticonDiscountAmount.toLocaleString()}원, 실결제 ${(order.actualPaidAmount ?? 0).toLocaleString()}원, 사용 기프티콘: ${order.usedGifticons?.map(u => u.gifticonId).join(', ')})`
+      : '';
+
+    const isTransfer = params.paymentMethod === 'TRANSFER';
     await logPosActivity({
-      action: 'ORDER_CREATED',
-      actionTitle: '결제 완료',
+      action: isTransfer ? 'PTR' : 'PCA',
+      actionTitle: isTransfer ? '계좌이체 결제 완료' : '현금 결제 완료',
       category: 'SALE',
       actorId: params.handlerUid || params.handlerName || '판매원',
       actorUid: params.handlerUid,
       sessionId: params.sessionId,
-      details: `${params.paymentMethod === 'TRANSFER' ? '계좌이체' : '현금'} 결제 ${params.totalAmount.toLocaleString()}원 (${itemsSummary})${buyerSuffix}`,
+      details: `${isTransfer ? '계좌이체' : '현금'} 결제 ${params.totalAmount.toLocaleString()}원 (${itemsSummary})${buyerSuffix}${gifticonSuffix}`,
       metadata: {
         orderId: order.id,
         buyerName: order.buyerName || undefined,
         memo: order.memo || undefined,
         paymentMethod: params.paymentMethod,
         totalAmount: params.totalAmount,
+        gifticonDiscountAmount: order.gifticonDiscountAmount || 0,
+        actualPaidAmount: order.actualPaidAmount ?? params.totalAmount,
+        usedGifticons: order.usedGifticons || [],
         cashReceived: params.cashReceived,
         changeAmount: params.changeAmount,
         itemsCount: params.cart.reduce((sum, c) => sum + c.count, 0),
         items: params.cart.map(c => ({ name: c.item.name, count: c.count, price: c.item.price })),
       },
     }).catch(e => console.warn('Audit log failed:', e));
+
+    // Also record dedicated GUS (Gifticon Use) logs for each gifticon used
+    if (order.usedGifticons && order.usedGifticons.length > 0) {
+      for (const ug of order.usedGifticons) {
+        logPosActivity({
+          action: 'GUS',
+          actionTitle: '기프티콘 결제 사용',
+          category: 'GIFTICON',
+          actorId: params.handlerUid || params.handlerName || '판매원',
+          actorUid: params.handlerUid,
+          sessionId: params.sessionId,
+          details: `기프티콘 [${ug.gifticonId}] 사용 완료 (${ug.amount.toLocaleString()}원 할인, 주문번호 #${order.id.slice(-6)})`,
+          metadata: {
+            gifticonId: ug.gifticonId,
+            amount: ug.amount,
+            orderId: order.id,
+            buyerName: order.buyerName,
+          },
+        }).catch(() => {});
+      }
+    }
+
     return order;
   });
 }
 
 /**
- * [트랜잭션 일관성] 결제 취소 시 order 상태 변경과 품목 재고 자동 복원을 단일 트랜잭션으로 원자적 처리.
+ * [트랜잭션 일관성] 결제 취소 시 order 상태 변경, 품목 재고 자동 복원, 사용되었던 기프티콘 자동 복구(ACTIVE)를 단일 트랜잭션으로 원자적 처리.
  */
 export async function runCancelOrderTransaction(
   orderId: string,
@@ -431,6 +535,7 @@ export async function runCancelOrderTransaction(
   const orderRef = doc(db, 'orders', orderId);
   let cancelledOrderData: any = null;
   let restoredItemsSummary: string[] = [];
+  let restoredGifticonsList: PosUsedGifticonSummary[] = [];
 
   await runTransaction(db, async transaction => {
     const orderDoc = await transaction.get(orderRef);
@@ -446,6 +551,7 @@ export async function runCancelOrderTransaction(
     cancelledOrderData = orderData;
     const items: Array<{ itemId: string; count: number; name: string }> = orderData.items || [];
     restoredItemsSummary = items.map(i => `${i.name} ${i.count}개`);
+    restoredGifticonsList = Array.isArray(orderData.usedGifticons) ? orderData.usedGifticons : [];
 
     // Read current stocks
     const itemReads: Array<{
@@ -465,6 +571,16 @@ export async function runCancelOrderTransaction(
           currentStock,
           countToRestore: orderItem.count,
         });
+      }
+    }
+
+    // Read gifticons to restore
+    const gifticonRefsToRestore: Array<ReturnType<typeof doc>> = [];
+    for (const ug of restoredGifticonsList) {
+      const gRef = doc(db, 'gifticons', ug.gifticonId);
+      const gDoc = await transaction.get(gRef);
+      if (gDoc.exists()) {
+        gifticonRefsToRestore.push(gRef);
       }
     }
 
@@ -489,25 +605,61 @@ export async function runCancelOrderTransaction(
         updatedAt: nowIso,
       });
     }
+
+    // Restore gifticons to ACTIVE
+    for (const gRef of gifticonRefsToRestore) {
+      transaction.update(gRef, {
+        status: 'ACTIVE',
+        usedAt: null,
+        usedOrderId: null,
+        usedBy: null,
+      });
+    }
   });
 
   // Background audit logging
   if (cancelledOrderData) {
+    const gifticonRestoredNote = restoredGifticonsList.length > 0
+      ? `, 기프티콘 ${restoredGifticonsList.map(c => c.gifticonId).join(', ')} 미사용 복구 완료`
+      : '';
+
     await logPosActivity({
-      action: 'ORDER_CANCELLED',
-      actionTitle: '주문 결제 취소 (환불)',
+      action: 'PCC',
+      actionTitle: '결제 취소 (환불/재고복원)',
       category: 'SALE',
       actorId: cancelledBy || '관리자',
       actorUid: cancelledBy,
       sessionId: cancelledOrderData.sessionId,
-      details: `주문번호 #${orderId.slice(-6)} 취소 완료 (${(cancelledOrderData.totalAmount || 0).toLocaleString()}원 환불, 사유: ${cancelReason || '단순 변심'})`,
+      details: `주문번호 #${orderId.slice(-6)} 결제 취소 완료 (${(cancelledOrderData.totalAmount || 0).toLocaleString()}원 환불, 사유: ${cancelReason || '단순 변심'}${gifticonRestoredNote})`,
       metadata: {
         orderId,
         refundAmount: cancelledOrderData.totalAmount,
         cancelReason: cancelReason || '단순 변심',
         restoredItems: restoredItemsSummary,
+        restoredGifticons: restoredGifticonsList,
       },
     }).catch(e => console.warn('Audit log failed:', e));
+
+    // Dedicated GRT (Gifticon Restore) log if any gifticons were recovered
+    if (restoredGifticonsList.length > 0) {
+      for (const rg of restoredGifticonsList) {
+        logPosActivity({
+          action: 'GRT',
+          actionTitle: '기프티콘 미사용 복원',
+          category: 'GIFTICON',
+          actorId: cancelledBy || '관리자',
+          actorUid: cancelledBy,
+          sessionId: cancelledOrderData.sessionId,
+          details: `주문 취소로 기프티콘 [${rg.gifticonId}](${rg.amount.toLocaleString()}원)이 다시 미사용(사용가능) 상태로 복구되었습니다.`,
+          metadata: {
+            gifticonId: rg.gifticonId,
+            amount: rg.amount,
+            orderId,
+            reason: cancelReason,
+          },
+        }).catch(() => {});
+      }
+    }
   }
 }
 
@@ -531,7 +683,7 @@ export async function saveSinglePosItemPartial(
   // Optional lightweight log for stock / status adjustments
   if (patch.stock !== undefined || patch.isActive !== undefined || patch.price !== undefined || patch.name !== undefined) {
     logPosActivity({
-      action: 'ITEM_UPDATED',
+      action: 'IUP',
       actionTitle: '상품 정보 수정',
       category: 'INVENTORY',
       actorName,
@@ -582,7 +734,7 @@ export async function saveBatchPosItemsWithSummary(
   }
 
   logPosActivity({
-    action: 'ITEM_UPDATED',
+    action: 'IMU',
     actionTitle: '상품 재고/정보 일괄 저장',
     category: 'INVENTORY',
     actorName,
@@ -632,7 +784,7 @@ export async function saveMultiplePosItems(
   }
 
   logPosActivity({
-    action: 'ITEM_UPDATED',
+    action: 'IMU',
     actionTitle: '상품 다중 일괄 업데이트',
     category: 'INVENTORY',
     actorName,
@@ -675,7 +827,7 @@ export async function savePosItem(
   if (item.isActive !== undefined) diffs.push({ field: 'isActive', label: '판매 상태', from: '-', to: item.isActive !== false ? '판매중' : '판매중단' });
 
   logPosActivity({
-    action: isNew ? 'ITEM_CREATED' : 'ITEM_UPDATED',
+    action: isNew ? 'ICR' : 'IUP',
     actionTitle: isNew ? '신규 상품 등록' : '상품 정보 수정',
     category: 'INVENTORY',
     actorName,
@@ -715,7 +867,7 @@ export async function deletePosItem(
   await deleteDoc(doc(db, 'items', id));
 
   logPosActivity({
-    action: 'ITEM_DELETED',
+    action: 'IDL',
     actionTitle: '상품 삭제',
     category: 'INVENTORY',
     actorName,
@@ -761,8 +913,8 @@ export async function saveBatchPosCategories(
   await batch.commit();
 
   logPosActivity({
-    action: 'CATEGORY_UPDATED',
-    actionTitle: '카테고리 구성 변경',
+    action: 'CMU',
+    actionTitle: '카테고리 구성 일괄 저장',
     category: 'INVENTORY',
     actorName,
     actorUid,
@@ -793,8 +945,8 @@ export async function savePosCategory(
 
   if (shouldLog) {
     logPosActivity({
-      action: 'CATEGORY_UPDATED',
-      actionTitle: '카테고리 저장',
+      action: 'CUP',
+      actionTitle: '카테고리 정보 저장',
       category: 'INVENTORY',
       actorName,
       actorUid,
@@ -817,7 +969,7 @@ export async function deletePosCategory(
   await deleteDoc(doc(db, 'categories', id));
 
   logPosActivity({
-    action: 'CATEGORY_DELETED',
+    action: 'CDL',
     actionTitle: '카테고리 삭제',
     category: 'INVENTORY',
     actorName,
@@ -846,9 +998,15 @@ export async function savePosSettlement(
   );
 
   const isClosed = settlement.status === 'CLOSED';
+  const isNormal = (settlement.discrepancy === 0 || !settlement.discrepancy);
+  const actionCode = isClosed ? (isNormal ? 'SOO' : 'SXX') : 'SUP';
+  const actionTitle = isClosed
+    ? (isNormal ? '마감 정산 정상 완료 (일치)' : '마감 정산 불일치 경고 (오차 발생)')
+    : '영업 준비금/일지 수정';
+
   logPosActivity({
-    action: isClosed ? 'SETTLEMENT_CLOSED' : 'SETTLEMENT_OPENED',
-    actionTitle: isClosed ? '영업 마감 정산' : '영업 개시 준비금 등록',
+    action: actionCode,
+    actionTitle,
     category: 'SETTLEMENT',
     actorName: isClosed ? (settlement.closedBy || actorName) : (settlement.openedBy || actorName),
     sessionId: settlement.id,
@@ -880,8 +1038,8 @@ export async function deletePosSettlement(
   await deleteDoc(docRef);
 
   logPosActivity({
-    action: 'SETTLEMENT_DELETED',
-    actionTitle: '마감 정산 내역 삭제',
+    action: 'SDL',
+    actionTitle: '마감 일지 삭제',
     category: 'SETTLEMENT',
     actorName,
     sessionId: settlementId,
@@ -905,8 +1063,8 @@ export async function updatePosOrder(order: PosOrder, actorName = '관리자'): 
   );
 
   logPosActivity({
-    action: 'ORDER_UPDATED',
-    actionTitle: '주문 내역 수정',
+    action: 'PUP',
+    actionTitle: '결제 정보 수정',
     category: 'SALE',
     actorName,
     sessionId: order.sessionId,
@@ -924,8 +1082,8 @@ export async function deletePosOrder(orderId: string, actorName = '관리자'): 
   await deleteDoc(orderRef);
 
   logPosActivity({
-    action: 'ORDER_DELETED',
-    actionTitle: '주문 영구 삭제',
+    action: 'PDL',
+    actionTitle: '매출 내역 영구 삭제',
     category: 'SALE',
     actorName,
     details: `주문번호 #${orderId.slice(-6)} 내역 영구 삭제`,
@@ -953,8 +1111,8 @@ export async function deleteMultiplePosOrders(orderIds: string[], actorName = '�
   }
 
   logPosActivity({
-    action: 'BATCH_ORDERS_DELETED',
-    actionTitle: '주문 일괄 삭제',
+    action: 'PDL',
+    actionTitle: '매출 내역 일괄 영구 삭제',
     category: 'SALE',
     actorName,
     details: `총 ${orderIds.length}건의 주문 내역 일괄 영구 삭제`,
@@ -1051,7 +1209,7 @@ export async function applyPosPreset(
   }
 
   logPosActivity({
-    action: 'PRESET_APPLIED',
+    action: 'PSA',
     actionTitle: '메뉴 프리셋 적용',
     category: 'SYSTEM',
     actorName,
@@ -1118,7 +1276,7 @@ export async function savePosPreset(
   );
 
   logPosActivity({
-    action: 'PRESET_SAVED',
+    action: 'PSO',
     actionTitle: '메뉴 프리셋 저장',
     category: 'SYSTEM',
     actorName,
@@ -1142,7 +1300,7 @@ export async function deletePosPreset(
   await deleteDoc(presetRef);
 
   logPosActivity({
-    action: 'PRESET_DELETED',
+    action: 'PSD',
     actionTitle: '메뉴 프리셋 삭제',
     category: 'SYSTEM',
     actorName,
@@ -1171,17 +1329,43 @@ export async function resetPosDataToDefaults(
  */
 
 /**
+ * 3글자 표준 접두어 + 발생 시각(YYYYMMDDHHmmss) + 밀리초(SSS, 3자리: 000~999)
+ * 예: 현금 결제(PCA) 2026-10-21 19:37:22.482 -> PCA20261021193722482
+ */
+export function generatePosLogId(actionCode: string, date: Date = new Date()): string {
+  const prefix = (actionCode || 'SYS').slice(0, 3).toUpperCase().padEnd(3, 'X');
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const HH = String(date.getHours()).padStart(2, '0');
+  const MM = String(date.getMinutes()).padStart(2, '0');
+  const SS = String(date.getSeconds()).padStart(2, '0');
+  const SSS = String(date.getMilliseconds()).padStart(3, '0');
+  return `${prefix}${yyyy}${mm}${dd}${HH}${MM}${SS}${SSS}`;
+}
+
+/**
+ * 로그 시스템 전면 개편 전 임시 전역 비활성화 플래그 (개편 완료 후 재활성화 예정)
+ */
+export const IS_POS_AUDIT_LOG_ENABLED = false;
+
+/**
  * Record a new audit log entry into Firestore.
  */
 export async function logPosActivity(
   log: Omit<PosAuditLog, 'id' | 'timestamp'> & { id?: string; timestamp?: string }
 ): Promise<string> {
+  // 로그 시스템 전면 개편 작업 진행 중으로 사이트 전체 로그 기록 비활성화
+  if (!IS_POS_AUDIT_LOG_ENABLED) {
+    return '';
+  }
+
   try {
     await ensurePosAuth();
-    const id = log.id || `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const logDocRef = doc(db, 'pos_logs', id);
-    const timestamp = log.timestamp || new Date().toISOString();
     const now = new Date();
+    const id = log.id || generatePosLogId(log.action, now);
+    const logDocRef = doc(db, 'pos_logs', id);
+    const timestamp = log.timestamp || now.toISOString();
     const defaultSessionId = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     // 원문 JSON 또는 메타데이터만 단독으로 열람하더라도
@@ -1232,6 +1416,11 @@ export function subscribePosLogs(
   onError?: (error: Error) => void,
   maxEntries = 300
 ): () => void {
+  // 로그 시스템 전면 개편 작업 진행 중으로 사이트 전체 로그 구독 비활성화
+  if (!IS_POS_AUDIT_LOG_ENABLED) {
+    onData([]);
+    return () => {};
+  }
   const mapDocToLog = (docSnap: any): PosAuditLog => {
     const data = docSnap.data();
     const actorId = data.actorId || data.actorUid || (data.actorName ? data.actorName.replace(/\s*\(관리자\)\s*/g, '').trim() : undefined) || '관리자';
@@ -1308,6 +1497,414 @@ export async function clearAllPosLogs(logs: PosAuditLog[]): Promise<void> {
     }
     await batch.commit();
   }
+}
+
+// ==========================================
+// GIFTICON MANAGEMENT SERVICES (기프티콘 관리)
+// ==========================================
+
+/**
+ * Fetch a single gifticon by its ID directly.
+ */
+export async function getPosGifticon(gifticonId: string): Promise<PosGifticon | null> {
+  await ensurePosAuth();
+  const cRef = doc(db, 'gifticons', gifticonId.trim());
+  const snap = await getDoc(cRef);
+  if (!snap.exists()) return null;
+  const d = snap.data();
+  return {
+    id: snap.id,
+    amount: typeof d.amount === 'number' ? d.amount : 0,
+    status: (d.status as 'ACTIVE' | 'USED' | 'CANCELLED') || 'ACTIVE',
+    description: d.description || '',
+    createdAt: d.createdAt || '',
+    createdBy: d.createdBy || '',
+    usedAt: d.usedAt || undefined,
+    usedBy: d.usedBy || undefined,
+    usedOrderId: d.usedOrderId || undefined,
+    memo: d.memo || undefined,
+  };
+}
+
+/**
+ * Real-time subscription to all gifticons in Firestore.
+ */
+export function subscribePosGifticons(
+  onData: (gifticons: PosGifticon[]) => void,
+  onError?: (error: Error) => void
+): () => void {
+  const collRef = collection(db, 'gifticons');
+  return onSnapshot(
+    collRef,
+    snapshot => {
+      const gifticons: PosGifticon[] = snapshot.docs.map(docSnap => {
+        const d = docSnap.data();
+        return {
+          id: docSnap.id,
+          amount: typeof d.amount === 'number' ? d.amount : 0,
+          status: (d.status as 'ACTIVE' | 'USED' | 'CANCELLED') || 'ACTIVE',
+          description: d.description || '',
+          createdAt: d.createdAt || '',
+          createdBy: d.createdBy || '',
+          usedAt: d.usedAt || undefined,
+          usedBy: d.usedBy || undefined,
+          usedOrderId: d.usedOrderId || undefined,
+          memo: d.memo || undefined,
+        };
+      });
+      // Sort newest first
+      gifticons.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      onData(gifticons);
+    },
+    err => {
+      console.error('Firestore gifticons subscription error:', err);
+      if (onError) onError(err);
+    }
+  );
+}
+
+/**
+ * Save or update a single gifticon.
+ */
+export async function savePosGifticon(
+  gifticon: Partial<PosGifticon> & { id: string; amount: number },
+  actorName = '관리자',
+  actorUid?: string
+): Promise<void> {
+  await ensurePosAuth();
+  const gifticonId = gifticon.id.trim();
+  if (!gifticonId) {
+    throw new Error('기프티콘 번호는 공백일 수 없습니다.');
+  }
+  if (gifticon.amount <= 0) {
+    throw new Error('기프티콘 금액은 0원보다 커야 합니다.');
+  }
+
+  const docRef = doc(db, 'gifticons', gifticonId);
+  const nowIso = new Date().toISOString();
+  const payload: PosGifticon = {
+    id: gifticonId,
+    amount: gifticon.amount,
+    status: gifticon.status || 'ACTIVE',
+    description: gifticon.description?.trim() || undefined,
+    createdAt: gifticon.createdAt || nowIso,
+    createdBy: gifticon.createdBy || actorName,
+    usedAt: gifticon.usedAt || undefined,
+    usedBy: gifticon.usedBy || undefined,
+    usedOrderId: gifticon.usedOrderId || undefined,
+    memo: gifticon.memo?.trim() || undefined,
+  };
+
+  await setDoc(docRef, sanitizeForFirestore(payload), { merge: true });
+
+  await logPosActivity({
+    action: 'GCR',
+    actionTitle: '기프티콘 개별 등록',
+    category: 'GIFTICON',
+    actorName,
+    actorUid,
+    details: `기프티콘 [${gifticonId}] (${gifticon.amount.toLocaleString()}원) 등록 완료`,
+    metadata: {
+      gifticonId,
+      amount: gifticon.amount,
+      status: payload.status,
+    },
+  }).catch(() => {});
+}
+
+/**
+ * Batch save/import multiple gifticons from sheet/excel or generator.
+ */
+export async function saveMultiplePosGifticons(
+  gifticons: Array<{ id: string; amount: number; description?: string; memo?: string }>,
+  actorName = '관리자',
+  actorUid?: string
+): Promise<{ successCount: number; duplicateCount: number }> {
+  if (!gifticons || gifticons.length === 0) return { successCount: 0, duplicateCount: 0 };
+  await ensurePosAuth();
+
+  const chunkSize = 400;
+  const nowIso = new Date().toISOString();
+  let successCount = 0;
+
+  for (let i = 0; i < gifticons.length; i += chunkSize) {
+    const chunk = gifticons.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+
+    for (const g of chunk) {
+      const cleanId = g.id.trim();
+      if (!cleanId || g.amount <= 0) continue;
+
+      const cRef = doc(db, 'gifticons', cleanId);
+      const payload: PosGifticon = {
+        id: cleanId,
+        amount: g.amount,
+        status: 'ACTIVE',
+        description: g.description?.trim() || undefined,
+        createdAt: nowIso,
+        createdBy: actorName,
+        memo: g.memo?.trim() || undefined,
+      };
+
+      batch.set(cRef, sanitizeForFirestore(payload), { merge: true });
+      successCount++;
+    }
+
+    await batch.commit();
+  }
+
+  const totalFaceValue = gifticons.reduce((sum, c) => sum + (c.amount || 0), 0);
+
+  await logPosActivity({
+    action: 'GMC',
+    actionTitle: '기프티콘 일괄 등록 (Multi)',
+    category: 'GIFTICON',
+    actorName,
+    actorUid,
+    details: `기프티콘 ${successCount}장 일괄 등록 완료 (총 발행 가치: ${totalFaceValue.toLocaleString()}원)`,
+    metadata: {
+      count: successCount,
+      totalFaceValue,
+      sampleIds: gifticons.slice(0, 5).map(c => c.id),
+    },
+  }).catch(() => {});
+
+  return { successCount, duplicateCount: 0 };
+}
+
+/**
+ * Delete a single gifticon (Admin only).
+ */
+export async function deletePosGifticon(
+  gifticonId: string,
+  actorName = '관리자',
+  actorUid?: string
+): Promise<void> {
+  await ensurePosAuth();
+  const cleanId = gifticonId.trim();
+  const cRef = doc(db, 'gifticons', cleanId);
+  await deleteDoc(cRef);
+
+  await logPosActivity({
+    action: 'GDL',
+    actionTitle: '기프티콘 삭제',
+    category: 'GIFTICON',
+    actorName,
+    actorUid,
+    details: `기프티콘 [${cleanId}] 폐기/삭제 완료`,
+    metadata: { gifticonId: cleanId },
+  }).catch(() => {});
+}
+
+/**
+ * Delete multiple gifticons (Admin only).
+ */
+export async function deleteMultiplePosGifticons(
+  gifticonIds: string[],
+  actorName = '관리자',
+  actorUid?: string
+): Promise<void> {
+  if (!gifticonIds || gifticonIds.length === 0) return;
+  await ensurePosAuth();
+
+  const chunkSize = 400;
+  for (let i = 0; i < gifticonIds.length; i += chunkSize) {
+    const chunk = gifticonIds.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    for (const id of chunk) {
+      const cleanId = id.trim();
+      const cRef = doc(db, 'gifticons', cleanId);
+      batch.delete(cRef);
+    }
+    await batch.commit();
+  }
+
+  await logPosActivity({
+    action: 'GDL',
+    actionTitle: '기프티콘 다중 삭제',
+    category: 'GIFTICON',
+    actorName,
+    actorUid,
+    details: `총 ${gifticonIds.length}장의 기프티콘 영구 삭제 완료`,
+    metadata: { count: gifticonIds.length },
+  }).catch(() => {});
+}
+
+/**
+ * Change gifticon status (e.g. ACTIVE <-> CANCELLED).
+ */
+export async function updatePosGifticonStatus(
+  gifticonId: string,
+  newStatus: 'ACTIVE' | 'USED' | 'CANCELLED',
+  actorName = '관리자',
+  actorUid?: string
+): Promise<void> {
+  await ensurePosAuth();
+  const cleanId = gifticonId.trim();
+  const cRef = doc(db, 'gifticons', cleanId);
+  await setDoc(cRef, { status: newStatus, updatedAt: new Date().toISOString() }, { merge: true });
+
+  await logPosActivity({
+    action: 'GUP',
+    actionTitle: '기프티콘 상태 변경',
+    category: 'GIFTICON',
+    actorName,
+    actorUid,
+    details: `기프티콘 [${cleanId}] 상태를 '${newStatus}'(으)로 변경`,
+    metadata: { gifticonId: cleanId, newStatus },
+  }).catch(() => {});
+}
+
+/**
+ * Edit a single gifticon's details (number/ID, amount, status, description, memo).
+ * If the ID is changed, migrates the document to the new ID and deletes the old one.
+ */
+export async function editPosGifticon(
+  oldId: string,
+  updatedData: {
+    id: string;
+    amount: number;
+    status: 'ACTIVE' | 'USED' | 'CANCELLED';
+    description?: string;
+    memo?: string;
+  },
+  actorName = '관리자',
+  actorUid?: string
+): Promise<void> {
+  await ensurePosAuth();
+  const cleanOldId = oldId.trim();
+  const cleanNewId = updatedData.id.trim();
+
+  if (!cleanNewId) {
+    throw new Error('기프티콘 번호는 필수 입력 항목입니다.');
+  }
+  if (!updatedData.amount || updatedData.amount <= 0) {
+    throw new Error('기프티콘 할인 금액은 0원보다 커야 합니다.');
+  }
+
+  const nowIso = new Date().toISOString();
+
+  if (cleanNewId !== cleanOldId) {
+    // ID changed: fetch old doc to preserve metadata (createdAt, etc.)
+    const oldRef = doc(db, 'gifticons', cleanOldId);
+    const oldSnap = await getDoc(oldRef);
+    const oldData = oldSnap.exists() ? (oldSnap.data() as PosGifticon) : null;
+
+    const newRef = doc(db, 'gifticons', cleanNewId);
+    const newDocSnap = await getDoc(newRef);
+    if (newDocSnap.exists()) {
+      throw new Error(`기프티콘 번호 [${cleanNewId}]가 이미 존재합니다.`);
+    }
+
+    const payload: PosGifticon = {
+      ...(oldData || {}),
+      id: cleanNewId,
+      amount: updatedData.amount,
+      status: updatedData.status,
+      description: updatedData.description?.trim() || undefined,
+      memo: updatedData.memo?.trim() || undefined,
+      createdAt: oldData?.createdAt || nowIso,
+      createdBy: oldData?.createdBy || actorName,
+    };
+
+    const batch = writeBatch(db);
+    batch.set(newRef, sanitizeForFirestore(payload));
+    batch.delete(oldRef);
+    await batch.commit();
+
+    await logPosActivity({
+      action: 'GUP',
+      actionTitle: '기프티콘 번호 및 정보 수정',
+      category: 'GIFTICON',
+      actorName,
+      actorUid,
+      details: `기프티콘 [${cleanOldId}] -> [${cleanNewId}] (${updatedData.amount.toLocaleString()}원, 상태: ${updatedData.status}) 수정`,
+      metadata: { oldId: cleanOldId, newId: cleanNewId, amount: updatedData.amount, status: updatedData.status },
+    }).catch(() => {});
+  } else {
+    // Same ID: update fields
+    const cRef = doc(db, 'gifticons', cleanOldId);
+    const updates: Record<string, any> = {
+      amount: updatedData.amount,
+      status: updatedData.status,
+      description: updatedData.description?.trim() || undefined,
+      memo: updatedData.memo?.trim() || undefined,
+      updatedAt: nowIso,
+    };
+
+    await setDoc(cRef, sanitizeForFirestore(updates), { merge: true });
+
+    await logPosActivity({
+      action: 'GUP',
+      actionTitle: '기프티콘 정보 수정',
+      category: 'GIFTICON',
+      actorName,
+      actorUid,
+      details: `기프티콘 [${cleanOldId}] 정보 수정 (${updatedData.amount.toLocaleString()}원, ${updatedData.status})`,
+      metadata: { gifticonId: cleanOldId, ...updates },
+    }).catch(() => {});
+  }
+}
+
+/**
+ * Batch update multiple gifticons (amount, status/cancellation only).
+ */
+export async function batchUpdatePosGifticons(
+  gifticonIds: string[],
+  updates: {
+    amount?: number;
+    status?: 'ACTIVE' | 'USED' | 'CANCELLED';
+  },
+  actorName = '관리자',
+  actorUid?: string
+): Promise<{ updatedCount: number }> {
+  if (!gifticonIds || gifticonIds.length === 0) return { updatedCount: 0 };
+  await ensurePosAuth();
+
+  const chunkSize = 400;
+  const nowIso = new Date().toISOString();
+  let updatedCount = 0;
+
+  for (let i = 0; i < gifticonIds.length; i += chunkSize) {
+    const chunk = gifticonIds.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+
+    for (const id of chunk) {
+      const cleanId = id.trim();
+      const cRef = doc(db, 'gifticons', cleanId);
+      const patch: Record<string, any> = { updatedAt: nowIso };
+
+      if (typeof updates.amount === 'number' && updates.amount > 0) {
+        patch.amount = updates.amount;
+      }
+      if (updates.status) {
+        patch.status = updates.status;
+        if (updates.status === 'ACTIVE') {
+          // If reactivated, clear used details
+          patch.usedAt = null;
+          patch.usedBy = null;
+          patch.usedOrderId = null;
+        }
+      }
+
+      batch.set(cRef, sanitizeForFirestore(patch), { merge: true });
+      updatedCount++;
+    }
+
+    await batch.commit();
+  }
+
+  await logPosActivity({
+    action: 'GUP',
+    actionTitle: '기프티콘 일괄 수정',
+    category: 'GIFTICON',
+    actorName,
+    actorUid,
+    details: `총 ${updatedCount}장의 기프티콘 일괄 수정 완료 (금액: ${updates.amount ?? '유지'}, 상태: ${updates.status ?? '유지'})`,
+    metadata: { count: updatedCount, updates },
+  }).catch(() => {});
+
+  return { updatedCount };
 }
 
 

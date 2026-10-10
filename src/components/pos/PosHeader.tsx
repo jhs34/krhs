@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Home, Clock, Store, Boxes, RefreshCw, Power, ReceiptText, MoreVertical, ChevronDown, LogOut, Cloud, WifiOff, Volume2, VolumeX, ShieldCheck, Maximize, Minimize, Calculator } from 'lucide-react';
+import { Home, Clock, Store, Boxes, RefreshCw, Power, ReceiptText, MoreVertical, ChevronDown, LogOut, Cloud, WifiOff, Volume2, VolumeX, ShieldCheck, Maximize, Minimize, Calculator, Ticket } from 'lucide-react';
 import { format } from 'date-fns';
 import { PosUser } from '../../types/pos';
 import { useFullscreen } from '../../utils/useFullscreen';
@@ -13,6 +13,7 @@ interface PosHeaderProps {
   onLogout?: () => void;
   onExitToPortal: () => void;
   onOpenProductManager?: () => void;
+  onOpenGifticonManager?: () => void;
   onOpenSalesHistory?: () => void;
   onOpenAuditLog?: () => void;
   onOpenSettlement?: () => void;
@@ -31,6 +32,7 @@ export function PosHeader({
   onLogout,
   onExitToPortal,
   onOpenProductManager,
+  onOpenGifticonManager,
   onOpenSalesHistory,
   onOpenAuditLog,
   onOpenSettlement,
@@ -137,7 +139,7 @@ export function PosHeader({
             type="button"
             onClick={onOpenSalesHistory}
             title="매출 내역 조회 및 영수증 확인"
-            className="h-8 w-8 sm:w-auto flex items-center justify-center space-x-1 sm:px-2.5 rounded-xl text-xs font-bold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 hover:text-emerald-200 transition-colors border border-emerald-500/30 shadow-sm whitespace-nowrap shrink-0 cursor-pointer"
+            className="h-8 w-8 sm:w-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 rounded-xl text-xs font-bold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 hover:text-emerald-200 transition-colors border border-emerald-500/30 shadow-sm whitespace-nowrap shrink-0 cursor-pointer"
           >
             <ReceiptText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
             <span className="hidden sm:inline">매출 내역</span>
@@ -150,13 +152,13 @@ export function PosHeader({
             type="button"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             title="관리 도구 및 추가 메뉴"
-            className={`h-8 w-8 sm:w-auto flex items-center justify-center space-x-1 sm:px-2.5 rounded-xl text-xs font-bold transition-all border shadow-sm whitespace-nowrap shrink-0 cursor-pointer ${
+            className={`h-8 w-8 sm:w-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 rounded-xl text-xs font-bold transition-all border shadow-sm whitespace-nowrap shrink-0 cursor-pointer ${
               isMenuOpen
                 ? 'bg-secondary text-white border-secondary shadow-secondary/30'
                 : 'bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white border-white/10'
             }`}
           >
-            <MoreVertical className="w-3.5 h-3.5" />
+            <MoreVertical className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden sm:inline">관리</span>
             <ChevronDown className={`hidden sm:inline w-3 h-3 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`} />
           </button>
@@ -184,6 +186,24 @@ export function PosHeader({
                     <div className="flex flex-col">
                       <span>상품 및 재고 관리</span>
                       <span className="text-[10px] text-surface-dim font-normal">품목 등록/수정/재고 실사</span>
+                    </div>
+                  </button>
+                )}
+
+                {/* Gifticon Management */}
+                {onOpenGifticonManager && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onOpenGifticonManager();
+                    }}
+                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-white/90 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                  >
+                    <Ticket className="w-4 h-4 text-amber-400 shrink-0" />
+                    <div className="flex flex-col">
+                      <span>기프티콘 시스템 관리</span>
+                      <span className="text-[10px] text-surface-dim font-normal">기프티콘 등록/시트 붙여넣기/현황</span>
                     </div>
                   </button>
                 )}
@@ -265,7 +285,7 @@ export function PosHeader({
             type="button"
             onClick={onEndShift}
             title="영업 종료 후 메인화면으로 이동"
-            className="h-8 w-8 sm:w-auto flex items-center justify-center space-x-1 sm:px-2.5 rounded-xl text-xs font-bold bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-red-200 transition-colors border border-red-500/30 shadow-sm whitespace-nowrap shrink-0 cursor-pointer"
+            className="h-8 w-8 sm:w-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 rounded-xl text-xs font-bold bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-red-200 transition-colors border border-red-500/30 shadow-sm whitespace-nowrap shrink-0 cursor-pointer"
           >
             <Power className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden sm:inline">영업 종료</span>
@@ -275,7 +295,7 @@ export function PosHeader({
             type="button"
             onClick={onLogout}
             title="POS 로그아웃"
-            className="h-8 w-8 sm:w-auto flex items-center justify-center space-x-1 sm:px-2.5 rounded-xl text-xs font-semibold bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-red-200 transition-colors border border-red-500/20 whitespace-nowrap shrink-0 cursor-pointer"
+            className="h-8 w-8 sm:w-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 rounded-xl text-xs font-semibold bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-red-200 transition-colors border border-red-500/20 whitespace-nowrap shrink-0 cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden sm:inline">로그아웃</span>

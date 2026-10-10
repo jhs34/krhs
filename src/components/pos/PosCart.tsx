@@ -1,9 +1,12 @@
-import { Trash2, Plus, Minus, CreditCard, Banknote, ShoppingCart } from 'lucide-react';
+import { Trash2, Plus, Minus, CreditCard, Banknote, ShoppingCart, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CartItem } from '../../types/pos';
+import { CartItem, PosGifticon } from '../../types/pos';
 
 interface PosCartProps {
   cart: CartItem[];
+  appliedGifticons?: PosGifticon[];
+  onOpenGifticonModal?: () => void;
+  onRemoveGifticon?: (gifticonId: string) => void;
   isProcessing?: boolean;
   isOnline?: boolean;
   onUpdateCount: (itemId: string, newCount: number) => void;
@@ -16,6 +19,9 @@ interface PosCartProps {
 
 export function PosCart({
   cart,
+  appliedGifticons,
+  onOpenGifticonModal,
+  onRemoveGifticon,
   isProcessing = false,
   isOnline = true,
   onUpdateCount,
@@ -25,8 +31,14 @@ export function PosCart({
   onRequestCashPayment,
   onRequestTransferPayment,
 }: PosCartProps) {
+  const activeGifticons = appliedGifticons || [];
+  const removeHandler = onRemoveGifticon;
+
   const totalCount = cart.reduce((sum, item) => sum + item.count, 0);
   const totalAmount = cart.reduce((sum, item) => sum + item.item.price * item.count, 0);
+  const gifticonDiscountAmount = activeGifticons.reduce((sum, c) => sum + c.amount, 0);
+  const actualPayableAmount = Math.max(0, totalAmount - gifticonDiscountAmount);
+  const forfeitedExcess = Math.max(0, gifticonDiscountAmount - totalAmount);
   const isEmpty = cart.length === 0;
 
   return (
@@ -153,17 +165,65 @@ export function PosCart({
         )}
       </div>
 
-      {/* Cart Footer: Summary & Checkout Buttons */}
-      <div className="p-4 bg-[#050812] border-t border-white/10 shrink-0 space-y-3 shadow-2xl">
+      {/* Cart Footer: Total Price Display & Checkout Buttons */}
+      <div className="p-3.5 sm:p-4 bg-[#050812] border-t border-white/10 shrink-0 space-y-2.5 shadow-2xl">
         {/* Total Price Display */}
-        <div className="bg-black/50 border border-white/10 rounded-2xl p-3.5 flex items-center justify-between">
-          <div>
-            <span className="text-xs text-surface-dim font-medium">총 결제 금액</span>
-            <div className="text-[11px] text-white/50">총 {totalCount}개 품목</div>
-          </div>
-          <div className="text-2xl md:text-3xl font-black text-white tracking-tight font-mono">
-            {totalAmount.toLocaleString()}
-            <span className="text-sm font-normal text-surface-dim ml-1">원</span>
+        <div className="bg-black/50 border border-white/10 rounded-2xl p-3 sm:p-3.5 space-y-1">
+          {gifticonDiscountAmount > 0 && (
+            <div className="flex justify-between items-center text-xs text-surface-dim">
+              <span>상품 원래 정가:</span>
+              <span className="font-mono line-through">{totalAmount.toLocaleString()}원</span>
+            </div>
+          )}
+
+          {gifticonDiscountAmount > 0 && (
+            <div className="space-y-1">
+              <div className="flex justify-between items-center text-xs text-amber-400 font-bold">
+                <span className="flex items-center space-x-1">
+                  <Ticket className="w-3.5 h-3.5" />
+                  <span>기프티콘 {activeGifticons.length}장 적용:</span>
+                </span>
+                <span className="font-mono">-{gifticonDiscountAmount.toLocaleString()}원</span>
+              </div>
+              {removeHandler && activeGifticons.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-0.5">
+                  {activeGifticons.map(c => (
+                    <span
+                      key={c.id}
+                      className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-[10px] text-amber-300"
+                    >
+                      <span className="font-mono">{c.id}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeHandler(c.id)}
+                        className="hover:text-white text-surface-dim font-bold cursor-pointer ml-0.5"
+                        title="기프티콘 적용 취소"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {forfeitedExcess > 0 && (
+            <div className="flex justify-between items-center text-[10px] text-rose-300/80">
+              <span>기프티콘 초과분 (소멸):</span>
+              <span className="font-mono">{forfeitedExcess.toLocaleString()}원</span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-1 border-t border-white/5">
+            <div>
+              <span className="text-xs text-surface-dim font-medium">최종 결제 금액</span>
+              <div className="text-[11px] text-white/50">총 {totalCount}개 품목</div>
+            </div>
+            <div className="text-2xl sm:text-3xl font-black text-white tracking-tight font-mono">
+              {actualPayableAmount.toLocaleString()}
+              <span className="text-sm font-normal text-surface-dim ml-1">원</span>
+            </div>
           </div>
         </div>
 
@@ -181,13 +241,13 @@ export function PosCart({
             type="button"
             disabled={isEmpty || isProcessing || !isOnline}
             onClick={onRequestTransferPayment}
-            className="py-3.5 px-3 rounded-2xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] disabled:opacity-30 disabled:pointer-events-none transition-all flex flex-col items-center justify-center space-y-1 shadow-lg shadow-indigo-950/40 border border-indigo-500/30 relative"
+            className="py-3 px-3 rounded-2xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] disabled:opacity-30 disabled:pointer-events-none transition-all flex flex-col items-center justify-center space-y-1 shadow-lg shadow-indigo-950/40 border border-indigo-500/30 relative cursor-pointer"
           >
             <div className="flex items-center space-x-1.5">
               <CreditCard className="w-4 h-4" />
-              <span>{isProcessing ? '처리 중...' : '계좌이체 완료'}</span>
+              <span>{isProcessing ? '처리 중...' : '계좌이체'}</span>
             </div>
-            <span className="text-[10px] text-indigo-200/70 font-normal">농협 계좌 확인</span>
+            <span className="text-[10px] text-indigo-200/70 font-normal">농협 이체 확인</span>
           </button>
 
           {/* Cash */}
@@ -195,7 +255,7 @@ export function PosCart({
             type="button"
             disabled={isEmpty || isProcessing || !isOnline}
             onClick={onRequestCashPayment}
-            className="py-3.5 px-3 rounded-2xl font-bold text-xs md:text-sm text-white bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] disabled:opacity-30 disabled:pointer-events-none transition-all flex flex-col items-center justify-center space-y-1 shadow-lg shadow-emerald-950/40 border border-emerald-500/30 relative"
+            className="py-3 px-3 rounded-2xl font-bold text-xs md:text-sm text-white bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] disabled:opacity-30 disabled:pointer-events-none transition-all flex flex-col items-center justify-center space-y-1 shadow-lg shadow-emerald-950/40 border border-emerald-500/30 relative cursor-pointer"
           >
             <div className="flex items-center space-x-1.5">
               <Banknote className="w-4 h-4" />

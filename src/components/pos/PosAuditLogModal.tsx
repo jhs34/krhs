@@ -20,6 +20,8 @@ import {
   CheckCircle2,
   Loader2,
   LogOut,
+  LogIn,
+  Ticket,
 } from 'lucide-react';
 import { PosAuditLog, PosLogCategory, PosUser } from '../../types/pos';
 import { deletePosLog, clearAllPosLogs } from '../../services/posFirestore';
@@ -65,7 +67,10 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
   onGoogleAdminLogout,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<PosLogCategory | 'ALL'>('ALL');
-  const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | 'WEEK'>('TODAY');
+  const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | 'WEEK' | 'CUSTOM'>('TODAY');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [showCustomDatePicker, setShowCustomDatePicker] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -110,7 +115,7 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
       console.error('Google login error:', err);
       setToastMessage({
         type: 'error',
-        text: err?.message || '구글 관리자 로그인에 실패했습니다.',
+        text: err?.message || '관리자 로그인에 실패했습니다.',
       });
     } finally {
       setIsGoogleLoading(false);
@@ -126,7 +131,7 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
       }
       setToastMessage({
         type: 'info',
-        text: '구글 관리자 계정에서 로그아웃되었습니다.',
+        text: '관리자 계정에서 로그아웃되었습니다.',
       });
     } catch (err: any) {
       console.error('Logout error', err);
@@ -169,35 +174,53 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
     return { today: todayCount, week: weekCount, all: logs.length };
   }, [logs]);
 
-  // Filtered logs
-  const filteredLogs = useMemo(() => {
+  // Date-scoped logs
+  const dateScopedLogs = useMemo(() => {
+    if (dateFilter === 'ALL') return logs;
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     return logs.filter(log => {
-      // Category filter
-      if (selectedCategory !== 'ALL' && log.category !== selectedCategory) {
-        return false;
-      }
-
-      // Date filter
+      const logLocalDate = getLocalDateStr(log.timestamp);
       if (dateFilter === 'TODAY') {
-        const localDate = getLocalDateStr(log.timestamp);
-        const isToday =
-          localDate === todayStr ||
+        return (
+          logLocalDate === todayStr ||
           log.sessionId === todayStr ||
-          log.timestamp.slice(0, 10) === todayStr;
-        if (!isToday) {
-          return false;
-        }
+          log.timestamp.slice(0, 10) === todayStr
+        );
       } else if (dateFilter === 'WEEK') {
         try {
           const logDate = new Date(log.timestamp);
           if (!isNaN(logDate.getTime()) && logDate < sevenDaysAgo) {
             return false;
           }
-        } catch {}
+        } catch {
+          return false;
+        }
+      } else if (dateFilter === 'CUSTOM') {
+        if (customStartDate && customEndDate) {
+          const start = customStartDate <= customEndDate ? customStartDate : customEndDate;
+          const end = customStartDate <= customEndDate ? customEndDate : customStartDate;
+          return logLocalDate >= start && logLocalDate <= end;
+        } else if (customStartDate) {
+          return logLocalDate >= customStartDate;
+        } else if (customEndDate) {
+          return logLocalDate <= customEndDate;
+        }
+      }
+      return true;
+    });
+  }, [logs, dateFilter, customStartDate, customEndDate]);
+
+  // Filtered logs
+  const filteredLogs = useMemo(() => {
+    return dateScopedLogs.filter(log => {
+      // Category filter
+      if (selectedCategory === 'GIFTICON') {
+        if (log.category !== 'GIFTICON') return false;
+      } else if (selectedCategory !== 'ALL' && log.category !== selectedCategory) {
+        return false;
       }
 
       // Search query
@@ -208,24 +231,26 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
         const inActor = operatorId.includes(q) || (log.actorName ? log.actorName.toLowerCase().includes(q) : false);
         const inTitle = log.actionTitle.toLowerCase().includes(q);
         const inAction = log.action.toLowerCase().includes(q);
+        const inId = log.id.toLowerCase().includes(q);
         const inMeta = log.metadata ? JSON.stringify(log.metadata).toLowerCase().includes(q) : false;
-        return inDetails || inActor || inTitle || inAction || inMeta;
+        return inDetails || inActor || inTitle || inAction || inId || inMeta;
       }
 
       return true;
     });
-  }, [logs, selectedCategory, dateFilter, searchQuery]);
+  }, [dateScopedLogs, selectedCategory, searchQuery]);
 
-  // Statistics
+  // Statistics (scoped to current dateFilter for live tab counters)
   const stats = useMemo(() => {
-    const total = logs.length;
-    const saleCount = logs.filter(l => l.category === 'SALE').length;
-    const inventoryCount = logs.filter(l => l.category === 'INVENTORY').length;
-    const settlementCount = logs.filter(l => l.category === 'SETTLEMENT').length;
-    const systemCount = logs.filter(l => l.category === 'SYSTEM').length;
-    const authCount = logs.filter(l => l.category === 'AUTH').length;
-    return { total, saleCount, inventoryCount, settlementCount, systemCount, authCount };
-  }, [logs]);
+    const total = dateScopedLogs.length;
+    const saleCount = dateScopedLogs.filter(l => l.category === 'SALE').length;
+    const inventoryCount = dateScopedLogs.filter(l => l.category === 'INVENTORY').length;
+    const settlementCount = dateScopedLogs.filter(l => l.category === 'SETTLEMENT').length;
+    const gifticonCount = dateScopedLogs.filter(l => l.category === 'GIFTICON').length;
+    const systemCount = dateScopedLogs.filter(l => l.category === 'SYSTEM').length;
+    const authCount = dateScopedLogs.filter(l => l.category === 'AUTH').length;
+    return { total, saleCount, inventoryCount, settlementCount, gifticonCount, systemCount, authCount };
+  }, [dateScopedLogs]);
 
   const handleExecuteDeleteSingle = async () => {
     if (!logToDelete) return;
@@ -263,53 +288,85 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
       case 'SALE':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-            <ShoppingBag className="w-3 h-3" /> 판매·결제
+            <ShoppingBag className="w-3 h-3" /> 결제
           </span>
         );
       case 'INVENTORY':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
-            <Package className="w-3 h-3" /> 재고·품목
+            <Package className="w-3 h-3" /> 재고
           </span>
         );
       case 'SETTLEMENT':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-200">
-            <Calculator className="w-3 h-3" /> 정산·마감
+            <Calculator className="w-3 h-3" /> 정산
+          </span>
+        );
+      case 'GIFTICON':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+            <Ticket className="w-3 h-3 text-amber-600" /> 기프티콘
           </span>
         );
       case 'SYSTEM':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-            <Settings className="w-3 h-3" /> 시스템 설정
+            <Settings className="w-3 h-3" /> 설정
           </span>
         );
       case 'AUTH':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-300">
-            <User className="w-3 h-3" /> 계정·인증
+            <User className="w-3 h-3" /> 계정
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-800 border border-gray-200">
-            일반
+            기타
           </span>
         );
     }
   };
 
   const getActionColor = (action: string) => {
-    if (action.includes('CANCEL') || action.includes('DELETE')) {
+    // Red: Cancellation, deletes, discrepancy
+    if (
+      action === 'PCC' ||
+      action === 'PDL' ||
+      action === 'IDL' ||
+      action === 'CDL' ||
+      action === 'PSD' ||
+      action === 'GDL' ||
+      action === 'SDL' ||
+      action === 'SXX' ||
+      action.includes('CANCEL') ||
+      action.includes('DELETE') ||
+      action.includes('DISCREPANCY')
+    ) {
       return 'border-l-4 border-l-rose-500 bg-rose-50/40 hover:bg-rose-50/70';
     }
-    if (action === 'ORDER_CREATED') {
+    // Green: Payment success, normal settlement
+    if (
+      action === 'PCA' ||
+      action === 'PTR' ||
+      action === 'PAY' ||
+      action === 'SOO' ||
+      action === 'ORDER_CREATED'
+    ) {
       return 'border-l-4 border-l-emerald-500 bg-emerald-50/30 hover:bg-emerald-50/60';
     }
-    if (action.includes('SETTLEMENT')) {
+    // Purple: Settlement
+    if (action.startsWith('S') || action.includes('SETTLEMENT')) {
       return 'border-l-4 border-l-purple-500 bg-purple-50/30 hover:bg-purple-50/60';
     }
-    if (action.includes('ITEM') || action.includes('CATEGORY')) {
+    // Amber: Gifticons
+    if (action.startsWith('G') || action.includes('GIFTICON')) {
+      return 'border-l-4 border-l-amber-500 bg-amber-50/40 hover:bg-amber-50/70';
+    }
+    // Blue: Inventory & Category
+    if (action.startsWith('I') || action.startsWith('C') || action.includes('ITEM') || action.includes('CATEGORY')) {
       return 'border-l-4 border-l-blue-500 bg-blue-50/30 hover:bg-blue-50/60';
     }
     return 'border-l-4 border-l-slate-400 bg-white hover:bg-slate-50';
@@ -363,7 +420,7 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
               <div className="flex items-center gap-1.5">
                 <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-bold">
                   <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>구글 관리자</span>
+                  <span>관리자</span>
                 </div>
                 {onGoogleAdminLogout && (
                   <button
@@ -383,31 +440,13 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
                 onClick={handleGoogleAdminLogin}
                 disabled={isGoogleLoading}
                 className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-95 disabled:opacity-50"
-                title="구글 계정(jhs34.kr@gmail.com)으로 관리자 로그인"
               >
                 {isGoogleLoading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
-                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
-                    <path
-                      fill="#ffffff"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#ffffff"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#ffffff"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                    />
-                    <path
-                      fill="#ffffff"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                    />
-                  </svg>
+                  <LogIn className="w-3.5 h-3.5" />
                 )}
-                <span>구글 관리자 로그인</span>
+                <span>{isGoogleLoading ? '...' : '관리자 로그인'}</span>
               </button>
             )}
 
@@ -421,93 +460,181 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
           </div>
         </div>
 
-        {/* Compact Single-Row Stats Strip */}
-        <div className="flex items-center justify-between gap-1 sm:gap-2 px-3 sm:px-6 py-2 bg-slate-100/90 border-b border-slate-200 text-xs shrink-0 overflow-x-auto no-scrollbar">
-          <div className="flex items-center divide-x divide-slate-200 bg-white border border-slate-200 rounded-lg shadow-2xs w-full py-1 px-1.5 justify-around text-center">
-            <div className="flex-1 px-1.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] sm:text-xs text-slate-500 font-medium">전체</span>
-              <span className="text-xs sm:text-sm font-bold text-slate-900 font-mono">{stats.total}</span>
-            </div>
-            <div className="flex-1 px-1.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] sm:text-xs text-emerald-700 font-medium">판매/결제</span>
-              <span className="text-xs sm:text-sm font-bold text-emerald-700 font-mono">{stats.saleCount}</span>
-            </div>
-            <div className="flex-1 px-1.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] sm:text-xs text-blue-700 font-medium">재고/품목</span>
-              <span className="text-xs sm:text-sm font-bold text-blue-700 font-mono">{stats.inventoryCount}</span>
-            </div>
-            <div className="flex-1 px-1.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] sm:text-xs text-purple-700 font-medium">정산/마감</span>
-              <span className="text-xs sm:text-sm font-bold text-purple-700 font-mono">{stats.settlementCount}</span>
-            </div>
-            <div className="flex-1 px-1.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] sm:text-xs text-amber-700 font-medium">시스템 설정</span>
-              <span className="text-xs sm:text-sm font-bold text-amber-700 font-mono">{stats.systemCount}</span>
-            </div>
-            <div className="flex-1 px-1.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap">
-              <span className="text-[10px] sm:text-xs text-slate-700 font-medium">계정/인증</span>
-              <span className="text-xs sm:text-sm font-bold text-slate-700 font-mono">{stats.authCount}</span>
-            </div>
+        {/* Integrated Category Tabs & Counter Strip */}
+        <div className="px-2.5 sm:px-6 py-2 bg-slate-100/90 border-b border-slate-200 text-xs shrink-0 overflow-x-auto no-scrollbar">
+          <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-2xs w-full justify-between gap-1 min-w-[340px] sm:min-w-0">
+            {[
+              {
+                id: 'ALL' as const,
+                label: '전체',
+                count: stats.total,
+                activeClass: 'bg-slate-900 text-white shadow-xs',
+                badgeActiveClass: 'bg-white/20 text-white',
+                inactiveClass: 'text-slate-700 hover:bg-slate-100',
+                badgeInactiveClass: 'bg-slate-100 text-slate-800',
+              },
+              {
+                id: 'SALE' as const,
+                label: '결제',
+                count: stats.saleCount,
+                activeClass: 'bg-emerald-600 text-white shadow-xs',
+                badgeActiveClass: 'bg-white/25 text-white',
+                inactiveClass: 'text-emerald-700 hover:bg-emerald-50',
+                badgeInactiveClass: 'bg-emerald-50 text-emerald-800',
+              },
+              {
+                id: 'INVENTORY' as const,
+                label: '재고',
+                count: stats.inventoryCount,
+                activeClass: 'bg-blue-600 text-white shadow-xs',
+                badgeActiveClass: 'bg-white/25 text-white',
+                inactiveClass: 'text-blue-700 hover:bg-blue-50',
+                badgeInactiveClass: 'bg-blue-50 text-blue-800',
+              },
+              {
+                id: 'SETTLEMENT' as const,
+                label: '정산',
+                count: stats.settlementCount,
+                activeClass: 'bg-purple-600 text-white shadow-xs',
+                badgeActiveClass: 'bg-white/25 text-white',
+                inactiveClass: 'text-purple-700 hover:bg-purple-50',
+                badgeInactiveClass: 'bg-purple-50 text-purple-800',
+              },
+              {
+                id: 'GIFTICON' as const,
+                label: '기프티콘',
+                count: stats.gifticonCount,
+                activeClass: 'bg-amber-600 text-white shadow-xs',
+                badgeActiveClass: 'bg-white/25 text-white',
+                inactiveClass: 'text-amber-800 hover:bg-amber-50',
+                badgeInactiveClass: 'bg-amber-100 text-amber-900',
+              },
+              {
+                id: 'SYSTEM' as const,
+                label: '설정',
+                count: stats.systemCount,
+                activeClass: 'bg-amber-600 text-white shadow-xs',
+                badgeActiveClass: 'bg-white/25 text-white',
+                inactiveClass: 'text-amber-700 hover:bg-amber-50',
+                badgeInactiveClass: 'bg-amber-50 text-amber-800',
+              },
+              {
+                id: 'AUTH' as const,
+                label: '계정',
+                count: stats.authCount,
+                activeClass: 'bg-slate-700 text-white shadow-xs',
+                badgeActiveClass: 'bg-white/20 text-white',
+                inactiveClass: 'text-slate-700 hover:bg-slate-100',
+                badgeInactiveClass: 'bg-slate-100 text-slate-800',
+              },
+            ].map(cat => {
+              const isSelected = selectedCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`flex-1 px-1 sm:px-2 py-1.5 rounded-lg flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap transition-all cursor-pointer text-center select-none ${
+                    isSelected
+                      ? `${cat.activeClass} font-bold`
+                      : `${cat.inactiveClass} font-medium`
+                  }`}
+                >
+                  <span className="text-[11px] sm:text-xs">{cat.label}</span>
+                  <span
+                    className={`text-[10px] sm:text-xs font-mono font-bold px-1.5 py-0.2 rounded-full ${
+                      isSelected ? cat.badgeActiveClass : cat.badgeInactiveClass
+                    }`}
+                  >
+                    {cat.count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Filters and Controls */}
-        <div className="p-3 sm:p-4 bg-white border-b border-slate-200 flex flex-col gap-2.5 sm:gap-3 shrink-0">
-          {/* Category Tabs */}
-          <div className="flex overflow-x-auto pb-1 sm:pb-0 items-center gap-1.5 text-xs no-scrollbar">
-            {[
-              { id: 'ALL', label: '전체' },
-              { id: 'SALE', label: '판매/결제' },
-              { id: 'INVENTORY', label: '재고/품목' },
-              { id: 'SETTLEMENT', label: '정산/마감' },
-              { id: 'SYSTEM', label: '시스템 설정' },
-              { id: 'AUTH', label: '계정/인증' },
-            ].map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id as any)}
-                className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                  selectedCategory === cat.id
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-
+        <div className="p-3 sm:px-6 sm:py-3 bg-white border-b border-slate-200 shrink-0">
           {/* Date filter & Search input */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
             <div className="flex items-center justify-between sm:justify-start gap-2">
-              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-medium text-slate-600 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setDateFilter('TODAY')}
-                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                    dateFilter === 'TODAY' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'hover:text-slate-900'
-                  }`}
-                >
-                  오늘 ({dateCounts.today})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDateFilter('WEEK')}
-                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                    dateFilter === 'WEEK' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'hover:text-slate-900'
-                  }`}
-                >
-                  최근 7일 ({dateCounts.week})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDateFilter('ALL')}
-                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                    dateFilter === 'ALL' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'hover:text-slate-900'
-                  }`}
-                >
-                  전체 ({dateCounts.all})
-                </button>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-medium text-slate-600 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDateFilter('TODAY');
+                      setShowCustomDatePicker(false);
+                    }}
+                    className={`px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                      dateFilter === 'TODAY' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'hover:text-slate-900'
+                    }`}
+                  >
+                    오늘 ({dateCounts.today})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDateFilter('WEEK');
+                      setShowCustomDatePicker(false);
+                    }}
+                    className={`px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                      dateFilter === 'WEEK' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'hover:text-slate-900'
+                    }`}
+                  >
+                    최근 7일 ({dateCounts.week})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDateFilter('ALL');
+                      setShowCustomDatePicker(false);
+                    }}
+                    className={`px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                      dateFilter === 'ALL' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'hover:text-slate-900'
+                    }`}
+                  >
+                    전체 ({dateCounts.all})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDateFilter('CUSTOM');
+                      setShowCustomDatePicker(prev => !prev);
+                      if (!customStartDate) {
+                        const now = new Date();
+                        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                        setCustomStartDate(todayStr);
+                        setCustomEndDate(todayStr);
+                      }
+                    }}
+                    className={`px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+                      dateFilter === 'CUSTOM'
+                        ? 'bg-blue-600 shadow-xs text-white font-bold'
+                        : 'hover:text-slate-900'
+                    }`}
+                  >
+                    <Calendar className="w-3 h-3" />
+                    <span>
+                      {dateFilter === 'CUSTOM' && customStartDate
+                        ? customStartDate === customEndDate || !customEndDate
+                          ? customStartDate.slice(5) // MM-DD
+                          : `${customStartDate.slice(5)}~${customEndDate.slice(5)}`
+                        : '날짜선택'}
+                    </span>
+                  </button>
+                </div>
+
+                {dateFilter === 'CUSTOM' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomDatePicker(prev => !prev)}
+                    className="text-[11px] text-blue-600 hover:text-blue-800 underline underline-offset-2 font-medium cursor-pointer shrink-0"
+                  >
+                    {showCustomDatePicker ? '달력 접기' : '날짜 변경'}
+                  </button>
+                )}
               </div>
 
               <span className="text-xs text-slate-500 shrink-0">
@@ -550,6 +677,36 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
               )}
             </div>
           </div>
+
+          {/* Custom Date / Range Picker Expandable Panel */}
+          {dateFilter === 'CUSTOM' && showCustomDatePicker && (
+            <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex items-center gap-2 bg-blue-50/60 p-2.5 rounded-lg border border-blue-100 flex-wrap">
+              <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                기간 설정:
+              </span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={e => {
+                    setCustomStartDate(e.target.value);
+                    if (!customEndDate) setCustomEndDate(e.target.value);
+                  }}
+                  style={{ colorScheme: 'light' }}
+                  className="px-2 py-1 text-xs bg-white text-slate-900 font-semibold font-mono border border-slate-300 rounded-md shadow-2xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+                <span className="text-xs text-slate-600 font-bold">~</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={e => setCustomEndDate(e.target.value)}
+                  style={{ colorScheme: 'light' }}
+                  className="px-2 py-1 text-xs bg-white text-slate-900 font-semibold font-mono border border-slate-300 rounded-md shadow-2xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Log List View */}
@@ -600,10 +757,16 @@ export const PosAuditLogModal: React.FC<PosAuditLogModalProps> = ({
                     <div className="flex items-start gap-3 min-w-0">
                       <div className="pt-0.5 shrink-0">{getCategoryBadge(log.category)}</div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-mono text-[10px] font-black px-1.5 py-0.5 rounded bg-slate-200/90 text-slate-800 border border-slate-300">
+                            {log.action}
+                          </span>
                           <span className="font-bold text-slate-900 text-sm">{log.actionTitle}</span>
                           <span className="text-xs text-slate-400 font-mono">
                             {formatDateTime(log.timestamp)}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200" title="로그 고유 식별 번호">
+                            {log.id}
                           </span>
                         </div>
                         <p className="text-xs text-slate-700 font-medium mt-0.5 break-words">

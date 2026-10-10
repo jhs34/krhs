@@ -12,16 +12,18 @@ import {
   ReceiptText,
   BadgeAlert,
   Calculator,
-  RotateCcw
+  RotateCcw,
+  Ticket,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { PosUser, PosItem, PosCategory } from '../../types/pos';
+import { PosUser, PosItem, PosCategory, PosGifticon } from '../../types/pos';
 
 interface PosHubHomeProps {
   user: PosUser;
   items: PosItem[];
   categories: PosCategory[];
+  gifticons?: PosGifticon[];
   totalSalesToday: number;
   cashSalesToday: number;
   transferSalesToday: number;
@@ -29,6 +31,7 @@ interface PosHubHomeProps {
   hasActiveCart: boolean;
   onStartSales: () => void;
   onOpenProductManager: () => void;
+  onOpenGifticonManager?: () => void;
   onOpenSalesHistory: () => void;
   onOpenSettlement: () => void;
   onOpenAuditLog?: () => void;
@@ -40,6 +43,7 @@ export function PosHubHome({
   user,
   items,
   categories,
+  gifticons,
   totalSalesToday,
   cashSalesToday,
   transferSalesToday,
@@ -47,6 +51,7 @@ export function PosHubHome({
   hasActiveCart,
   onStartSales,
   onOpenProductManager,
+  onOpenGifticonManager,
   onOpenSalesHistory,
   onOpenSettlement,
   onOpenAuditLog,
@@ -63,6 +68,8 @@ export function PosHubHome({
   const outOfStockCount = items.filter(it => it.stock <= 0).length;
   const lowStockCount = items.filter(it => it.stock > 0 && it.stock <= 5).length;
   const totalStockCount = items.reduce((sum, it) => sum + it.stock, 0);
+  const activeGifticonsCount = gifticons ? gifticons.filter(g => g.status === 'ACTIVE').length : 0;
+  const totalGifticonsCount = gifticons ? gifticons.length : 0;
 
   return (
     <div className="flex-1 flex flex-col bg-[#070d1e] text-white overflow-y-auto select-none">
@@ -113,7 +120,7 @@ export function PosHubHome({
               type="button"
               onClick={onOpenAuditLog}
               title="POS 감사 및 활동 로그 확인"
-              className="flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 hover:text-blue-200 border border-blue-500/40 transition-colors shadow-sm whitespace-nowrap shrink-0 cursor-pointer active:scale-95"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 hover:text-blue-200 border border-blue-500/40 transition-colors shadow-sm whitespace-nowrap shrink-0 cursor-pointer active:scale-95"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
               <span className="hidden sm:inline">감사 로그</span>
@@ -125,7 +132,7 @@ export function PosHubHome({
             type="button"
             onClick={onLogout}
             title="POS 시스템 로그아웃"
-            className="flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-red-200 border border-red-500/30 transition-colors whitespace-nowrap shrink-0 cursor-pointer active:scale-95"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-red-200 border border-red-500/30 transition-colors whitespace-nowrap shrink-0 cursor-pointer active:scale-95"
           >
             <LogOut className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden xs:inline sm:inline">로그아웃</span>
@@ -136,7 +143,7 @@ export function PosHubHome({
             type="button"
             onClick={onExitToPortal}
             title="학교 포털 홈으로 이동"
-            className="flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white border border-white/10 transition-colors whitespace-nowrap shrink-0 cursor-pointer active:scale-95"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white border border-white/10 transition-colors whitespace-nowrap shrink-0 cursor-pointer active:scale-95"
           >
             <Home className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden sm:inline">포털</span>
@@ -156,119 +163,145 @@ export function PosHubHome({
           </p>
         </div>
 
-        {/* Primary Action Buttons (2x2 Grid on all screens) */}
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:gap-5">
-          {/* Action 1: POS Sales Register (영업 시작) */}
-          <button
-            type="button"
-            onClick={onStartSales}
-            className="group relative text-left bg-gradient-to-br from-[#182852] to-[#0f1b3b] hover:from-[#1e3266] hover:to-[#14234c] border-2 border-secondary/40 hover:border-secondary rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xl transition-all active:scale-[0.98] flex flex-col justify-between min-h-[105px] sm:min-h-[140px] overflow-hidden cursor-pointer"
-          >
-            {/* Background Glow */}
-            <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-secondary/20 rounded-full blur-2xl pointer-events-none group-hover:bg-secondary/30 transition-all" />
+        {/* Primary Action Buttons & Gifticon Management */}
+        <div className="space-y-2.5 sm:space-y-4 md:space-y-5">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:gap-5">
+            {/* Action 1: POS Sales Register (영업 시작) */}
+            <button
+              type="button"
+              onClick={onStartSales}
+              className="group relative text-left bg-gradient-to-br from-[#182852] to-[#0f1b3b] hover:from-[#1e3266] hover:to-[#14234c] border-2 border-secondary/40 hover:border-secondary rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xl transition-all active:scale-[0.98] flex flex-col justify-between min-h-[105px] sm:min-h-[140px] overflow-hidden cursor-pointer"
+            >
+              {/* Background Glow */}
+              <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-secondary/20 rounded-full blur-2xl pointer-events-none group-hover:bg-secondary/30 transition-all" />
 
-            <div className="flex items-start justify-between relative z-10 w-full">
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-secondary text-white flex items-center justify-center shadow-lg shadow-secondary/30 group-hover:scale-105 transition-transform shrink-0">
-                <Store className="w-5 h-5 sm:w-6 sm:h-6" />
+              <div className="flex items-start justify-between relative z-10 w-full">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-secondary text-white flex items-center justify-center shadow-lg shadow-secondary/30 group-hover:scale-105 transition-transform shrink-0">
+                  <Store className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black bg-secondary/20 text-secondary border border-secondary/30 truncate">
+                  {hasActiveCart ? '판매 중' : '영업 개시'}
+                </span>
               </div>
-              <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black bg-secondary/20 text-secondary border border-secondary/30 truncate">
-                {hasActiveCart ? '판매 중' : '영업 개시'}
-              </span>
-            </div>
 
-            <div className="relative z-10 mt-2 sm:mt-3">
-              <div className="flex items-center justify-between">
+              <div className="relative z-10 mt-2 sm:mt-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight">
+                    포스기 화면
+                  </h3>
+                  <ArrowRight className="w-4 h-4 text-secondary group-hover:translate-x-1 transition-transform shrink-0 ml-1" />
+                </div>
+              </div>
+            </button>
+
+            {/* Action 2: Product & Inventory Manager (상품 재고 관리) */}
+            <button
+              type="button"
+              onClick={onOpenProductManager}
+              className="group relative text-left bg-gradient-to-br from-[#162438] to-[#0c1626] hover:from-[#1c2e47] hover:to-[#111e33] border-2 border-amber-500/30 hover:border-amber-400 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xl transition-all active:scale-[0.98] flex flex-col justify-between min-h-[105px] sm:min-h-[140px] overflow-hidden cursor-pointer"
+            >
+              {/* Background Glow */}
+              <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-all" />
+
+              <div className="flex items-start justify-between relative z-10 w-full">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform shrink-0">
+                  <Boxes className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 truncate">
+                  {items.length}종
+                </span>
+              </div>
+
+              <div className="relative z-10 mt-2 sm:mt-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight">
+                    상품 관리
+                  </h3>
+                  <ArrowRight className="w-4 h-4 text-amber-400 group-hover:translate-x-1 transition-transform shrink-0 ml-1" />
+                </div>
+              </div>
+            </button>
+
+            {/* Action 3: Sales History & Receipts (매출 내역 및 영수증) */}
+            <button
+              type="button"
+              onClick={onOpenSalesHistory}
+              className="group relative text-left bg-gradient-to-br from-[#0e2a24] to-[#081714] hover:from-[#12362e] hover:to-[#0c1f1b] border-2 border-emerald-500/30 hover:border-emerald-400 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xl transition-all active:scale-[0.98] flex flex-col justify-between min-h-[105px] sm:min-h-[140px] overflow-hidden cursor-pointer"
+            >
+              {/* Background Glow */}
+              <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/20 transition-all" />
+
+              <div className="flex items-start justify-between relative z-10 w-full">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform shrink-0">
+                  <ReceiptText className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 truncate">
+                  오늘 {todayOrdersCount}건
+                </span>
+              </div>
+
+              <div className="relative z-10 mt-2 sm:mt-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight">
+                    매출 내역
+                  </h3>
+                  <ArrowRight className="w-4 h-4 text-emerald-400 group-hover:translate-x-1 transition-transform shrink-0 ml-1" />
+                </div>
+              </div>
+            </button>
+
+            {/* Action 4: Shift Settlement & Cash Drawer (일일 시재금 및 마감 정산) */}
+            <button
+              type="button"
+              onClick={onOpenSettlement}
+              className="group relative text-left bg-gradient-to-br from-[#241738] to-[#140b24] hover:from-[#2e1d47] hover:to-[#1a0e2e] border-2 border-violet-500/30 hover:border-violet-400 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xl transition-all active:scale-[0.98] flex flex-col justify-between min-h-[105px] sm:min-h-[140px] overflow-hidden cursor-pointer"
+            >
+              {/* Background Glow */}
+              <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-violet-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-violet-500/20 transition-all" />
+
+              <div className="flex items-start justify-between relative z-10 w-full">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-violet-500/20 border border-violet-500/40 text-violet-300 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform shrink-0">
+                  <Calculator className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-violet-500/15 text-violet-300 border border-violet-500/30 truncate">
+                  마감 관리
+                </span>
+              </div>
+
+              <div className="relative z-10 mt-2 sm:mt-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight">
+                    마감 정산
+                  </h3>
+                  <ArrowRight className="w-4 h-4 text-violet-400 group-hover:translate-x-1 transition-transform shrink-0 ml-1" />
+                </div>
+              </div>
+            </button>
+          </div>
+
+          {/* Gifticon Management Action Banner */}
+          {onOpenGifticonManager && (
+            <button
+              type="button"
+              onClick={onOpenGifticonManager}
+              className="group relative w-full text-left bg-gradient-to-r from-[#1c180e] via-[#161f38] to-[#0d1428] hover:from-[#262013] hover:via-[#1c294c] hover:to-[#121c38] border-2 border-amber-500/40 hover:border-amber-400/80 rounded-2xl sm:rounded-3xl p-3 sm:p-4 md:p-5 shadow-xl transition-all active:scale-[0.99] flex items-center justify-between overflow-hidden cursor-pointer"
+            >
+              <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-all" />
+              <div className="flex items-center space-x-3 sm:space-x-4 relative z-10 min-w-0">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform shrink-0">
+                  <Ticket className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
                 <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight">
-                  포스기 화면
+                  기프티콘 관리
                 </h3>
-                <ArrowRight className="w-4 h-4 text-secondary group-hover:translate-x-1 transition-transform shrink-0 ml-1" />
               </div>
-            </div>
-          </button>
-
-          {/* Action 2: Product & Inventory Manager (상품 재고 관리) */}
-          <button
-            type="button"
-            onClick={onOpenProductManager}
-            className="group relative text-left bg-gradient-to-br from-[#162438] to-[#0c1626] hover:from-[#1c2e47] hover:to-[#111e33] border-2 border-amber-500/30 hover:border-amber-400 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xl transition-all active:scale-[0.98] flex flex-col justify-between min-h-[105px] sm:min-h-[140px] overflow-hidden cursor-pointer"
-          >
-            {/* Background Glow */}
-            <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-all" />
-
-            <div className="flex items-start justify-between relative z-10 w-full">
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform shrink-0">
-                <Boxes className="w-5 h-5 sm:w-6 sm:h-6" />
+              <div className="flex items-center space-x-2 relative z-10 shrink-0 ml-3">
+                <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-amber-400 group-hover:translate-x-1 transition-transform">
+                  <ArrowRight className="w-4 h-4" />
+                </div>
               </div>
-              <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 truncate">
-                {items.length}종
-              </span>
-            </div>
-
-            <div className="relative z-10 mt-2 sm:mt-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight">
-                  상품 관리
-                </h3>
-                <ArrowRight className="w-4 h-4 text-amber-400 group-hover:translate-x-1 transition-transform shrink-0 ml-1" />
-              </div>
-            </div>
-          </button>
-
-          {/* Action 3: Sales History & Receipts (매출 내역 및 영수증) */}
-          <button
-            type="button"
-            onClick={onOpenSalesHistory}
-            className="group relative text-left bg-gradient-to-br from-[#0e2a24] to-[#081714] hover:from-[#12362e] hover:to-[#0c1f1b] border-2 border-emerald-500/30 hover:border-emerald-400 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xl transition-all active:scale-[0.98] flex flex-col justify-between min-h-[105px] sm:min-h-[140px] overflow-hidden cursor-pointer"
-          >
-            {/* Background Glow */}
-            <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/20 transition-all" />
-
-            <div className="flex items-start justify-between relative z-10 w-full">
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform shrink-0">
-                <ReceiptText className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 truncate">
-                오늘 {todayOrdersCount}건
-              </span>
-            </div>
-
-            <div className="relative z-10 mt-2 sm:mt-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight">
-                  매출 내역
-                </h3>
-                <ArrowRight className="w-4 h-4 text-emerald-400 group-hover:translate-x-1 transition-transform shrink-0 ml-1" />
-              </div>
-            </div>
-          </button>
-
-          {/* Action 4: Shift Settlement & Cash Drawer (일일 시재금 및 마감 정산) */}
-          <button
-            type="button"
-            onClick={onOpenSettlement}
-            className="group relative text-left bg-gradient-to-br from-[#241738] to-[#140b24] hover:from-[#2e1d47] hover:to-[#1a0e2e] border-2 border-violet-500/30 hover:border-violet-400 rounded-2xl sm:rounded-3xl p-3 sm:p-5 shadow-xl transition-all active:scale-[0.98] flex flex-col justify-between min-h-[105px] sm:min-h-[140px] overflow-hidden cursor-pointer"
-          >
-            {/* Background Glow */}
-            <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-violet-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-violet-500/20 transition-all" />
-
-            <div className="flex items-start justify-between relative z-10 w-full">
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-violet-500/20 border border-violet-500/40 text-violet-300 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform shrink-0">
-                <Calculator className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-violet-500/15 text-violet-300 border border-violet-500/30 truncate">
-                마감 관리
-              </span>
-            </div>
-
-            <div className="relative z-10 mt-2 sm:mt-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight">
-                  마감 정산
-                </h3>
-                <ArrowRight className="w-4 h-4 text-violet-400 group-hover:translate-x-1 transition-transform shrink-0 ml-1" />
-              </div>
-            </div>
-          </button>
+            </button>
+          )}
         </div>
 
         {/* Quick KPI & Status Overview Bar (Compact single line on mobile, grid on desktop) */}

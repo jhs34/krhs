@@ -231,23 +231,21 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
     if (match) {
       try {
         const parsed = JSON.parse(match.rawTimetable) as ClassTimetable;
-        const merged: ClassTimetable = {};
+        const result: ClassTimetable = {};
         for (let d = 0; d <= 4; d++) {
-          merged[d] = {};
-          for (let p = 1; p <= 7; p++) {
+          result[d] = {};
+          const maxPeriod = d === 4 ? 4 : 7;
+          for (let p = 1; p <= maxPeriod; p++) {
             const parsedSlot = parsed[d]?.[p];
-            const defSlot = defaultData[d]?.[p];
-            if (parsedSlot && parsedSlot.subject) {
-              merged[d][p] = {
-                subject: parsedSlot.subject,
-                teacher: parsedSlot.teacher || defSlot?.teacher || ''
+            if (parsedSlot && parsedSlot.subject && parsedSlot.subject.trim() !== '') {
+              result[d][p] = {
+                subject: parsedSlot.subject.trim(),
+                teacher: (parsedSlot.teacher || '').trim()
               };
-            } else if (defSlot && defSlot.subject) {
-              merged[d][p] = defSlot;
             }
           }
         }
-        return merged;
+        return result;
       } catch (e) {
         console.error('Failed to parse rawTimetable from template DB', e);
       }
@@ -651,9 +649,15 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                                 </span>
                               )}
                             </div>
-                            <span className="text-[9px] sm:text-[10px] text-surface-dim font-medium leading-tight truncate w-full block shrink-0">
-                              {baseSlot.teacher}<span className="hidden sm:inline"> 선생님</span>
-                            </span>
+                            {baseSlot.teacher && baseSlot.teacher.trim() ? (
+                              <span className="text-[9px] sm:text-[10px] text-surface-dim font-medium leading-tight truncate w-full block shrink-0">
+                                {baseSlot.teacher.trim()}<span className="hidden sm:inline"> 선생님</span>
+                              </span>
+                            ) : (
+                              <span className="text-[9px] sm:text-[10px] text-transparent select-none font-medium leading-tight truncate w-full block shrink-0" aria-hidden="true">
+                                -
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <div className="flex flex-col w-full flex-1 justify-center items-start py-0.5">
@@ -907,8 +911,8 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                 <div className="pt-2 mt-1 border-t border-white/5">
                   <span className="font-bold text-surface-dim mr-2 font-mono">해당 교시:</span>
                   <span className="text-[#00e5ff] font-extrabold">{viewingMemo.subject}</span>
-                  {viewingMemo.teacher && (
-                    <span className="text-white/60 text-[11px] ml-1">({viewingMemo.teacher} 선생님)</span>
+                  {viewingMemo.teacher && viewingMemo.teacher.trim() && (
+                    <span className="text-white/60 text-[11px] ml-1">({viewingMemo.teacher.trim()} 선생님)</span>
                   )}
                 </div>
               </div>

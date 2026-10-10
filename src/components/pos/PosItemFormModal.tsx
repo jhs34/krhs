@@ -174,21 +174,21 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
                 <button
                   type="button"
                   onClick={() => addStockQuick(5)}
-                  className="px-2 py-0.5 rounded text-[11px] font-bold bg-white/5 hover:bg-white/10 text-secondary border border-white/10"
+                  className="px-2 py-0.5 rounded text-[11px] font-bold bg-white/5 hover:bg-white/10 text-sky-300 border border-white/10"
                 >
                   +5
                 </button>
                 <button
                   type="button"
                   onClick={() => addStockQuick(10)}
-                  className="px-2 py-0.5 rounded text-[11px] font-bold bg-white/5 hover:bg-white/10 text-secondary border border-white/10"
+                  className="px-2 py-0.5 rounded text-[11px] font-bold bg-white/5 hover:bg-white/10 text-sky-300 border border-white/10"
                 >
                   +10
                 </button>
                 <button
                   type="button"
                   onClick={() => addStockQuick(20)}
-                  className="px-2 py-0.5 rounded text-[11px] font-bold bg-white/5 hover:bg-white/10 text-secondary border border-white/10"
+                  className="px-2 py-0.5 rounded text-[11px] font-bold bg-white/5 hover:bg-white/10 text-sky-300 border border-white/10"
                 >
                   +20
                 </button>

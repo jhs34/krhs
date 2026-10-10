@@ -28,7 +28,8 @@ import {
   LogOut,
   RotateCcw,
   Plus,
-  Save
+  Save,
+  Ticket
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -150,21 +151,35 @@ export function PosSettlementModal({
     return () => unsub();
   }, [isOpen]);
 
-  // Calculate order metrics for today
+  // Calculate order metrics for today (기프티콘 제외 실매출 및 정가/기프티콘 분리)
   const activeOrders = useMemo(() => orders.filter(o => !o.isCancelled), [orders]);
   const cancelledOrders = useMemo(() => orders.filter(o => o.isCancelled), [orders]);
 
+  // Actual cash/transfer received (실제 돈)
   const transferSales = useMemo(
-    () => activeOrders.filter(o => o.paymentMethod === 'TRANSFER').reduce((s, o) => s + o.totalAmount, 0),
+    () => activeOrders.filter(o => o.paymentMethod === 'TRANSFER').reduce((s, o) => s + (o.actualPaidAmount ?? (o.totalAmount - (o.gifticonDiscountAmount || 0))), 0),
     [activeOrders]
   );
 
   const cashSales = useMemo(
-    () => activeOrders.filter(o => o.paymentMethod === 'CASH').reduce((s, o) => s + o.totalAmount, 0),
+    () => activeOrders.filter(o => o.paymentMethod === 'CASH').reduce((s, o) => s + (o.actualPaidAmount ?? (o.totalAmount - (o.gifticonDiscountAmount || 0))), 0),
     [activeOrders]
   );
 
+  // Actual collected revenue (기프티콘 제외 실수납 매출)
   const totalSales = transferSales + cashSales;
+
+  // Gross total sales (정가 기준)
+  const grossSales = useMemo(
+    () => activeOrders.reduce((s, o) => s + o.totalAmount, 0),
+    [activeOrders]
+  );
+
+  // Total gifticon discounts applied
+  const gifticonSales = useMemo(
+    () => activeOrders.reduce((s, o) => s + (o.gifticonDiscountAmount || 0), 0),
+    [activeOrders]
+  );
 
   // Expected cash in drawer = initialCash + cashSales
   const expectedCashInDrawer = initialCash + cashSales;
@@ -966,7 +981,7 @@ export function PosSettlementModal({
                       className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/10 text-[11px] font-bold transition-all cursor-pointer"
                     >
                       <LogIn className="w-3.5 h-3.5 text-secondary" />
-                      <span>{isLoggingIn ? '로그인 중...' : '관리자 구글 로그인'}</span>
+                      <span>{isLoggingIn ? '...' : '관리자 로그인'}</span>
                     </button>
                   )}
                 </div>
@@ -1162,7 +1177,7 @@ export function PosSettlementModal({
                     </div>
                     <div className="flex justify-between font-bold text-sm text-white pt-1 border-t border-white/10">
                       <span>총 매출 합계</span>
-                      <span className="text-secondary">{(selectedHistoryItem.totalSales || 0).toLocaleString()}원</span>
+                      <span className="text-amber-300 font-mono font-bold">{(selectedHistoryItem.totalSales || 0).toLocaleString()}원</span>
                     </div>
                   </div>
 

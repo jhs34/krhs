@@ -112,12 +112,12 @@ export function createGoogleAdminPosUser(
   }
 
   logPosActivity({
-    action: 'USER_LOGIN',
-    actionTitle: '구글 관리자 로그인',
+    action: 'ALI',
+    actionTitle: '관리자 로그인',
     category: 'AUTH',
     actorId: adminUser.id,
     actorUid: adminUser.id,
-    details: `구글 관리자 계정(${cleanEmail})으로 POS 로그인`,
+    details: '관리자 계정으로 POS 로그인',
     metadata: { email: cleanEmail, name: adminUser.name, uid: adminUser.id, role: 'admin' },
   }).catch(() => {});
 
@@ -160,7 +160,7 @@ export function loginPosUser(usernameInput: string, pinInput: string): { success
   }
 
   logPosActivity({
-    action: 'USER_LOGIN',
+    action: 'ALI',
     actionTitle: '담당자 로그인',
     category: 'AUTH',
     actorId: user.id,
@@ -176,7 +176,7 @@ export function logoutPosUser(currentUser?: PosUser | null): void {
   const user = currentUser || getStoredPosUser();
   if (user) {
     logPosActivity({
-      action: 'USER_LOGOUT',
+      action: 'ALO',
       actionTitle: user.role === 'admin' ? '관리자 로그아웃' : '담당자 로그아웃',
       category: 'AUTH',
       actorId: user.id,

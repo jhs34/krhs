@@ -27,6 +27,7 @@ import {
   Star,
   Check,
   Copy,
+  Ticket,
 } from 'lucide-react';
 import { PosAuditLog, PosItemChangeDetail, PosLogCategory } from '../../types/pos';
 import { POS_ACCOUNTS } from '../../services/posAuth';
@@ -100,37 +101,43 @@ export const PosAuditLogDetailView: React.FC<PosAuditLogDetailViewProps> = ({ lo
     switch (cat) {
       case 'INVENTORY':
         return {
-          name: '재고/품목 관리',
+          name: '재고',
           bg: 'bg-blue-50 text-blue-700 border-blue-200',
           icon: Boxes,
         };
       case 'SALE':
         return {
-          name: '판매/결제 내역',
+          name: '결제',
           bg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
           icon: ShoppingBag,
         };
       case 'SETTLEMENT':
         return {
-          name: '정산/마감 내역',
+          name: '정산',
           bg: 'bg-purple-50 text-purple-700 border-purple-200',
           icon: Calculator,
         };
+      case 'GIFTICON':
+        return {
+          name: '기프티콘',
+          bg: 'bg-amber-50 text-amber-800 border-amber-300',
+          icon: Ticket,
+        };
       case 'SYSTEM':
         return {
-          name: '시스템 설정',
+          name: '설정',
           bg: 'bg-amber-50 text-amber-700 border-amber-200',
           icon: Settings,
         };
       case 'AUTH':
         return {
-          name: '계정/인증',
+          name: '계정',
           bg: 'bg-slate-50 text-slate-700 border-slate-300',
           icon: ShieldCheck,
         };
       default:
         return {
-          name: '기타 활동',
+          name: '기타',
           bg: 'bg-slate-50 text-slate-700 border-slate-200',
           icon: Activity,
         };
@@ -370,14 +377,14 @@ export const PosAuditLogDetailView: React.FC<PosAuditLogDetailViewProps> = ({ lo
             </div>
           )}
 
-          {/* CASE 3: 결제 완료 (ORDER_CREATED) */}
-          {log.action === 'ORDER_CREATED' && (
+          {/* CASE 3: 결제 완료 (ORDER_CREATED / PCA / PTR) */}
+          {(log.action === 'ORDER_CREATED' || log.action === 'PCA' || log.action === 'PTR') && (
             <div className="flex flex-col gap-3">
               <div className={`grid grid-cols-1 ${meta.buyerName ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-2.5`}>
                 <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 flex flex-col">
                   <span className="text-[11px] text-emerald-700 font-semibold">결제 수단</span>
                   <span className="text-base font-bold text-emerald-950 mt-0.5 flex items-center gap-1.5">
-                    {meta.paymentMethod === 'TRANSFER' ? (
+                    {meta.paymentMethod === 'TRANSFER' || log.action === 'PTR' ? (
                       <>
                         <CreditCard className="w-4 h-4 text-emerald-600" />
                         <span>계좌이체</span>
@@ -446,8 +453,8 @@ export const PosAuditLogDetailView: React.FC<PosAuditLogDetailViewProps> = ({ lo
             </div>
           )}
 
-          {/* CASE 4: 결제 취소 / 환불 (ORDER_CANCELLED) */}
-          {log.action === 'ORDER_CANCELLED' && (
+          {/* CASE 4: 결제 취소 / 환불 (ORDER_CANCELLED / PCC) */}
+          {(log.action === 'ORDER_CANCELLED' || log.action === 'PCC') && (
             <div className="flex flex-col gap-3">
               <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex flex-col gap-2">
                 <div className="flex items-center justify-between">
@@ -472,8 +479,8 @@ export const PosAuditLogDetailView: React.FC<PosAuditLogDetailViewProps> = ({ lo
             </div>
           )}
 
-          {/* CASE 5: 일일 마감 정산 (SETTLEMENT_CLOSED / SETTLEMENT_OPENED) */}
-          {(log.action === 'SETTLEMENT_CLOSED' || log.action === 'SETTLEMENT_OPENED') && (
+          {/* CASE 5: 일일 마감 정산 (SETTLEMENT_CLOSED / SOO / SXX / SUP) */}
+          {(log.action === 'SETTLEMENT_CLOSED' || log.action === 'SETTLEMENT_OPENED' || log.action === 'SOO' || log.action === 'SXX' || log.action === 'SUP') && (
             <div className="flex flex-col gap-3">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div className="p-2.5 rounded-lg bg-purple-50 border border-purple-200">
@@ -502,16 +509,16 @@ export const PosAuditLogDetailView: React.FC<PosAuditLogDetailViewProps> = ({ lo
                       : 'text-rose-700'
                   }`}>
                     {Number(meta.discrepancy || 0) === 0
-                      ? '0원 (일치)'
-                      : `${Number(meta.discrepancy || 0).toLocaleString()}원 차이`}
+                      ? '0원 (정상 일치)'
+                      : `${Number(meta.discrepancy || 0).toLocaleString()}원 오차`}
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* CASE 6: 메뉴 프리셋 적용 (PRESET_APPLIED) */}
-          {log.action === 'PRESET_APPLIED' && (
+          {/* CASE 6: 메뉴 프리셋 적용 (PRESET_APPLIED / PSA) */}
+          {(log.action === 'PRESET_APPLIED' || log.action === 'PSA') && (
             <div className="flex flex-col gap-3">
               <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex flex-col gap-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -529,15 +536,22 @@ export const PosAuditLogDetailView: React.FC<PosAuditLogDetailViewProps> = ({ lo
             </div>
           )}
 
-          {/* CASE 7: 기타 기본 메타데이터 테이블 (위의 특정 케이스에 안 걸리는 경우) */}
+          {/* CASE 7: 기타 기본 메타데이터 테이블 */}
           {itemChanges.length === 0 &&
             log.action !== 'ITEM_UPDATED' &&
             log.action !== 'STOCK_ADJUSTED' &&
             log.action !== 'ORDER_CREATED' &&
+            log.action !== 'PCA' &&
+            log.action !== 'PTR' &&
             log.action !== 'ORDER_CANCELLED' &&
+            log.action !== 'PCC' &&
             log.action !== 'SETTLEMENT_CLOSED' &&
             log.action !== 'SETTLEMENT_OPENED' &&
-            log.action !== 'PRESET_APPLIED' && (
+            log.action !== 'SOO' &&
+            log.action !== 'SXX' &&
+            log.action !== 'SUP' &&
+            log.action !== 'PRESET_APPLIED' &&
+            log.action !== 'PSA' && (
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col gap-2">
                 <div className="text-xs font-semibold text-slate-700">
                   {log.details || '추가 세부 정보 없음'}

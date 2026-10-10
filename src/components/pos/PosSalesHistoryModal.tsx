@@ -23,7 +23,8 @@ import {
   ChevronDown,
   ChevronRight,
   Filter,
-  Layers
+  Layers,
+  Ticket
 } from 'lucide-react';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -229,13 +230,18 @@ export function PosSalesHistoryModal({
 
   // Metric stats for currently displayed scope
   const activeOrders = filteredOrders.filter(o => !o.isCancelled);
-  const totalSalesAmount = activeOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+  // Gross sales (정가 기준 총 매출)
+  const grossSalesAmount = activeOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+  // Total gifticon discount deducted
+  const totalGifticonDiscountAmount = activeOrders.reduce((sum, o) => sum + (o.gifticonDiscountAmount || 0), 0);
+  // Net cash/transfer sales received (실제 수납된 매출)
+  const netPaidSalesAmount = activeOrders.reduce((sum, o) => sum + (o.actualPaidAmount ?? (o.totalAmount - (o.gifticonDiscountAmount || 0))), 0);
   const transferAmount = activeOrders
     .filter(o => o.paymentMethod === 'TRANSFER')
-    .reduce((sum, o) => sum + o.totalAmount, 0);
+    .reduce((sum, o) => sum + (o.actualPaidAmount ?? (o.totalAmount - (o.gifticonDiscountAmount || 0))), 0);
   const cashAmount = activeOrders
     .filter(o => o.paymentMethod === 'CASH')
-    .reduce((sum, o) => sum + o.totalAmount, 0);
+    .reduce((sum, o) => sum + (o.actualPaidAmount ?? (o.totalAmount - (o.gifticonDiscountAmount || 0))), 0);
   const cancelledCount = filteredOrders.filter(o => o.isCancelled).length;
 
   // Multi-selection calculations
@@ -532,35 +538,69 @@ export function PosSalesHistoryModal({
           </button>
         </div>
 
-        {/* Quick KPI Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 sm:p-4 bg-[#0c1428] border-b border-white/5 shrink-0 text-xs">
+        {/* Quick KPI Bar: 기프티콘 포함 매출, 제외 실매출, 기프티콘 할인 총액, 이체/현금 분리 표시 */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 p-3 sm:p-4 bg-[#0c1428] border-b border-white/5 shrink-0 text-xs">
+          {/* Net Actual Sales (기프티콘 제외 실제 수납 매출) */}
+          <div className="bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
+            <span className="text-emerald-300 block mb-0.5 font-bold">
+              {filterDate === 'ALL' ? '실제 수납 매출 (기프티콘제외)' : `${filterDate} 실수납`}
+            </span>
+            <span className="text-base font-black text-emerald-300 font-mono">
+              {netPaidSalesAmount.toLocaleString()}원
+            </span>
+            <span className="text-[10px] text-emerald-200/60 block mt-0.5">
+              실제 현금 + 계좌이체 입금액
+            </span>
+          </div>
+
+          {/* Gross Total Sales (기프티콘 포함 총 정가 매출) */}
           <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
             <span className="text-surface-dim block mb-0.5">
-              {filterDate === 'ALL' ? '전체 누적 실매출' : `${filterDate} 실매출`}
+              {filterDate === 'ALL' ? '총 매출 (기프티콘포함)' : `${filterDate} 총정가`}
             </span>
             <span className="text-base font-black text-white font-mono">
-              {totalSalesAmount.toLocaleString()}원
+              {grossSalesAmount.toLocaleString()}원
+            </span>
+            <span className="text-[10px] text-surface-dim block mt-0.5">
+              상품 정가 기준 매출 합계
             </span>
           </div>
 
+          {/* Gifticon Discount Total */}
+          <div className="bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
+            <span className="text-amber-300 block mb-0.5 font-bold flex items-center space-x-1">
+              <Ticket className="w-3.5 h-3.5 text-amber-400" />
+              <span>기프티콘 사용/제외액</span>
+            </span>
+            <span className="text-base font-black text-amber-300 font-mono">
+              -{totalGifticonDiscountAmount.toLocaleString()}원
+            </span>
+            <span className="text-[10px] text-amber-200/60 block mt-0.5">
+              실제 돈이 아니므로 실매출 제외
+            </span>
+          </div>
+
+          {/* Transfer & Cash breakdown */}
           <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
-            <span className="text-indigo-300 block mb-0.5">계좌이체 매출</span>
-            <span className="text-base font-black text-indigo-300 font-mono">
-              {transferAmount.toLocaleString()}원
+            <div className="flex justify-between items-center mb-0.5">
+              <span className="text-indigo-300">이체: {transferAmount.toLocaleString()}원</span>
+            </div>
+            <div className="flex justify-between items-center text-emerald-400 font-bold">
+              <span>현금: {cashAmount.toLocaleString()}원</span>
+            </div>
+            <span className="text-[10px] text-surface-dim block mt-0.5">
+              결제 수단별 실입금액
             </span>
           </div>
 
-          <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
-            <span className="text-emerald-400 block mb-0.5">현금 매출</span>
-            <span className="text-base font-black text-emerald-400 font-mono">
-              {cashAmount.toLocaleString()}원
-            </span>
-          </div>
-
+          {/* Cancellations */}
           <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
             <span className="text-red-400 block mb-0.5">결제 취소/환불</span>
             <span className="text-base font-black text-red-400 font-mono">
               {cancelledCount}건
+            </span>
+            <span className="text-[10px] text-surface-dim block mt-0.5">
+              취소 시 기프티콘/재고 자동 복구
             </span>
           </div>
         </div>
@@ -924,21 +964,27 @@ export function PosSalesHistoryModal({
                                   </div>
                                 </div>
 
-                                {/* Total Amount */}
-                                <div className="text-right shrink-0">
-                                  <div
-                                    className={`text-sm md:text-base font-black font-mono ${
-                                      order.isCancelled ? 'line-through text-surface-dim' : 'text-white'
-                                    }`}
-                                  >
-                                    {order.totalAmount.toLocaleString()}원
-                                  </div>
-                                  {order.isCancelled && (
-                                    <div className="text-[10px] text-red-400 font-bold mt-0.5">
-                                      환불 완료
+                                    {/* Total Amount */}
+                                    <div className="text-right shrink-0">
+                                      <div
+                                        className={`text-sm md:text-base font-black font-mono ${
+                                          order.isCancelled ? 'line-through text-surface-dim' : 'text-white'
+                                        }`}
+                                      >
+                                        {(order.actualPaidAmount ?? order.totalAmount).toLocaleString()}원
+                                      </div>
+                                      {order.gifticonDiscountAmount && order.gifticonDiscountAmount > 0 && !order.isCancelled && (
+                                        <div className="text-[10px] text-amber-300 font-bold mt-0.5 flex items-center justify-end space-x-1">
+                                          <Ticket className="w-3 h-3" />
+                                          <span>기프티콘 -{order.gifticonDiscountAmount.toLocaleString()}원</span>
+                                        </div>
+                                      )}
+                                      {order.isCancelled && (
+                                        <div className="text-[10px] text-red-400 font-bold mt-0.5">
+                                          환불 완료
+                                        </div>
+                                      )}
                                     </div>
-                                  )}
-                                </div>
                               </div>
                             );
                           })}
@@ -1034,11 +1080,41 @@ export function PosSalesHistoryModal({
 
                   {/* Total & Payment Summary */}
                   <div className="space-y-1.5 text-xs text-gray-800 border-b border-dashed border-gray-300 pb-3 mb-3">
-                    <div className="flex justify-between text-sm font-black text-gray-900 pt-1">
-                      <span>합계 금액:</span>
-                      <span>{activeOrder.totalAmount.toLocaleString()}원</span>
+                    <div className="flex justify-between text-xs text-gray-600 pt-1">
+                      <span>상품 정가 합계:</span>
+                      <span className="font-mono">{activeOrder.totalAmount.toLocaleString()}원</span>
                     </div>
-                    <div className="flex justify-between text-[11px]">
+
+                    {activeOrder.gifticonDiscountAmount && activeOrder.gifticonDiscountAmount > 0 ? (
+                      <>
+                        <div className="flex justify-between text-xs font-bold text-amber-700">
+                          <span>기프티콘 할인:</span>
+                          <span className="font-mono">-{activeOrder.gifticonDiscountAmount.toLocaleString()}원</span>
+                        </div>
+                        {activeOrder.usedGifticons && activeOrder.usedGifticons.length > 0 && (
+                          <div className="text-[10px] text-amber-800 bg-amber-50 p-1.5 rounded space-y-0.5">
+                            <span className="font-bold block">사용 기프티콘:</span>
+                            {activeOrder.usedGifticons.map((c, idx) => (
+                              <div key={c.gifticonId || idx} className="flex justify-between font-mono">
+                                <span>{c.gifticonId}</span>
+                                <span>-{c.amount.toLocaleString()}원</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex justify-between text-sm font-black text-gray-900 pt-1 border-t border-gray-200">
+                          <span>실 결제 금액:</span>
+                          <span className="font-mono text-emerald-700">{(activeOrder.actualPaidAmount ?? (activeOrder.totalAmount - (activeOrder.gifticonDiscountAmount || 0))).toLocaleString()}원</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex justify-between text-sm font-black text-gray-900 pt-1 border-t border-gray-200">
+                        <span>결제 금액:</span>
+                        <span className="font-mono">{activeOrder.totalAmount.toLocaleString()}원</span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between text-[11px] pt-1">
                       <span>결제 수단:</span>
                       <span className="font-bold text-indigo-700">
                         {activeOrder.paymentMethod === 'TRANSFER' ? '계좌이체' : '현금'}
@@ -1170,7 +1246,7 @@ export function PosSalesHistoryModal({
                         className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-[11px] font-medium flex items-center justify-center space-x-1.5 border border-white/5 transition-colors cursor-pointer"
                       >
                         <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-                        <span>구글 관리자 로그인 시 수정/삭제 가능</span>
+                        <span>관리자 로그인 시 수정/삭제 가능</span>
                       </button>
                     </div>
                   )}
