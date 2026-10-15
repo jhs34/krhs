@@ -318,33 +318,36 @@ export function PosSheetImportModal({
 
     setIsProcessing(true);
     try {
-      // 1. Build Category Map
+      // 1. Build Category Map (Category ID = Category Name)
       const finalCategories: PosCategory[] = [];
-      const categoryNameToId = new Map<string, string>();
+      const seenCatNames = new Set<string>();
 
       if (applyMode === 'merge') {
         // Keep existing categories first
         currentCategories.forEach(c => {
-          finalCategories.push(c);
-          categoryNameToId.set(c.name.trim().toLowerCase(), c.id);
+          const cleanName = c.name.trim();
+          if (cleanName && !seenCatNames.has(cleanName.toLowerCase())) {
+            seenCatNames.add(cleanName.toLowerCase());
+            finalCategories.push({
+              id: cleanName,
+              name: cleanName,
+              orderIndex: finalCategories.length + 1,
+            });
+          }
         });
       }
 
       // Add new categories from parsed rows
-      let orderIndex = finalCategories.length;
       validSelectedRows.forEach(row => {
         const catName = row.categoryName.trim() || '기타';
         const key = catName.toLowerCase();
-        if (!categoryNameToId.has(key)) {
-          const newCatId = `cat-${Date.now()}-${orderIndex}`;
-          const newCat: PosCategory = {
-            id: newCatId,
+        if (!seenCatNames.has(key)) {
+          seenCatNames.add(key);
+          finalCategories.push({
+            id: catName,
             name: catName,
-            orderIndex,
-          };
-          finalCategories.push(newCat);
-          categoryNameToId.set(key, newCatId);
-          orderIndex++;
+            orderIndex: finalCategories.length + 1,
+          });
         }
       });
 
@@ -361,7 +364,7 @@ export function PosSheetImportModal({
         // Update or insert from parsed sheet
         validSelectedRows.forEach(row => {
           const key = row.name.trim().toLowerCase();
-          const catId = categoryNameToId.get(row.categoryName.trim().toLowerCase()) || finalCategories[0]?.id || 'cat-general';
+          const catName = row.categoryName.trim() || finalCategories[0]?.name || '기타';
 
           if (itemMap.has(key)) {
             // Update existing
@@ -370,7 +373,7 @@ export function PosSheetImportModal({
               ...existing,
               price: row.price,
               stock: row.stock,
-              categoryId: catId,
+              categoryId: catName,
               isFavorite: row.isFavorite,
               isActive: true,
               updatedAt: new Date().toISOString(),
@@ -381,7 +384,7 @@ export function PosSheetImportModal({
             itemMap.set(key, {
               id: newItemId,
               name: row.name.trim(),
-              categoryId: catId,
+              categoryId: catName,
               price: row.price,
               stock: row.stock,
               isFavorite: row.isFavorite,
@@ -395,13 +398,13 @@ export function PosSheetImportModal({
       } else {
         // Replace mode: exactly what is in the sheet
         finalItems = validSelectedRows.map((row, idx) => {
-          const catId = categoryNameToId.get(row.categoryName.trim().toLowerCase()) || finalCategories[0]?.id || 'cat-general';
+          const catName = row.categoryName.trim() || finalCategories[0]?.name || '기타';
           const existing = currentItems.find(it => it.name.trim().toLowerCase() === row.name.trim().toLowerCase());
 
           return {
             id: existing ? existing.id : `item-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
             name: row.name.trim(),
-            categoryId: catId,
+            categoryId: catName,
             price: row.price,
             stock: row.stock,
             isFavorite: row.isFavorite,

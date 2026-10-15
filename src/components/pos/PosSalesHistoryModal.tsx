@@ -24,7 +24,8 @@ import {
   ChevronRight,
   Filter,
   Layers,
-  Ticket
+  Ticket,
+  ArrowLeft
 } from 'lucide-react';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -454,7 +455,7 @@ export function PosSalesHistoryModal({
             </div>
             <div className="min-w-0">
               <div className="flex items-center space-x-2 flex-wrap">
-                <h2 className="text-base sm:text-xl font-black text-white truncate">매출 내역 및 영수증 관리</h2>
+                <h2 className="text-base sm:text-xl font-black text-white truncate">매출 내역</h2>
                 <span className="px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold bg-white/10 text-surface-dim shrink-0">
                   {orders.length}건
                 </span>
@@ -464,9 +465,6 @@ export function PosSalesHistoryModal({
                   </span>
                 )}
               </div>
-              <p className="text-[11px] sm:text-xs text-surface-dim truncate hidden sm:block">
-                일자별 매출 분류, 영수증 재발급, 다중 선택 일괄 삭제 및 수정 제어를 지원합니다.
-              </p>
             </div>
           </div>
 
@@ -510,107 +508,66 @@ export function PosSalesHistoryModal({
           </div>
         </div>
 
-        {/* Mobile View Switcher Tabs (Only visible on small/mobile screens) */}
-        <div className="md:hidden flex border-b border-white/10 bg-[#070b16] shrink-0">
-          <button
-            type="button"
-            onClick={() => setMobileTab('list')}
-            className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center space-x-1.5 border-b-2 transition-colors ${
-              mobileTab === 'list'
-                ? 'border-emerald-400 text-emerald-300 bg-white/[0.04]'
-                : 'border-transparent text-surface-dim hover:text-white'
-            }`}
-          >
-            <Receipt className="w-3.5 h-3.5" />
-            <span>주문 목록 ({filteredOrders.length})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileTab('receipt')}
-            className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center space-x-1.5 border-b-2 transition-colors ${
-              mobileTab === 'receipt'
-                ? 'border-emerald-400 text-emerald-300 bg-white/[0.04]'
-                : 'border-transparent text-surface-dim hover:text-white'
-            }`}
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>영수증 상세 {activeOrder ? `(#${activeOrder.id.slice(-4)})` : ''}</span>
-          </button>
-        </div>
-
-        {/* Quick KPI Bar: 기프티콘 포함 매출, 제외 실매출, 기프티콘 할인 총액, 이체/현금 분리 표시 */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 p-3 sm:p-4 bg-[#0c1428] border-b border-white/5 shrink-0 text-xs">
+        {/* Quick KPI Bar: Dynamic-width cards fitting content length without right-aligned empty space */}
+        <div className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-2.5 bg-[#0c1428] border-b border-white/5 shrink-0 overflow-x-auto scrollbar-hide">
           {/* Net Actual Sales (기프티콘 제외 실제 수납 매출) */}
-          <div className="bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
-            <span className="text-emerald-300 block mb-0.5 font-bold">
-              {filterDate === 'ALL' ? '실제 수납 매출 (기프티콘제외)' : `${filterDate} 실수납`}
+          <div className="bg-emerald-500/10 px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-500/25 shrink-0 min-w-fit">
+            <span className="text-emerald-300 block text-[10px] sm:text-[11px] font-bold whitespace-nowrap">
+              실수납 매출
             </span>
-            <span className="text-base font-black text-emerald-300 font-mono">
+            <span className="text-xs sm:text-sm md:text-base font-black text-emerald-300 font-mono whitespace-nowrap">
               {netPaidSalesAmount.toLocaleString()}원
-            </span>
-            <span className="text-[10px] text-emerald-200/60 block mt-0.5">
-              실제 현금 + 계좌이체 입금액
             </span>
           </div>
 
           {/* Gross Total Sales (기프티콘 포함 총 정가 매출) */}
-          <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
-            <span className="text-surface-dim block mb-0.5">
-              {filterDate === 'ALL' ? '총 매출 (기프티콘포함)' : `${filterDate} 총정가`}
+          <div className="bg-white/5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/5 shrink-0 min-w-fit">
+            <span className="text-surface-dim block text-[10px] sm:text-[11px] whitespace-nowrap">
+              총 매출
             </span>
-            <span className="text-base font-black text-white font-mono">
+            <span className="text-xs sm:text-sm md:text-base font-black text-white font-mono whitespace-nowrap">
               {grossSalesAmount.toLocaleString()}원
             </span>
-            <span className="text-[10px] text-surface-dim block mt-0.5">
-              상품 정가 기준 매출 합계
+          </div>
+
+          {/* Gifticon Discount Total - Fits length dynamically */}
+          <div className="bg-amber-500/10 px-2.5 sm:px-3 py-1.5 rounded-xl border border-amber-500/20 shrink-0 min-w-fit">
+            <span className="text-amber-300 block text-[10px] sm:text-[11px] font-bold flex items-center space-x-1 whitespace-nowrap">
+              <Ticket className="w-3 h-3 text-amber-400" />
+              <span>기프티콘</span>
+            </span>
+            <span className="text-xs sm:text-sm md:text-base font-black text-amber-300 font-mono whitespace-nowrap">
+              {totalGifticonDiscountAmount > 0 ? `-${totalGifticonDiscountAmount.toLocaleString()}원` : '0원'}
             </span>
           </div>
 
-          {/* Gifticon Discount Total */}
-          <div className="bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
-            <span className="text-amber-300 block mb-0.5 font-bold flex items-center space-x-1">
-              <Ticket className="w-3.5 h-3.5 text-amber-400" />
-              <span>기프티콘 사용/제외액</span>
-            </span>
-            <span className="text-base font-black text-amber-300 font-mono">
-              -{totalGifticonDiscountAmount.toLocaleString()}원
-            </span>
-            <span className="text-[10px] text-amber-200/60 block mt-0.5">
-              실제 돈이 아니므로 실매출 제외
-            </span>
-          </div>
-
-          {/* Transfer & Cash breakdown */}
-          <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
-            <div className="flex justify-between items-center mb-0.5">
-              <span className="text-indigo-300">이체: {transferAmount.toLocaleString()}원</span>
+          {/* Transfer & Cash breakdown - Responsive inline spacing instead of wide right-aligned gap */}
+          <div className="bg-white/5 px-2.5 sm:px-3 py-1 rounded-xl border border-white/5 shrink-0 min-w-fit flex flex-col justify-center">
+            <div className="flex items-center space-x-1.5 sm:space-x-2 text-[10px] sm:text-[11px] leading-tight whitespace-nowrap">
+              <span className="text-indigo-300">이체</span>
+              <span className="font-mono font-bold text-white">{transferAmount.toLocaleString()}원</span>
             </div>
-            <div className="flex justify-between items-center text-emerald-400 font-bold">
-              <span>현금: {cashAmount.toLocaleString()}원</span>
+            <div className="flex items-center space-x-1.5 sm:space-x-2 text-[10px] sm:text-[11px] leading-tight text-emerald-400 font-bold mt-0.5 whitespace-nowrap">
+              <span>현금</span>
+              <span className="font-mono text-white">{cashAmount.toLocaleString()}원</span>
             </div>
-            <span className="text-[10px] text-surface-dim block mt-0.5">
-              결제 수단별 실입금액
-            </span>
           </div>
 
-          {/* Cancellations */}
-          <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
-            <span className="text-red-400 block mb-0.5">결제 취소/환불</span>
-            <span className="text-base font-black text-red-400 font-mono">
+          {/* Cancellations - Fits length dynamically */}
+          <div className="bg-white/5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/5 shrink-0 min-w-fit">
+            <span className="text-red-400 block text-[10px] sm:text-[11px] whitespace-nowrap">취소/환불</span>
+            <span className="text-xs sm:text-sm md:text-base font-black text-red-400 font-mono whitespace-nowrap">
               {cancelledCount}건
-            </span>
-            <span className="text-[10px] text-surface-dim block mt-0.5">
-              취소 시 기프티콘/재고 자동 복구
             </span>
           </div>
         </div>
 
         {/* Date Selector Navigation Bar */}
-        <div className="px-4 py-2.5 bg-[#090f20] border-b border-white/10 flex items-center justify-between gap-3 shrink-0 overflow-x-auto scrollbar-hide">
+        <div className="px-3 sm:px-4 py-2 bg-[#090f20] border-b border-white/10 flex items-center justify-between gap-3 shrink-0 overflow-x-auto scrollbar-hide">
           <div className="flex items-center space-x-2">
             <div className="flex items-center space-x-1 text-xs text-surface-dim font-bold shrink-0">
               <Calendar className="w-3.5 h-3.5 text-primary" />
-              <span>일자별 보기:</span>
+              <span className="hidden sm:inline">일자별:</span>
             </div>
 
             <div className="flex items-center space-x-1.5">
@@ -853,7 +810,7 @@ export function PosSalesHistoryModal({
 
                         <div className="flex items-center space-x-3 text-xs">
                           <div className="text-right">
-                            <span className="text-[10px] text-surface-dim block">당일 실매출 합계</span>
+                            <span className="text-[10px] text-surface-dim block">실매출</span>
                             <span className="font-mono font-black text-white text-xs sm:text-sm">
                               {group.totalAmount.toLocaleString()}원
                             </span>
@@ -999,18 +956,19 @@ export function PosSalesHistoryModal({
 
           {/* Right: Receipt Detail View */}
           <div className={`w-full md:w-5/12 bg-[#090e1c] flex flex-col h-full overflow-hidden ${mobileTab === 'receipt' ? 'flex' : 'hidden md:flex'}`}>
-            {/* Mobile Back to List Button */}
-            <div className="md:hidden flex items-center justify-between px-3.5 py-2.5 bg-[#070b16] border-b border-white/10 shrink-0">
+            {/* Mobile Back Button */}
+            <div className="md:hidden flex items-center justify-between px-3 py-2 bg-[#070b16] border-b border-white/10 shrink-0">
               <button
                 type="button"
                 onClick={() => setMobileTab('list')}
-                className="flex items-center space-x-1.5 text-xs font-bold text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
+                className="flex items-center space-x-1.5 text-xs font-bold text-white bg-white/10 hover:bg-white/20 active:scale-95 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
               >
-                <span>← 주문 목록으로 돌아가기</span>
+                <ArrowLeft className="w-4 h-4" />
+                <span>이전</span>
               </button>
               {activeOrder && (
-                <span className="text-[11px] font-mono text-emerald-400 font-bold">
-                  주문 #{activeOrder.id.slice(-6)}
+                <span className="text-xs font-bold text-surface-dim">
+                  영수증 확인
                 </span>
               )}
             </div>
@@ -1034,7 +992,9 @@ export function PosSalesHistoryModal({
                   <div className="space-y-1 text-[11px] text-gray-600 border-b border-dashed border-gray-300 pb-3 mb-3">
                     <div className="flex justify-between">
                       <span>주문번호:</span>
-                      <span className="font-bold text-gray-900">{activeOrder.id}</span>
+                      <span className="font-bold text-gray-900 font-mono">
+                        {activeOrder.id.replace(/^ptci_?/i, '')}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span>판매일시:</span>

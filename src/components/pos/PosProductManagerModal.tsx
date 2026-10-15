@@ -40,6 +40,7 @@ import {
   deletePosPreset,
   saveBatchPosItemsWithSummary,
   saveBatchPosCategories,
+  deletePosCategory,
 } from '../../services/posFirestore';
 import { loginWithGoogle } from '../../firebase';
 import { createGoogleAdminPosUser } from '../../services/posAuth';
@@ -374,12 +375,17 @@ export function PosProductManagerModal({
   // Category Handlers (Local)
   const handleAddCategory = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCatName.trim()) return;
+    const cleanName = newCatName.trim();
+    if (!cleanName) return;
 
-    const newId = `cat-${Date.now()}`;
+    if (localCategories.some(c => c.name.trim().toLowerCase() === cleanName.toLowerCase())) {
+      showToast(`'${cleanName}' 카테고리는 이미 존재합니다.`, 'error');
+      return;
+    }
+
     const newCategory: PosCategory = {
-      id: newId,
-      name: newCatName.trim(),
+      id: cleanName,
+      name: cleanName,
       orderIndex: localCategories.length + 1,
     };
 
@@ -390,14 +396,31 @@ export function PosProductManagerModal({
   };
 
   const handleSaveCategoryName = (catId: string) => {
-    if (!editingCatName.trim()) return;
+    const cleanName = editingCatName.trim();
+    if (!cleanName) return;
+
+    if (localCategories.some(c => c.id !== catId && c.name.trim().toLowerCase() === cleanName.toLowerCase())) {
+      showToast(`'${cleanName}' 카테고리 이름이 이미 존재합니다.`, 'error');
+      return;
+    }
+
+    const oldCat = localCategories.find(c => c.id === catId);
+    const oldName = oldCat?.name || catId;
+
     isDirtyRef.current = true;
     setLocalCategories(prev =>
-      prev.map(c => (c.id === catId ? { ...c, name: editingCatName.trim() } : c))
+      prev.map(c => (c.id === catId ? { ...c, id: cleanName, name: cleanName } : c))
     );
+    // Cascade rename to local items so assigned items are preserved
+    setLocalItems(prev =>
+      prev.map(it => (it.categoryId === catId || it.categoryId === oldName ? { ...it, categoryId: cleanName } : it))
+    );
+    if (catId !== cleanName) {
+      deletePosCategory(catId, oldName).catch(() => {});
+    }
     setEditingCatId(null);
     setEditingCatName('');
-    showToast('카테고리 이름이 수정되었습니다. (저장 버튼을 눌러 확정)');
+    showToast(`카테고리 이름이 '${cleanName}'(으)로 변경되었습니다. (저장 버튼을 눌러 확정)`);
   };
 
   const handleMoveCategory = (index: number, direction: 'up' | 'down') => {
@@ -423,7 +446,9 @@ export function PosProductManagerModal({
     }
     if (!deleteConfirmCat) return;
 
-    const hasItems = localItems.some(it => it.categoryId === deleteConfirmCat.id);
+    const hasItems = localItems.some(
+      it => it.categoryId === deleteConfirmCat.id || it.categoryId === deleteConfirmCat.name
+    );
     if (hasItems) {
       showToast('해당 카테고리에 배정된 상품이 있어 삭제할 수 없습니다. 상품을 먼저 이동하거나 삭제하세요.', 'error');
       setDeleteConfirmCat(null);
@@ -434,7 +459,8 @@ export function PosProductManagerModal({
     if (onDeleteCategory) {
       onDeleteCategory(deleteConfirmCat.id);
     }
-    setLocalCategories(prev => prev.filter(c => c.id !== deleteConfirmCat.id));
+    deletePosCategory(deleteConfirmCat.id, deleteConfirmCat.name).catch(() => {});
+    setLocalCategories(prev => prev.filter(c => c.id !== deleteConfirmCat.id && c.name !== deleteConfirmCat.name));
     showToast(`'${deleteConfirmCat.name}' 카테고리가 삭제되었습니다.`);
     setDeleteConfirmCat(null);
   };
@@ -1670,7 +1696,9 @@ export function PosProductManagerModal({
                 등록된 카테고리 목록 (순서 및 품목 수)
               </h3>
               {localCategories.map((cat, idx) => {
-                const assignedItemsCount = localItems.filter(it => it.categoryId === cat.id).length;
+                const assignedItemsCount = localItems.filter(
+                  it => it.categoryId === cat.id || it.categoryId === cat.name
+                ).length;
                 const isEditing = editingCatId === cat.id;
 
                 return (

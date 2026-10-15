@@ -53,14 +53,23 @@ export function subscribePosCategories(
   return onSnapshot(
     q,
     snapshot => {
-      const categories: PosCategory[] = snapshot.docs.map(docSnap => {
+      const nameMap = new Map<string, PosCategory>();
+      snapshot.docs.forEach(docSnap => {
         const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          name: data.name || '미분류',
-          orderIndex: typeof data.orderIndex === 'number' ? data.orderIndex : 0,
-        };
+        const rawName = (data.name || docSnap.id || '').trim();
+        if (!rawName) return;
+        const key = rawName.toLowerCase();
+        if (!nameMap.has(key)) {
+          nameMap.set(key, {
+            id: rawName,
+            name: rawName,
+            orderIndex: typeof data.orderIndex === 'number' ? data.orderIndex : nameMap.size + 1,
+          });
+        }
       });
+      const categories: PosCategory[] = Array.from(nameMap.values()).sort(
+        (a, b) => a.orderIndex - b.orderIndex
+      );
       onData(categories);
     },
     err => {
@@ -246,10 +255,14 @@ export async function seedInitialPosData(
   await ensurePosAuth();
   const batch = writeBatch(db);
 
+  const seenCatNames = new Set<string>();
   for (const cat of defaultCategories) {
-    const catRef = doc(db, 'categories', cat.id);
+    const cleanName = cat.name.trim();
+    if (!cleanName || seenCatNames.has(cleanName.toLowerCase())) continue;
+    seenCatNames.add(cleanName.toLowerCase());
+    const catRef = doc(db, 'categories', cleanName);
     batch.set(catRef, {
-      name: cat.name,
+      name: cleanName,
       orderIndex: cat.orderIndex,
     });
   }
@@ -898,9 +911,23 @@ export async function saveBatchPosCategories(
 ): Promise<void> {
   if (categories.length === 0) return;
   await ensurePosAuth();
+
+  // Deduplicate categories by clean name
+  const uniqueCats = new Map<string, PosCategory>();
+  categories.forEach((cat, idx) => {
+    const cleanName = cat.name.trim();
+    if (cleanName && !uniqueCats.has(cleanName.toLowerCase())) {
+      uniqueCats.set(cleanName.toLowerCase(), {
+        id: cleanName,
+        name: cleanName,
+        orderIndex: typeof cat.orderIndex === 'number' ? cat.orderIndex : idx + 1,
+      });
+    }
+  });
+
   const batch = writeBatch(db);
-  for (const cat of categories) {
-    const catRef = doc(db, 'categories', cat.id);
+  for (const cat of uniqueCats.values()) {
+    const catRef = doc(db, 'categories', cat.name);
     batch.set(
       catRef,
       {
@@ -918,8 +945,8 @@ export async function saveBatchPosCategories(
     category: 'INVENTORY',
     actorName,
     actorUid,
-    details: `카테고리 목록 (${categories.map(c => c.name).join(', ')}) 일괄 변경 저장`,
-    metadata: { count: categories.length },
+    details: `카테고리 목록 (${Array.from(uniqueCats.values()).map(c => c.name).join(', ')}) 일괄 변경 저장`,
+    metadata: { count: uniqueCats.size },
   }).catch(() => {});
 }
 
@@ -933,11 +960,12 @@ export async function savePosCategory(
   actorUid?: string
 ): Promise<void> {
   await ensurePosAuth();
-  const catRef = doc(db, 'categories', cat.id);
+  const cleanName = cat.name.trim();
+  const catRef = doc(db, 'categories', cleanName);
   await setDoc(
     catRef,
     {
-      name: cat.name,
+      name: cleanName,
       orderIndex: cat.orderIndex,
     },
     { merge: true }
@@ -950,8 +978,8 @@ export async function savePosCategory(
       category: 'INVENTORY',
       actorName,
       actorUid,
-      details: `카테고리 [${cat.name}] 정보 저장 (순서: ${cat.orderIndex})`,
-      metadata: { categoryId: cat.id, name: cat.name, orderIndex: cat.orderIndex },
+      details: `카테고리 [${cleanName}] 정보 저장 (순서: ${cat.orderIndex})`,
+      metadata: { categoryId: cleanName, name: cleanName, orderIndex: cat.orderIndex },
     }).catch(() => {});
   }
 }
@@ -967,6 +995,11 @@ export async function deletePosCategory(
 ): Promise<void> {
   await ensurePosAuth();
   await deleteDoc(doc(db, 'categories', id));
+  if (catName && catName !== id) {
+    try {
+      await deleteDoc(doc(db, 'categories', catName));
+    } catch {}
+  }
 
   logPosActivity({
     action: 'CDL',
@@ -1183,10 +1216,14 @@ export async function applyPosPreset(
   // 2. Batch insert new preset categories and items (if any)
   if (categories.length > 0 || items.length > 0) {
     const batch2 = writeBatch(db);
+    const seenCatNames = new Set<string>();
     for (const cat of categories) {
-      const catRef = doc(db, 'categories', cat.id);
+      const cleanName = cat.name.trim();
+      if (!cleanName || seenCatNames.has(cleanName.toLowerCase())) continue;
+      seenCatNames.add(cleanName.toLowerCase());
+      const catRef = doc(db, 'categories', cleanName);
       batch2.set(catRef, {
-        name: cat.name,
+        name: cleanName,
         orderIndex: cat.orderIndex,
       });
     }

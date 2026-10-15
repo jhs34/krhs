@@ -12,8 +12,16 @@ interface PosItemFormModalProps {
 export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemFormModalProps) {
   const isEdit = !!item;
 
+  const resolveCat = (val?: string) => {
+    if (!val) return categories[0]?.name || '';
+    const matched = categories.find(
+      c => c.id === val || c.name.trim().toLowerCase() === val.trim().toLowerCase()
+    );
+    return matched ? matched.name : categories[0]?.name || val;
+  };
+
   const [name, setName] = useState(item?.name || '');
-  const [categoryId, setCategoryId] = useState(item?.categoryId || (categories[0]?.id || ''));
+  const [categoryId, setCategoryId] = useState(() => resolveCat(item?.categoryId));
   const [price, setPrice] = useState<number | ''>(item?.price ?? 1000);
   const [stock, setStock] = useState<number | ''>(item?.stock ?? 20);
   const [isFavorite, setIsFavorite] = useState(item?.isFavorite ?? false);
@@ -23,13 +31,13 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
   useEffect(() => {
     if (item) {
       setName(item.name);
-      setCategoryId(item.categoryId);
+      setCategoryId(resolveCat(item.categoryId));
       setPrice(item.price);
       setStock(item.stock);
       setIsFavorite(item.isFavorite);
       setIsActive(item.isActive);
     }
-  }, [item]);
+  }, [item, categories]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

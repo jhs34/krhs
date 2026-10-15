@@ -219,7 +219,9 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
     const sections: { categoryId: string; categoryName: string; items: PosItem[] }[] = [];
 
     categories.forEach(cat => {
-      const catItems = filteredItems.filter(item => item.categoryId === cat.id);
+      const catItems = filteredItems.filter(
+        item => item.categoryId === cat.id || item.categoryId === cat.name
+      );
       if (catItems.length > 0) {
         sections.push({
           categoryId: cat.id,
@@ -230,7 +232,7 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
     });
 
     const unassigned = filteredItems.filter(
-      item => !categories.some(cat => cat.id === item.categoryId)
+      item => !categories.some(cat => cat.id === item.categoryId || cat.name === item.categoryId)
     );
     if (unassigned.length > 0) {
       sections.push({
@@ -402,7 +404,9 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
             </button>
 
             {categories.map(cat => {
-              const count = items.filter(i => i.isActive && i.categoryId === cat.id).length;
+              const count = items.filter(
+                i => i.isActive && (i.categoryId === cat.id || i.categoryId === cat.name)
+              ).length;
               const isSelected = selectedCategoryId === cat.id;
               return (
                 <button

@@ -50,6 +50,7 @@ interface PosSettlementModalProps {
   currentUserId: string;
   settlement: PosSettlement | null;
   onSaveSettlement: (settlement: PosSettlement) => void;
+  onDeleteSettlement?: (id: string) => void;
   isAdmin?: boolean;
 }
 
@@ -61,17 +62,20 @@ export function PosSettlementModal({
   currentUserId,
   settlement,
   onSaveSettlement,
+  onDeleteSettlement,
   isAdmin = false,
 }: PosSettlementModalProps) {
   // Navigation Tabs: 'today' (당일 마감 정산) or 'history' (역대 마감 내역)
   const [activeTab, setActiveTab] = useState<'today' | 'history'>('today');
+
+  const todayId = format(new Date(), 'yyyy-MM-dd');
 
   // Google Auth for Admin Verification
   const [googleUser, setGoogleUser] = useState<FirebaseUser | null>(() => auth.currentUser);
   const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
 
   // Opening preparation cash (준비금)
-  const [initialCash, setInitialCash] = useState<number>(() => settlement?.initialCash ?? 50000);
+  const [initialCash, setInitialCash] = useState<number>(() => (settlement?.id === todayId && typeof settlement?.initialCash === 'number' ? settlement.initialCash : 50000));
 
   // Denominations for physical cash counting (한국 원화 화폐 규격)
   const [counts, setCounts] = useState<{ [denom: number]: number }>({
@@ -85,12 +89,13 @@ export function PosSettlementModal({
 
   const [directCashInput, setDirectCashInput] = useState<string>('');
   const [useDirectInput, setUseDirectInput] = useState<boolean>(false);
-  const [closingNote, setClosingNote] = useState<string>(() => settlement?.note || '');
+  const [closingNote, setClosingNote] = useState<string>(() => (settlement?.id === todayId ? settlement.note || '' : ''));
   const [copiedReport, setCopiedReport] = useState<boolean>(false);
-  const [isFinalized, setIsFinalized] = useState<boolean>(() => settlement?.status === 'CLOSED');
+  const [isFinalized, setIsFinalized] = useState<boolean>(() => Boolean(settlement && settlement.id === todayId && settlement.status === 'CLOSED'));
 
   // Toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [showGuide, setShowGuide] = useState<boolean>(false);
 
   // History state
   const [historyList, setHistoryList] = useState<PosSettlement[]>([]);
@@ -131,7 +136,7 @@ export function PosSettlementModal({
 
   // Sync state when settlement prop changes
   useEffect(() => {
-    if (settlement) {
+    if (settlement && settlement.id === todayId) {
       if (typeof settlement.initialCash === 'number') {
         setInitialCash(settlement.initialCash);
       }
@@ -139,17 +144,32 @@ export function PosSettlementModal({
         setClosingNote(settlement.note);
       }
       setIsFinalized(settlement.status === 'CLOSED');
+    } else {
+      setIsFinalized(false);
     }
-  }, [settlement]);
+  }, [settlement, todayId]);
 
   // Subscribe to all historical settlements when modal is open
   useEffect(() => {
     if (!isOpen) return;
     const unsub = subscribePosSettlements(list => {
       setHistoryList(list);
+      const todayRecord = list.find(s => s.id === todayId);
+      if (todayRecord && todayRecord.status === 'CLOSED') {
+        setIsFinalized(true);
+        if (typeof todayRecord.initialCash === 'number' && initialCash === 50000) {
+          setInitialCash(todayRecord.initialCash);
+        }
+        if (todayRecord.note && !closingNote) {
+          setClosingNote(todayRecord.note);
+        }
+      } else {
+        // If todayRecord does not exist in history (e.g. deleted by user) or is not CLOSED
+        setIsFinalized(false);
+      }
     });
     return () => unsub();
-  }, [isOpen]);
+  }, [isOpen, todayId]);
 
   // Calculate order metrics for today (기프티콘 제외 실매출 및 정가/기프티콘 분리)
   const activeOrders = useMemo(() => orders.filter(o => !o.isCancelled), [orders]);
@@ -197,18 +217,22 @@ export function PosSettlementModal({
   // Discrepancy (실측금액 - 장부상금액)
   const discrepancy = countedCash - expectedCashInDrawer;
 
-  // Aggregate History KPIs
+  // Aggregate History KPIs (only completed closures)
   const historyStats = useMemo(() => {
-    const totalCount = historyList.length;
-    const grandTotalSales = historyList.reduce((acc, item) => acc + (item.totalSales || 0), 0);
-    const grandCashSales = historyList.reduce((acc, item) => acc + (item.cashSales || 0), 0);
-    const grandTransferSales = historyList.reduce((acc, item) => acc + (item.transferSales || 0), 0);
+    const closedList = historyList.filter(item => item.status === 'CLOSED');
+    const totalCount = closedList.length;
+    const grandTotalSales = closedList.reduce((acc, item) => acc + (item.totalSales || 0), 0);
+    const grandCashSales = closedList.reduce((acc, item) => acc + (item.cashSales || 0), 0);
+    const grandTransferSales = closedList.reduce((acc, item) => acc + (item.transferSales || 0), 0);
     return { totalCount, grandTotalSales, grandCashSales, grandTransferSales };
   }, [historyList]);
 
-  // Filtered History list based on search and status
+  // Filtered History list based on search and status (only completed closing records)
   const filteredHistoryList = useMemo(() => {
     return historyList.filter(item => {
+      // Historical tab is strictly for completed closures
+      if (item.status !== 'CLOSED') return false;
+
       // Date Picker Search
       if (searchDate && item.id !== searchDate) return false;
 
@@ -276,38 +300,52 @@ export function PosSettlementModal({
   // Save Opening Preparation Cash Only (시작 준비금 등록 / 저장)
   const handleSaveInitialCashOnly = async () => {
     const todayId = format(new Date(), 'yyyy-MM-dd');
+    const existingToday = (settlement?.id === todayId ? settlement : null) || historyList.find(s => s.id === todayId);
+    const wasClosed = isFinalized || existingToday?.status === 'CLOSED';
+
+    // Recalculate discrepancy based on new initialCash
+    const expectedWithNewInitial = initialCash + cashSales;
+    const newDiscrepancy = countedCash - expectedWithNewInitial;
+
     const newSettlement: PosSettlement = {
       id: todayId,
-      openedAt: settlement?.openedAt || new Date().toISOString(),
-      openedBy: settlement?.openedBy || currentUserName,
+      openedAt: existingToday?.openedAt || (settlement?.id === todayId && settlement?.openedAt) || new Date().toISOString(),
+      closedAt: wasClosed ? (existingToday?.closedAt || new Date().toISOString()) : undefined,
+      openedBy: existingToday?.openedBy || (settlement?.id === todayId && settlement?.openedBy) || currentUserName,
+      closedBy: wasClosed ? (existingToday?.closedBy || currentUserName) : undefined,
       initialCash,
       transferSales,
       cashSales,
       totalSales,
       actualCashInput: countedCash,
-      discrepancy,
-      status: settlement?.status === 'CLOSED' ? 'CLOSED' : 'OPEN',
-      note: closingNote,
+      discrepancy: newDiscrepancy,
+      status: wasClosed ? 'CLOSED' : 'OPEN', // 당일 마감이 이미 저장된 상태라면 마감 상태(CLOSED)를 안전하게 유지
+      note: closingNote || existingToday?.note || '',
     };
 
     try {
       await savePosSettlement(newSettlement, currentUserName);
+      setIsFinalized(wasClosed);
       onSaveSettlement(newSettlement);
-      showToast(`시작 준비금(${initialCash.toLocaleString()}원)이 성공적으로 설정되었습니다.`);
+      if (wasClosed) {
+        showToast(`시작 준비금(${initialCash.toLocaleString()}원)이 변경되어 당일 마감 정산에 즉시 반영되었습니다.`);
+      } else {
+        showToast(`시작 준비금(${initialCash.toLocaleString()}원)이 성공적으로 설정되었습니다.`);
+      }
     } catch (err) {
       console.error(err);
       showToast('시작 준비금 저장 중 오류가 발생했습니다.');
     }
   };
 
-  // Finalize Shift Settlement (일일 영업 마감 확정)
+  // Finalize Shift Settlement (마감 정산 저장)
   const handleFinalize = async () => {
     const todayId = format(new Date(), 'yyyy-MM-dd');
     const newSettlement: PosSettlement = {
       id: todayId,
-      openedAt: settlement?.openedAt || new Date().toISOString(),
+      openedAt: (settlement?.id === todayId && settlement?.openedAt) || new Date().toISOString(),
       closedAt: new Date().toISOString(),
-      openedBy: settlement?.openedBy || currentUserName,
+      openedBy: (settlement?.id === todayId && settlement?.openedBy) || currentUserName,
       closedBy: currentUserName,
       initialCash,
       transferSales,
@@ -320,10 +358,11 @@ export function PosSettlementModal({
     };
 
     try {
+      const wasFinalized = isFinalized;
       await savePosSettlement(newSettlement, currentUserName);
       onSaveSettlement(newSettlement);
       setIsFinalized(true);
-      showToast('일일 영업 마감이 완료되어 안전하게 저장되었습니다.');
+      showToast(wasFinalized ? '일일 영업 마감 정산 내역이 성공적으로 수정되었습니다.' : '일일 영업 마감 정산이 완료되어 안전하게 저장되었습니다.');
     } catch (err) {
       console.error(err);
       showToast('마감 저장 중 오류가 발생했습니다.');
@@ -373,13 +412,33 @@ export function PosSettlementModal({
   // Confirm Delete for a Historical Settlement
   const handleConfirmDelete = async () => {
     if (!settlementToDelete) return;
+    const targetId = settlementToDelete.id;
     setIsDeleting(true);
     try {
-      await deletePosSettlement(settlementToDelete.id, currentUserName);
-      if (selectedHistoryItem?.id === settlementToDelete.id) {
+      await deletePosSettlement(targetId, currentUserName);
+      if (selectedHistoryItem?.id === targetId) {
         setSelectedHistoryItem(null);
       }
-      showToast(`[${settlementToDelete.id}] 마감 정산 내역이 삭제되었습니다.`);
+      if (targetId === todayId) {
+        setIsFinalized(false);
+        setClosingNote('');
+        setCounts({
+          50000: 0,
+          10000: 0,
+          5000: 0,
+          1000: 0,
+          500: 0,
+          100: 0,
+        });
+        setDirectCashInput('');
+        try {
+          localStorage.removeItem('pos_daily_settlement_v1');
+        } catch (e) {
+          console.error(e);
+        }
+        onDeleteSettlement?.(targetId);
+      }
+      showToast(`[${targetId}] 마감 정산 내역이 삭제되었습니다.`);
       setSettlementToDelete(null);
     } catch (err) {
       console.error(err);
@@ -497,7 +556,7 @@ export function PosSettlementModal({
               </div>
               <div className="min-w-0">
                 <div className="flex items-center space-x-2 flex-wrap">
-                  <h2 className="text-base sm:text-xl font-black text-white truncate">일일 시재금 및 마감 정산</h2>
+                  <h2 className="text-base sm:text-xl font-black text-white truncate">마감 정산</h2>
                   {activeTab === 'today' && isFinalized && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
                       오늘 마감 완료
@@ -510,9 +569,6 @@ export function PosSettlementModal({
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] sm:text-xs text-surface-dim truncate hidden sm:block">
-                  총 매출 집계 및 금고 현금 실측을 대조하고, 역대 마감 정산 보고서를 조회·관리합니다.
-                </p>
               </div>
             </div>
 
@@ -557,11 +613,11 @@ export function PosSettlementModal({
               >
                 <History className="w-3.5 h-3.5" />
                 <span>역대 마감 내역</span>
-                {historyList.length > 0 && (
+                {historyList.filter(s => s.status === 'CLOSED').length > 0 && (
                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
                     activeTab === 'history' ? 'bg-white/20 text-white' : 'bg-white/10 text-surface-dim'
                   }`}>
-                    {historyList.length}
+                    {historyList.filter(s => s.status === 'CLOSED').length}
                   </span>
                 )}
               </button>
@@ -583,184 +639,178 @@ export function PosSettlementModal({
         {/* ========================================================================= */}
         {activeTab === 'today' && (
           <>
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 custom-scrollbar">
               
-              {/* Educational Notice Banner: What is expected cash & how is it set? */}
-              <div className="bg-gradient-to-r from-blue-900/30 to-indigo-900/20 border border-blue-500/30 rounded-2xl p-4 flex items-start space-x-3 text-xs text-blue-200">
-                <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
-                <div className="space-y-1 leading-relaxed">
-                  <div className="font-bold text-white flex items-center space-x-2">
-                    <span>💡 [안내] 시작 준비금과 장부상 금고 현금</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                      실시간 자동 계산
-                    </span>
+              {/* Optional Collapsible Educational Guide Banner */}
+              {showGuide && (
+                <div className="bg-blue-950/40 border border-blue-500/30 rounded-2xl p-3.5 flex items-start justify-between gap-3 text-xs text-blue-200 animate-in fade-in duration-150">
+                  <div className="flex items-start space-x-2.5">
+                    <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="font-bold text-white">시작 준비금 안내</p>
+                      <p className="text-blue-200/90 text-[11px] leading-relaxed">
+                        영업 전 금고에 넣어둔 기초 잔돈입니다. 우측 상단 [준비금]에 입력 시 &apos;장부상 금고 현금(준비금+현금매출)&apos;에 즉시 반영됩니다.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-blue-200/90">
-                    <strong>&apos;시작 준비금&apos;</strong>은 영업 전 거스름돈용으로 금고에 넣어둔 기초 현금입니다. 아래 
-                    <span className="text-white font-bold underline underline-offset-2 mx-1">[시작 준비금 설정]</span>에 금액을 입력하면
-                    <strong>&apos;장부상 금고 현금(준비금 + 오늘 현금매출)&apos;</strong>에 즉시 반영됩니다.
-                  </p>
-                  <p className="text-blue-300/80 text-[11px]">
-                    👉 아침에 매점을 열 때는 준비금을 맞춘 뒤 <strong>[시작 준비금 등록/저장]</strong>만 누르면 바로 영업을 개시할 수 있습니다.
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowGuide(false)}
+                    className="p-1 text-blue-300 hover:text-white rounded-lg hover:bg-white/10 shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-              </div>
+              )}
 
               {/* Section 1: Sales Performance Dashboard */}
               <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-surface-dim mb-3 flex items-center space-x-1.5">
+                <h3 className="text-xs font-bold text-surface-dim mb-2 flex items-center space-x-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-secondary" />
-                  <span>1. 당일 영업 매출 실적 집계</span>
+                  <span>당일 매출 실적</span>
                 </h3>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
                   {/* Total Revenue */}
-                  <div className="bg-[#121c38] border border-secondary/30 rounded-2xl p-4">
-                    <span className="text-xs text-surface-dim block mb-1">총 매출 합계</span>
-                    <span className="text-xl sm:text-2xl font-black text-white font-mono">
+                  <div className="bg-[#121c38] border border-secondary/30 rounded-xl p-2.5 sm:p-3">
+                    <span className="text-[11px] text-surface-dim block">총 매출</span>
+                    <span className="text-base sm:text-xl font-black text-white font-mono block mt-0.5">
                       {totalSales.toLocaleString()}
-                      <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
+                      <span className="text-[11px] font-normal text-surface-dim ml-0.5">원</span>
                     </span>
-                    <span className="text-[11px] text-secondary-fixed block mt-1">
-                      결제 {activeOrders.length}건
+                    <span className="text-[10px] text-secondary-fixed block mt-0.5">
+                      {activeOrders.length}건
                     </span>
                   </div>
 
                   {/* Transfer Sales */}
-                  <div className="bg-[#121c38] border border-indigo-500/20 rounded-2xl p-4">
-                    <span className="text-xs text-indigo-300 block mb-1">계좌이체 매출</span>
-                    <span className="text-xl sm:text-2xl font-black text-indigo-200 font-mono">
+                  <div className="bg-[#121c38] border border-indigo-500/20 rounded-xl p-2.5 sm:p-3">
+                    <span className="text-[11px] text-indigo-300 block">계좌이체</span>
+                    <span className="text-base sm:text-xl font-black text-indigo-200 font-mono block mt-0.5">
                       {transferSales.toLocaleString()}
-                      <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
+                      <span className="text-[11px] font-normal text-surface-dim ml-0.5">원</span>
                     </span>
-                    <span className="text-[11px] text-surface-dim block mt-1">
-                      {activeOrders.filter(o => o.paymentMethod === 'TRANSFER').length}건 완료
+                    <span className="text-[10px] text-surface-dim block mt-0.5">
+                      {activeOrders.filter(o => o.paymentMethod === 'TRANSFER').length}건
                     </span>
                   </div>
 
                   {/* Cash Sales */}
-                  <div className="bg-[#121c38] border border-emerald-500/20 rounded-2xl p-4">
-                    <span className="text-xs text-emerald-300 block mb-1">현금 매출</span>
-                    <span className="text-xl sm:text-2xl font-black text-emerald-200 font-mono">
+                  <div className="bg-[#121c38] border border-emerald-500/20 rounded-xl p-2.5 sm:p-3">
+                    <span className="text-[11px] text-emerald-300 block">현금</span>
+                    <span className="text-base sm:text-xl font-black text-emerald-200 font-mono block mt-0.5">
                       {cashSales.toLocaleString()}
-                      <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
+                      <span className="text-[11px] font-normal text-surface-dim ml-0.5">원</span>
                     </span>
-                    <span className="text-[11px] text-surface-dim block mt-1">
-                      {activeOrders.filter(o => o.paymentMethod === 'CASH').length}건 완료
+                    <span className="text-[10px] text-surface-dim block mt-0.5">
+                      {activeOrders.filter(o => o.paymentMethod === 'CASH').length}건
                     </span>
                   </div>
 
                   {/* Cancelled */}
-                  <div className="bg-[#121c38] border border-red-500/20 rounded-2xl p-4">
-                    <span className="text-xs text-red-300 block mb-1">취소 및 환불</span>
-                    <span className="text-xl sm:text-2xl font-black text-red-300 font-mono">
+                  <div className="bg-[#121c38] border border-red-500/20 rounded-xl p-2.5 sm:p-3">
+                    <span className="text-[11px] text-red-300 block">취소/환불</span>
+                    <span className="text-base sm:text-xl font-black text-red-300 font-mono block mt-0.5">
                       {cancelledOrders.reduce((s, o) => s + o.totalAmount, 0).toLocaleString()}
-                      <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
+                      <span className="text-[11px] font-normal text-surface-dim ml-0.5">원</span>
                     </span>
-                    <span className="text-[11px] text-red-400/80 block mt-1">
-                      {cancelledOrders.length}건 취소됨
+                    <span className="text-[10px] text-red-400/80 block mt-0.5">
+                      {cancelledOrders.length}건
                     </span>
                   </div>
                 </div>
               </div>
 
               {/* Section 2: Cash Drawer Reconciliation (금고 시재금 대조) */}
-              <div className="bg-[#090e1c] border border-white/10 rounded-2xl p-4 sm:p-5 space-y-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
-                  <div>
-                    <h3 className="text-sm sm:text-base font-black text-white flex items-center space-x-2">
-                      <Banknote className="w-4 h-4 text-emerald-400" />
-                      <span>2. 금고 현금 시재금 정산 및 대조</span>
-                    </h3>
-                    <p className="text-xs text-surface-dim mt-0.5">
-                      시작 준비금과 오늘 발생한 현금 매출의 합산액을 실제 금고 현금과 대조합니다.
-                    </p>
+              <div className="bg-[#090e1c] border border-white/10 rounded-2xl p-3 sm:p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                  <div className="flex items-center space-x-1.5">
+                    <Banknote className="w-4 h-4 text-emerald-400" />
+                    <h3 className="text-xs sm:text-sm font-black text-white">금고 시재금 대조</h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowGuide(!showGuide)}
+                      className="text-surface-dim hover:text-white p-0.5 transition-colors cursor-pointer"
+                      title="준비금 안내 보기"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5 text-blue-400/80" />
+                    </button>
                   </div>
 
                   {/* Initial Preparation Cash Setting Box with Direct Buttons */}
-                  <div className="flex flex-col sm:items-end gap-1.5 w-full sm:w-auto">
-                    <div className="flex items-center space-x-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl w-full sm:w-auto justify-between sm:justify-start">
-                      <div className="flex flex-col text-left sm:text-right">
-                        <label htmlFor="input-initial-cash" className="text-xs text-white font-bold cursor-pointer">
-                          시작 준비금 설정:
-                        </label>
-                        <span className="text-[10px] text-secondary">거스름돈용 기초 현금</span>
-                      </div>
-                      <div className="flex items-center space-x-1.5">
-                        <div className="relative">
-                          <input
-                            id="input-initial-cash"
-                            type="number"
-                            min="0"
-                            step="1000"
-                            value={initialCash === 0 ? '' : initialCash}
-                            placeholder="0"
-                            onChange={e => setInitialCash(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                            className="w-28 bg-black/70 border border-secondary/50 rounded-xl px-2.5 py-1 text-xs text-right font-mono font-bold text-white outline-none focus:border-secondary focus:ring-1 focus:ring-secondary cursor-text"
-                          />
-                          <span className="text-xs text-surface-dim absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                            원
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          id="btn-save-initial-cash"
-                          onClick={handleSaveInitialCashOnly}
-                          title="시작 준비금만 즉시 저장"
-                          className="px-2.5 py-1 rounded-xl bg-secondary/20 hover:bg-secondary text-secondary hover:text-white border border-secondary/40 text-xs font-bold transition-all cursor-pointer flex items-center space-x-1 shrink-0"
-                        >
-                          <Save className="w-3.5 h-3.5" />
-                          <span>저장</span>
-                        </button>
-                      </div>
+                  <div className="flex items-center space-x-1.5 bg-white/5 border border-white/10 px-2 sm:px-2.5 py-1 rounded-xl">
+                    <label htmlFor="input-initial-cash" className="text-[11px] text-surface-dim font-bold whitespace-nowrap cursor-pointer">
+                      준비금:
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="input-initial-cash"
+                        type="number"
+                        min="0"
+                        step="1000"
+                        value={initialCash === 0 ? '' : initialCash}
+                        placeholder="0"
+                        onChange={e => setInitialCash(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                        className="w-20 sm:w-24 bg-black/70 border border-secondary/50 rounded-lg pl-2 pr-5 py-0.5 text-xs text-right font-mono font-bold text-white outline-none focus:border-secondary cursor-text"
+                      />
+                      <span className="text-[10px] text-surface-dim absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                        원
+                      </span>
                     </div>
+                    <button
+                      type="button"
+                      id="btn-save-initial-cash"
+                      onClick={handleSaveInitialCashOnly}
+                      title="시작 준비금만 즉시 저장"
+                      className="px-2 py-0.5 rounded-lg bg-secondary/20 hover:bg-secondary text-secondary hover:text-white border border-secondary/40 text-[11px] font-bold transition-all cursor-pointer flex items-center space-x-1 shrink-0"
+                    >
+                      <Save className="w-3 h-3" />
+                      <span>저장</span>
+                    </button>
                   </div>
                 </div>
 
-                {/* Expected vs Actual Highlight */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Expected vs Actual Highlight: 3 Compact Columns on Mobile & Desktop */}
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5">
                   {/* Expected in Drawer */}
-                  <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 relative overflow-hidden">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-surface-dim font-bold">장부상 금고 현금</span>
-                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                        자동 계산
-                      </span>
-                    </div>
-                    <div className="text-lg font-black font-mono text-white">
+                  <div className="p-2 sm:p-3 rounded-xl bg-white/5 border border-white/5 overflow-hidden">
+                    <span className="text-[10px] sm:text-xs text-surface-dim font-bold block truncate">
+                      장부상 금고
+                    </span>
+                    <div className="text-xs sm:text-base font-black font-mono text-white mt-0.5 truncate">
                       {expectedCashInDrawer.toLocaleString()}원
                     </div>
-                    <div className="text-[11px] text-blue-300/80 mt-1 flex items-center space-x-1">
-                      <span>준비금({initialCash.toLocaleString()})</span>
-                      <span>+</span>
-                      <span>현금매출({cashSales.toLocaleString()})</span>
+                    <div className="text-[9px] sm:text-[10px] text-blue-300/80 mt-0.5 truncate">
+                      준비금+현금매출
                     </div>
                   </div>
 
                   {/* Counted Cash in Drawer */}
-                  <div className="p-3.5 rounded-xl bg-white/5 border border-white/5">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-surface-dim font-bold">실측된 금고 현금</span>
+                  <div className="p-2 sm:p-3 rounded-xl bg-white/5 border border-white/5 overflow-hidden">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] sm:text-xs text-surface-dim font-bold truncate">
+                        실측 금고
+                      </span>
                       <button
                         type="button"
                         id="btn-toggle-input-mode"
                         onClick={() => setUseDirectInput(!useDirectInput)}
-                        className="text-[10px] text-secondary hover:underline cursor-pointer"
+                        className="text-[9px] sm:text-[10px] text-secondary hover:underline cursor-pointer shrink-0 ml-1"
                       >
-                        {useDirectInput ? '권종별 계산기로 전환' : '직접 금액 입력으로 전환'}
+                        {useDirectInput ? '권종별' : '직접입력'}
                       </button>
                     </div>
-                    <div className="text-lg font-black font-mono text-emerald-400">
+                    <div className="text-xs sm:text-base font-black font-mono text-emerald-400 mt-0.5 truncate">
                       {countedCash.toLocaleString()}원
                     </div>
-                    <div className="text-[11px] text-surface-dim mt-1">
-                      {useDirectInput ? '직접 타이핑 입력 중' : '아래 권종별 수량 합산'}
+                    <div className="text-[9px] sm:text-[10px] text-surface-dim mt-0.5 truncate">
+                      {useDirectInput ? '직접 입력 중' : '권종 합산'}
                     </div>
                   </div>
 
                   {/* Discrepancy (과부족) */}
                   <div
-                    className={`p-3.5 rounded-xl border ${
+                    className={`p-2 sm:p-3 rounded-xl border overflow-hidden ${
                       discrepancy === 0
                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
                         : discrepancy > 0
@@ -768,36 +818,33 @@ export function PosSettlementModal({
                         : 'bg-red-500/10 border-red-500/30 text-red-300'
                     }`}
                   >
-                    <span className="text-xs block mb-1 font-bold">시재 과부족 (오차)</span>
-                    <div className="text-lg font-black font-mono">
+                    <span className="text-[10px] sm:text-xs block font-bold truncate">
+                      시재 과부족
+                    </span>
+                    <div className="text-xs sm:text-base font-black font-mono mt-0.5 truncate">
                       {discrepancy === 0
-                        ? '0원 (정상 일치)'
+                        ? '0원'
                         : `${discrepancy > 0 ? '+' : ''}${discrepancy.toLocaleString()}원`}
                     </div>
-                    <div className="text-[11px] font-medium mt-1">
+                    <div className="text-[9px] sm:text-[10px] font-bold mt-0.5 truncate">
                       {discrepancy === 0
-                        ? '장부와 실측 현금이 완벽히 일치합니다.'
+                        ? '정상 일치'
                         : discrepancy > 0
-                        ? '장부보다 현금이 많습니다 (과잉).'
-                        : '장부보다 현금이 부족합니다 (확인 필요).'}
+                        ? '장부 초과'
+                        : '현금 부족'}
                     </div>
                   </div>
                 </div>
 
                 {/* Denomination Counter Grid */}
                 {!useDirectInput ? (
-                  <div className="space-y-2 pt-2">
-                    <div className="text-xs font-bold text-surface-dim flex items-center justify-between">
-                      <span className="flex items-center space-x-1.5">
-                        <Coins className="w-3.5 h-3.5 text-secondary" />
-                        <span>권종별 지폐 및 동전 수량 입력 (실측 계산기)</span>
-                      </span>
-                      <span className="text-[11px] text-surface-dim font-normal">
-                        금고의 돈을 세어 장수를 입력하면 실측 현금이 자동 계산됩니다.
-                      </span>
+                  <div className="space-y-1.5 pt-1">
+                    <div className="text-[11px] font-bold text-surface-dim flex items-center space-x-1.5">
+                      <Coins className="w-3.5 h-3.5 text-secondary" />
+                      <span>권종별 실측 수량</span>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2 text-xs">
                       {[
                         { denom: 50000, label: '5만원', type: '지폐' },
                         { denom: 10000, label: '1만원', type: '지폐' },
@@ -810,17 +857,17 @@ export function PosSettlementModal({
                         const subtotal = denom * count;
 
                         return (
-                          <div key={denom} className="bg-black/30 border border-white/10 p-2 rounded-xl">
-                            <div className="font-bold text-white/80 mb-1 flex justify-between items-center">
+                          <div key={denom} className="bg-black/30 border border-white/10 p-1.5 rounded-xl">
+                            <div className="font-bold text-white/80 mb-1 flex justify-between items-center text-[10px] sm:text-[11px]">
                               <span className="text-white font-bold">{label}</span>
                               <span className="text-[9px] text-surface-dim px-1 py-0.2 bg-white/5 rounded">{type}</span>
                             </div>
 
-                            <div className="flex items-center space-x-1 mb-1.5">
+                            <div className="flex items-center space-x-1 mb-1">
                               <button
                                 type="button"
                                 onClick={() => handleQuickAdd(denom, -1)}
-                                className="w-7 h-7 sm:w-6 sm:h-6 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center font-bold text-sm sm:text-xs cursor-pointer shrink-0"
+                                className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center font-bold text-xs cursor-pointer shrink-0"
                               >
                                 -
                               </button>
@@ -829,12 +876,12 @@ export function PosSettlementModal({
                                 min="0"
                                 value={count}
                                 onChange={e => handleCountChange(denom, e.target.value)}
-                                className="w-full bg-white/5 border border-white/10 rounded-lg py-1 text-center text-xs font-bold text-white outline-none focus:border-secondary"
+                                className="w-full bg-white/5 border border-white/10 rounded-lg py-0.5 text-center text-xs font-bold text-white outline-none focus:border-secondary"
                               />
                               <button
                                 type="button"
                                 onClick={() => handleQuickAdd(denom, 1)}
-                                className="w-7 h-7 sm:w-6 sm:h-6 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center font-bold text-sm sm:text-xs cursor-pointer shrink-0"
+                                className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center font-bold text-xs cursor-pointer shrink-0"
                               >
                                 +
                               </button>
@@ -849,9 +896,9 @@ export function PosSettlementModal({
                     </div>
                   </div>
                 ) : (
-                  <div className="pt-2">
-                    <label className="text-xs font-bold text-surface-dim block mb-1">
-                      실제 세어본 금고 총 현금 (원):
+                  <div className="pt-1">
+                    <label className="text-[11px] font-bold text-surface-dim block mb-1">
+                      실제 금고 현금 직접 입력 (원):
                     </label>
                     <input
                       type="text"
@@ -859,7 +906,7 @@ export function PosSettlementModal({
                       value={directCashInput}
                       onChange={e => setDirectCashInput(e.target.value)}
                       placeholder="예: 73000"
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-mono font-bold text-white outline-none focus:border-secondary"
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm font-mono font-bold text-white outline-none focus:border-secondary"
                     />
                   </div>
                 )}
@@ -867,16 +914,16 @@ export function PosSettlementModal({
 
               {/* Section 3: Closing Notes */}
               <div>
-                <label htmlFor="input-closing-note" className="text-xs font-bold text-surface-dim block mb-1.5">
-                  3. 마감 특이사항 / 업무 인수인계 메모 (선택사항)
+                <label htmlFor="input-closing-note" className="text-xs font-bold text-surface-dim block mb-1">
+                  마감 특이사항 / 메모 (선택사항)
                 </label>
                 <textarea
                   id="input-closing-note"
                   value={closingNote}
                   onChange={e => setClosingNote(e.target.value)}
-                  placeholder="예: 거스름돈 1,000원권 10장 교환함, 음료수 재고 1박스 입고 확인 등"
+                  placeholder="예: 거스름돈 교환, 특이사항 등"
                   rows={2}
-                  className="w-full bg-[#090e1c] border border-white/10 rounded-2xl p-3 text-xs text-white placeholder:text-surface-dim/50 outline-none focus:border-secondary resize-none"
+                  className="w-full bg-[#090e1c] border border-white/10 rounded-2xl p-2.5 text-xs text-white placeholder:text-surface-dim/50 outline-none focus:border-secondary resize-none"
                 />
               </div>
             </div>
@@ -914,23 +961,46 @@ export function PosSettlementModal({
                 </button>
               </div>
 
-              <div className="grid grid-cols-3 sm:flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="col-span-1 sm:flex-initial py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-bold transition-colors cursor-pointer text-center"
+                  className="py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-bold transition-colors cursor-pointer text-center"
                 >
                   닫기
                 </button>
+
+                {isFinalized && (
+                  <button
+                    type="button"
+                    id="btn-delete-today-settlement"
+                    onClick={() => {
+                      const todayRecord = historyList.find(s => s.id === todayId) || settlement || ({
+                        id: todayId,
+                        status: 'CLOSED',
+                        totalSales,
+                        transferSales,
+                        cashSales,
+                        initialCash,
+                      } as PosSettlement);
+                      setSettlementToDelete(todayRecord);
+                    }}
+                    className="flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20 text-xs font-bold transition-colors cursor-pointer"
+                    title="당일 마감 내역 삭제"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="truncate">마감 내역 삭제</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
                   id="btn-finalize-settlement"
                   onClick={handleFinalize}
-                  className="col-span-2 sm:flex-initial flex items-center justify-center space-x-2 py-2.5 px-4 sm:px-5 rounded-xl bg-secondary hover:bg-secondary/90 text-white text-xs font-black shadow-lg shadow-secondary/20 transition-all active:scale-[0.98] cursor-pointer"
+                  className="flex items-center justify-center space-x-2 py-2.5 px-4 sm:px-5 rounded-xl bg-secondary hover:bg-secondary/90 text-white text-xs font-black shadow-lg shadow-secondary/20 transition-all active:scale-[0.98] cursor-pointer"
                 >
                   <Lock className="w-3.5 h-3.5" />
-                  <span className="truncate">{isFinalized ? '마감 내역 재저장' : '일일 영업 마감 확정'}</span>
+                  <span className="truncate">{isFinalized ? '마감 정산 수정' : '마감 정산 저장'}</span>
                 </button>
               </div>
             </div>
@@ -943,56 +1013,24 @@ export function PosSettlementModal({
         {activeTab === 'history' && (
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 custom-scrollbar">
             
-            {/* Top Toolbar: Admin Auth Status & Search/Filter Controls */}
-            <div className="bg-[#090e1c] border border-white/10 rounded-2xl p-4 space-y-3">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+            {/* Top Toolbar: Search & Filter Controls (Admin pill removed, 1-row layout) */}
+            <div className="bg-[#090e1c] border border-white/10 rounded-2xl p-3 sm:p-4 space-y-2.5">
+              <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
                 <div className="flex items-center space-x-2">
-                  <span className="text-xs font-bold text-white flex items-center space-x-1.5">
-                    <Calendar className="w-4 h-4 text-secondary" />
-                    <span>역대 마감 내역 검색 및 필터</span>
-                  </span>
+                  <Calendar className="w-3.5 h-3.5 text-secondary shrink-0" />
+                  <span className="text-xs font-bold text-white">마감 내역 검색</span>
                   <span className="text-[11px] text-surface-dim">
-                    (총 {historyList.length}건 중 {filteredHistoryList.length}건 표시)
+                    ({filteredHistoryList.length}건)
                   </span>
-                </div>
-
-                {/* Admin Auth Pill */}
-                <div className="flex items-center space-x-2">
-                  {isAuthorizedAdmin ? (
-                    <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>관리자 인증됨 (수정·삭제 가능)</span>
-                      {googleUser && (
-                        <button
-                          type="button"
-                          onClick={handleGoogleLogout}
-                          title="로그아웃"
-                          className="ml-1 text-surface-dim hover:text-white cursor-pointer"
-                        >
-                          <LogOut className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleGoogleLogin}
-                      disabled={isLoggingIn}
-                      className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/10 text-[11px] font-bold transition-all cursor-pointer"
-                    >
-                      <LogIn className="w-3.5 h-3.5 text-secondary" />
-                      <span>{isLoggingIn ? '...' : '관리자 로그인'}</span>
-                    </button>
-                  )}
                 </div>
               </div>
 
-              {/* Search Inputs: Date Picker & Text Search */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+              {/* Search Inputs: Date Picker & Text Search in ONE SINGLE LINE */}
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 {/* Specific Date Picker */}
-                <div className="sm:col-span-4 relative">
+                <div className="relative w-36 sm:w-44 shrink-0">
                   <label htmlFor="input-search-date" className="sr-only">일자 검색</label>
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-surface-dim">
+                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-surface-dim">
                     <Calendar className="w-3.5 h-3.5" />
                   </div>
                   <input
@@ -1000,14 +1038,14 @@ export function PosSettlementModal({
                     type="date"
                     value={searchDate}
                     onChange={e => setSearchDate(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white outline-none focus:border-secondary font-mono"
+                    className="w-full pl-8 pr-2 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white outline-none focus:border-secondary font-mono"
                   />
                 </div>
 
                 {/* Text Keyword Search */}
-                <div className="sm:col-span-5 relative">
+                <div className="relative flex-1 min-w-0">
                   <label htmlFor="input-search-query" className="sr-only">키워드 검색</label>
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-surface-dim">
+                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-surface-dim">
                     <Search className="w-3.5 h-3.5" />
                   </div>
                   <input
@@ -1015,32 +1053,30 @@ export function PosSettlementModal({
                     type="text"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="날짜(2026-09), 담당자, 메모 등 검색..."
-                    className="w-full pl-9 pr-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white outline-none focus:border-secondary placeholder:text-surface-dim/60"
+                    placeholder="담당자, 메모 검색..."
+                    className="w-full pl-8 pr-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white outline-none focus:border-secondary placeholder:text-surface-dim/60 truncate"
                   />
                 </div>
 
                 {/* Clear Filter Button */}
                 {(searchDate || searchQuery || filterStatus !== 'ALL') && (
-                  <div className="sm:col-span-3 flex items-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchDate('');
-                        setSearchQuery('');
-                        setFilterStatus('ALL');
-                      }}
-                      className="w-full flex items-center justify-center space-x-1 py-1.5 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 text-xs font-bold border border-white/10 transition-all cursor-pointer"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>필터 초기화</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchDate('');
+                      setSearchQuery('');
+                      setFilterStatus('ALL');
+                    }}
+                    title="필터 초기화"
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white border border-white/10 transition-colors shrink-0 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
                 )}
               </div>
 
               {/* Status Filter Chips */}
-              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-xs">
                 <span className="text-[11px] text-surface-dim mr-1">분류:</span>
                 {[
                   { id: 'ALL', label: '전체' },
@@ -1067,32 +1103,32 @@ export function PosSettlementModal({
             {/* If detailed item is selected */}
             {selectedHistoryItem ? (
               <div className="space-y-4 animate-in fade-in duration-150">
-                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2.5">
                   <button
                     type="button"
                     onClick={() => setSelectedHistoryItem(null)}
-                    className="flex items-center space-x-1.5 text-xs text-secondary hover:underline cursor-pointer font-bold"
+                    className="flex items-center space-x-1.5 text-xs text-secondary hover:underline cursor-pointer font-bold px-1 py-1 shrink-0"
                   >
                     <ArrowLeft className="w-4 h-4" />
-                    <span>마감 목록으로 돌아가기</span>
+                    <span>목록</span>
                   </button>
 
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1.5 overflow-x-auto scrollbar-hide">
                     {/* Admin Edit / Delete Actions */}
                     {isAuthorizedAdmin && (
                       <>
                         <button
                           type="button"
                           onClick={() => handleStartEdit(selectedHistoryItem)}
-                          className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/40 text-xs font-bold transition-all cursor-pointer"
+                          className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/40 text-xs font-bold transition-all cursor-pointer shrink-0"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
-                          <span>정산 수정</span>
+                          <span>수정</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => setSettlementToDelete(selectedHistoryItem)}
-                          className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-xs font-bold transition-all cursor-pointer"
+                          className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-xs font-bold transition-all cursor-pointer shrink-0"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>삭제</span>
@@ -1103,24 +1139,24 @@ export function PosSettlementModal({
                     <button
                       type="button"
                       onClick={() => handleCopyHistoryReport(selectedHistoryItem)}
-                      className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-white border border-white/10 transition-colors cursor-pointer"
+                      className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-white border border-white/10 transition-colors cursor-pointer shrink-0"
                     >
                       {copiedHistoryReport ? (
                         <>
                           <Check className="w-3.5 h-3.5 text-emerald-400" />
-                          <span className="text-emerald-300">복사됨!</span>
+                          <span className="text-emerald-300">복사됨</span>
                         </>
                       ) : (
                         <>
                           <Copy className="w-3.5 h-3.5 text-surface-dim" />
-                          <span>보고서 텍스트 복사</span>
+                          <span>복사</span>
                         </>
                       )}
                     </button>
                     <button
                       type="button"
                       onClick={() => window.print()}
-                      className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-white border border-white/10 transition-colors cursor-pointer"
+                      className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-white border border-white/10 transition-colors cursor-pointer shrink-0"
                     >
                       <Printer className="w-3.5 h-3.5 text-surface-dim" />
                       <span>인쇄</span>
@@ -1265,7 +1301,7 @@ export function PosSettlementModal({
                     <h4 className="text-sm font-bold text-white">일치하는 마감 정산 내역이 없습니다.</h4>
                     <p className="text-xs text-surface-dim max-w-sm mx-auto">
                       {historyList.length === 0
-                        ? "영업 종료 후 [당일 마감 정산] 탭에서 '일일 영업 마감 확정'을 누르면 일자별로 영구 저장됩니다."
+                        ? "영업 종료 후 [당일 마감 정산] 탭에서 '마감 정산 저장'을 누르면 일자별로 영구 저장됩니다."
                         : "검색 조건이나 일자 필터를 변경해 보세요."}
                     </p>
                   </div>

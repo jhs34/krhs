@@ -97,11 +97,29 @@ export function PosPage() {
   // Modal for confirming shift end
   const [showEndShiftConfirm, setShowEndShiftConfirm] = useState<boolean>(false);
 
-  // POS Categories State (hydrated from localStorage)
+  // POS Categories State (hydrated and deduplicated from localStorage)
   const [categories, setCategories] = useState<PosCategory[]>(() => {
     try {
       const saved = localStorage.getItem(CATEGORIES_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map<string, PosCategory>();
+          parsed.forEach((c: PosCategory, idx: number) => {
+            const cleanName = (c.name || '').trim();
+            if (cleanName && !map.has(cleanName.toLowerCase())) {
+              map.set(cleanName.toLowerCase(), {
+                id: cleanName,
+                name: cleanName,
+                orderIndex: typeof c.orderIndex === 'number' ? c.orderIndex : idx + 1,
+              });
+            }
+          });
+          if (map.size > 0) {
+            return Array.from(map.values()).sort((a, b) => a.orderIndex - b.orderIndex);
+          }
+        }
+      }
     } catch (e) {
       console.error('Failed to load categories', e);
     }
@@ -110,9 +128,25 @@ export function PosPage() {
 
   // POS Items State (hydrated from localStorage)
   const [items, setItems] = useState<PosItem[]>(() => {
+    const legacyMap: Record<string, string> = {
+      'cat-ramen': '라면',
+      'cat-hangang': '한강라면',
+      'cat-snack': '과자',
+      'cat-treat': '간식',
+      'cat-drink': '음료수',
+      'cat-icecream': '아이스크림',
+    };
     try {
       const saved = localStorage.getItem(ITEMS_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: PosItem[] = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(it => ({
+            ...it,
+            categoryId: legacyMap[it.categoryId] || it.categoryId.trim(),
+          }));
+        }
+      }
     } catch (e) {
       console.error('Failed to load items', e);
     }
@@ -328,11 +362,19 @@ export function PosPage() {
     ];
   });
 
-  // Daily Settlement State (hydrated from localStorage)
+  // Day metrics dynamically calculated from orders
+  const todayDateStr = format(new Date(), 'yyyy-MM-dd');
+
+  // Daily Settlement State (hydrated from localStorage for today's date only)
   const [settlement, setSettlement] = useState<PosSettlement | null>(() => {
     try {
       const saved = localStorage.getItem(SETTLEMENT_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: PosSettlement = JSON.parse(saved);
+        if (parsed && parsed.id === todayDateStr) {
+          return parsed;
+        }
+      }
     } catch (e) {
       console.error('Failed to load settlement', e);
     }
@@ -348,16 +390,18 @@ export function PosPage() {
     }
   }, [orders]);
 
-  // Persist settlement
+  // Persist settlement (only for today)
   useEffect(() => {
     try {
-      if (settlement) {
+      if (settlement && settlement.id === todayDateStr) {
         localStorage.setItem(SETTLEMENT_STORAGE_KEY, JSON.stringify(settlement));
+      } else if (!settlement) {
+        localStorage.removeItem(SETTLEMENT_STORAGE_KEY);
       }
     } catch (e) {
       console.error('Failed to save settlement', e);
     }
-  }, [settlement]);
+  }, [settlement, todayDateStr]);
 
   // Persist audit logs
   useEffect(() => {
@@ -367,9 +411,6 @@ export function PosPage() {
       console.error('Failed to save logs', e);
     }
   }, [logs]);
-
-  // Day metrics dynamically calculated from orders
-  const todayDateStr = format(new Date(), 'yyyy-MM-dd');
 
   // Firestore Sync & Transaction Processing State
   const [isProcessingOrder, setIsProcessingOrder] = useState<boolean>(false);
@@ -433,7 +474,18 @@ export function PosPage() {
       // Subscribe to Categories
       unsubCats = subscribePosCategories(firestoreCats => {
         if (firestoreCats.length > 0) {
-          setCategories(firestoreCats);
+          const map = new Map<string, PosCategory>();
+          firestoreCats.forEach((c, idx) => {
+            const cleanName = c.name.trim();
+            if (cleanName && !map.has(cleanName.toLowerCase())) {
+              map.set(cleanName.toLowerCase(), {
+                id: cleanName,
+                name: cleanName,
+                orderIndex: typeof c.orderIndex === 'number' ? c.orderIndex : idx + 1,
+              });
+            }
+          });
+          setCategories(Array.from(map.values()).sort((a, b) => a.orderIndex - b.orderIndex));
         } else {
           // If completely empty in Firestore on initial load, auto-seed defaults
           seedInitialPosData(DEFAULT_POS_CATEGORIES, DEFAULT_POS_ITEMS).catch(console.error);
@@ -458,6 +510,14 @@ export function PosPage() {
       unsubSettlement = subscribePosSettlement(todayDateStr, firestoreSettlement => {
         if (firestoreSettlement) {
           setSettlement(firestoreSettlement);
+        } else {
+          // If no settlement exists in Firestore for today (or deleted), clear settlement and localStorage
+          setSettlement(null);
+          try {
+            localStorage.removeItem(SETTLEMENT_STORAGE_KEY);
+          } catch (e) {
+            console.error(e);
+          }
         }
       });
 
@@ -633,7 +693,18 @@ export function PosPage() {
   };
 
   const handleUpdateCategories = (newCategories: PosCategory[]) => {
-    setCategories(newCategories);
+    const map = new Map<string, PosCategory>();
+    newCategories.forEach((cat, idx) => {
+      const cleanName = cat.name.trim();
+      if (cleanName && !map.has(cleanName.toLowerCase())) {
+        map.set(cleanName.toLowerCase(), {
+          id: cleanName,
+          name: cleanName,
+          orderIndex: typeof cat.orderIndex === 'number' ? cat.orderIndex : idx + 1,
+        });
+      }
+    });
+    setCategories(Array.from(map.values()).sort((a, b) => a.orderIndex - b.orderIndex));
   };
 
   const handleResetToDefault = async () => {
@@ -849,14 +920,18 @@ export function PosPage() {
     }
   };
 
-  const handleSaveSettlement = async (newSettlement: PosSettlement) => {
+  const handleSaveSettlement = (newSettlement: PosSettlement) => {
     setSettlement(newSettlement);
-    try {
-      await savePosSettlement(newSettlement);
-      showToast('마감 정산 보고서가 Firestore에 저장되었습니다.', 'success');
-    } catch (e: any) {
-      console.error('Save settlement error:', e);
-      showToast('정산 저장 중 오류 발생: ' + e.message, 'error');
+  };
+
+  const handleDeleteSettlement = (deletedId: string) => {
+    if (settlement?.id === deletedId || deletedId === todayDateStr) {
+      setSettlement(null);
+      try {
+        localStorage.removeItem(SETTLEMENT_STORAGE_KEY);
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
@@ -1364,6 +1439,7 @@ export function PosPage() {
         currentUserId={currentUser?.id || 'admin'}
         settlement={settlement}
         onSaveSettlement={handleSaveSettlement}
+        onDeleteSettlement={handleDeleteSettlement}
         isAdmin={currentUser?.role === 'admin'}
       />
 
