@@ -9,7 +9,9 @@ export interface PosItem {
   name: string;
   categoryId: string;
   price: number;
-  stock: number;
+  stock?: number;
+  isSoldOut?: boolean; // 품절 여부 (true: 품절 / false: 판매중)
+  totalSold?: number;  // 누적 판매 수량
   isFavorite: boolean;
   isActive: boolean;
   barcode?: string;

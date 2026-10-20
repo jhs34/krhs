@@ -65,9 +65,10 @@ export function PosHubHome({
     return () => clearInterval(timer);
   }, []);
 
-  const outOfStockCount = items.filter(it => it.stock <= 0).length;
-  const lowStockCount = items.filter(it => it.stock > 0 && it.stock <= 5).length;
-  const totalStockCount = items.reduce((sum, it) => sum + it.stock, 0);
+  const isItemSoldOut = (it: PosItem) => Boolean(it.isSoldOut);
+  const outOfStockCount = items.filter(isItemSoldOut).length;
+  const inStockCount = items.length - outOfStockCount;
+  const totalSoldCount = items.reduce((sum, it) => sum + (it.totalSold || 0), 0);
   const activeGifticonsCount = gifticons ? gifticons.filter(g => g.status === 'ACTIVE').length : 0;
   const totalGifticonsCount = gifticons ? gifticons.length : 0;
 
@@ -322,10 +323,10 @@ export function PosHubHome({
             <div className="flex sm:flex-col items-center sm:items-start justify-between sm:justify-start p-1.5 sm:p-0">
               <div className="flex items-center gap-1 text-surface-dim text-[11px] sm:text-xs">
                 <Boxes className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                <span>총 재고</span>
+                <span>누적 판매량</span>
               </div>
               <div className="text-sm sm:text-lg font-black text-white font-mono mt-0 sm:mt-1">
-                {totalStockCount}
+                {totalSoldCount}
                 <span className="text-[10px] sm:text-xs font-normal text-surface-dim ml-0.5">개</span>
               </div>
             </div>
@@ -343,12 +344,12 @@ export function PosHubHome({
 
             <div className="flex sm:flex-col items-center sm:items-start justify-between sm:justify-start p-1.5 sm:p-0 pt-2 sm:pt-0">
               <div className="flex items-center gap-1 text-surface-dim text-[11px] sm:text-xs">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>재고 부족</span>
+                <Store className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>판매중 상품</span>
               </div>
-              <div className={`text-sm sm:text-lg font-black font-mono mt-0 sm:mt-1 ${lowStockCount > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                {lowStockCount}
-                <span className="text-[10px] sm:text-xs font-normal text-surface-dim ml-0.5">종</span>
+              <div className="text-sm sm:text-lg font-black font-mono mt-0 sm:mt-1 text-emerald-400">
+                {inStockCount}
+                <span className="text-[10px] sm:text-xs font-normal text-surface-dim ml-0.5">/{items.length}종</span>
               </div>
             </div>
           </div>

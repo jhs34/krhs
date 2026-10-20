@@ -620,12 +620,11 @@ export function PosPage() {
             return {
               ...ci,
               item: updatedItem,
-              count: Math.min(ci.count, Math.max(1, updatedItem.stock)),
             };
           }
           return ci;
         })
-        .filter(ci => ci.item.stock > 0);
+        .filter(ci => !ci.item.isSoldOut && ci.item.isActive !== false);
     });
 
     // 3. Fast single Firestore write
@@ -649,7 +648,7 @@ export function PosPage() {
     );
 
     // 2. Sync cart if relevant
-    if (patch.stock !== undefined || patch.name !== undefined || patch.price !== undefined || patch.isActive !== undefined) {
+    if (patch.stock !== undefined || patch.isSoldOut !== undefined || patch.name !== undefined || patch.price !== undefined || patch.isActive !== undefined) {
       setCart(prevCart => {
         return prevCart
           .map(ci => {
@@ -658,12 +657,11 @@ export function PosPage() {
               return {
                 ...ci,
                 item: fresh,
-                count: Math.min(ci.count, Math.max(1, fresh.stock)),
               };
             }
             return ci;
           })
-          .filter(ci => ci.item.stock > 0);
+          .filter(ci => !ci.item.isSoldOut && ci.item.isActive !== false);
       });
     }
 
@@ -684,11 +682,11 @@ export function PosPage() {
         .map(ci => {
           const fresh = newItems.find(it => it.id === ci.item.id)!;
           return {
+            ...ci,
             item: fresh,
-            count: Math.min(ci.count, Math.max(1, fresh.stock)),
           };
         })
-        .filter(ci => ci.item.stock > 0);
+        .filter(ci => !ci.item.isSoldOut && ci.item.isActive !== false);
     });
   };
 
@@ -756,9 +754,10 @@ export function PosPage() {
 
   // Cart Operations
   const handleAddToCart = (item: PosItem) => {
-    if (item.stock <= 0) {
+    const isSoldOut = Boolean(item.isSoldOut);
+    if (isSoldOut) {
       if (!isSoundMuted) PosFeedback.playError();
-      showToast(`${item.name}은(는) 품절되었습니다.`, 'error');
+      showToast(`${item.name}은(는) 현재 품절 상태입니다.`, 'error');
       return;
     }
 
@@ -767,11 +766,6 @@ export function PosPage() {
     setCart(prevCart => {
       const existing = prevCart.find(ci => ci.item.id === item.id);
       if (existing) {
-        if (existing.count >= item.stock) {
-          if (!isSoundMuted) PosFeedback.playError();
-          showToast(`재고(${item.stock}개)보다 더 많이 담을 수 없습니다.`, 'error');
-          return prevCart;
-        }
         return prevCart.map(ci =>
           ci.item.id === item.id ? { ...ci, count: ci.count + 1 } : ci
         );
@@ -786,7 +780,7 @@ export function PosPage() {
     setCart(prevCart => {
       return prevCart.map(ci => {
         if (ci.item.id === itemId) {
-          const validCount = Math.max(1, Math.min(newCount, ci.item.stock));
+          const validCount = Math.max(1, newCount);
           return { ...ci, count: validCount };
         }
         return ci;
@@ -896,7 +890,7 @@ export function PosPage() {
       const nowIso = new Date().toISOString();
       const cancelAuthor = currentUser?.name || '관리자';
 
-      // 1. 즉시 로컬 state 갱신 (Firestore 실시간 지연 없이 즉각 화면 반영)
+      // 1. 즉시 로컬 state 갱신 (주문 취소 및 상품 판매 수량 즉시 복구)
       setOrders(prevOrders =>
         prevOrders.map(o =>
           o.id === orderId
@@ -911,9 +905,24 @@ export function PosPage() {
         )
       );
 
-      // 2. Firestore 트랜잭션 동기화 (원자적 재고 롤백 & 주문 업데이트)
+      if (target.items && target.items.length > 0) {
+        setItems(prevItems =>
+          prevItems.map(it => {
+            const match = target.items?.find(ti => ti.itemId === it.id);
+            if (match) {
+              return {
+                ...it,
+                totalSold: Math.max(0, (it.totalSold || 0) - match.count),
+              };
+            }
+            return it;
+          })
+        );
+      }
+
+      // 2. Firestore 트랜잭션 동기화 (원자적 판매수량 롤백 & 주문 업데이트)
       await runCancelOrderTransaction(orderId, cancelAuthor, trimmedReason);
-      showToast(`주문(${orderId.slice(-6)}) 결제가 취소되고 재고가 자동 복원되었습니다.`, 'success');
+      showToast(`주문(${orderId.slice(-6)}) 결제가 취소되고 판매 수량이 원복되었습니다.`, 'success');
     } catch (error: any) {
       console.error('Cancel order failed:', error);
       showToast(error.message || '결제 취소 처리 중 오류가 발생했습니다.', 'error');
@@ -947,26 +956,64 @@ export function PosPage() {
     }
   };
 
-  // [관리자 전용] 매출 내역(주문) 완전 삭제
+  // [관리자 전용] 매출 내역(주문) 완전 삭제 (미취소 주문일 시 판매 수량 자동 복원)
   const handleDeleteOrder = async (orderId: string) => {
+    const target = orders.find(o => o.id === orderId);
+    if (target && !target.isCancelled && target.items && target.items.length > 0) {
+      setItems(prevItems =>
+        prevItems.map(it => {
+          const match = target.items?.find(ti => ti.itemId === it.id);
+          if (match) {
+            return {
+              ...it,
+              totalSold: Math.max(0, (it.totalSold || 0) - match.count),
+            };
+          }
+          return it;
+        })
+      );
+    }
+
     setOrders(prev => prev.filter(o => o.id !== orderId));
     try {
-      await deletePosOrder(orderId);
-      showToast('매출 내역이 완전히 삭제되었습니다.', 'success');
+      await deletePosOrder(orderId, currentUser?.name || '관리자');
+      showToast('매출 내역이 삭제되고 판매 수량이 복구되었습니다.', 'success');
     } catch (e: any) {
       console.error('Delete order error:', e);
       showToast('매출 삭제 중 오류가 발생했습니다: ' + e.message, 'error');
     }
   };
 
-  // [관리자 전용] 여러 매출 내역(주문) 일괄 삭제
+  // [관리자 전용] 여러 매출 내역(주문) 일괄 삭제 (미취소 주문일 시 판매 수량 자동 복원)
   const handleDeleteMultipleOrders = async (orderIds: string[]) => {
     if (!orderIds || orderIds.length === 0) return;
     const count = orderIds.length;
+    const activeTargets = orders.filter(o => orderIds.includes(o.id) && !o.isCancelled);
+    if (activeTargets.length > 0) {
+      const deductMap: Record<string, number> = {};
+      activeTargets.forEach(o => {
+        o.items?.forEach(i => {
+          deductMap[i.itemId] = (deductMap[i.itemId] || 0) + i.count;
+        });
+      });
+      setItems(prevItems =>
+        prevItems.map(it => {
+          const deduct = deductMap[it.id];
+          if (deduct) {
+            return {
+              ...it,
+              totalSold: Math.max(0, (it.totalSold || 0) - deduct),
+            };
+          }
+          return it;
+        })
+      );
+    }
+
     setOrders(prev => prev.filter(o => !orderIds.includes(o.id)));
     try {
-      await deleteMultiplePosOrders(orderIds);
-      showToast(`선택한 ${count}건의 매출 내역이 일괄 삭제되었습니다.`, 'success');
+      await deleteMultiplePosOrders(orderIds, currentUser?.name || '관리자');
+      showToast(`선택한 ${count}건의 매출 내역이 삭제되고 판매 수량이 복원되었습니다.`, 'success');
     } catch (e: any) {
       console.error('Batch delete orders error:', e);
       showToast('일괄 삭제 중 오류가 발생했습니다: ' + e.message, 'error');

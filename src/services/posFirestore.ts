@@ -92,12 +92,15 @@ export function subscribePosItems(
     snapshot => {
       const items: PosItem[] = snapshot.docs.map(docSnap => {
         const data = docSnap.data();
+        const isSoldOut = Boolean(data.isSoldOut === true);
         return {
           id: docSnap.id,
           name: data.name || '',
           categoryId: data.categoryId || '',
           price: typeof data.price === 'number' ? data.price : 0,
-          stock: typeof data.stock === 'number' ? data.stock : 0,
+          stock: typeof data.stock === 'number' ? data.stock : 999,
+          isSoldOut,
+          totalSold: typeof data.totalSold === 'number' ? data.totalSold : 0,
           isFavorite: Boolean(data.isFavorite),
           isActive: data.isActive !== false,
           barcode: data.barcode || '',
@@ -354,6 +357,7 @@ export async function runOrderTransaction(params: RunOrderParams): Promise<PosOr
     const itemReads: Array<{
       ref: ReturnType<typeof doc>;
       currentStock: number;
+      currentSold: number;
       name: string;
       item: PosItem;
       requestedCount: number;
@@ -368,18 +372,19 @@ export async function runOrderTransaction(params: RunOrderParams): Promise<PosOr
       }
 
       const itemData = itemDoc.data();
-      const currentStock = typeof itemData.stock === 'number' ? itemData.stock : 0;
+      const isSoldOut = Boolean(itemData.isSoldOut === true);
 
-      // Real-time stock validation check
-      if (currentStock < cartItem.count) {
+      // Real-time sold out validation check
+      if (isSoldOut || itemData.isActive === false) {
         throw new Error(
-          `[품절/재고 부족] "${cartItem.item.name}"의 실시간 잔여 재고는 ${currentStock}개입니다. (요청: ${cartItem.count}개)`
+          `[품절] "${itemData.name || cartItem.item.name}" 상품은 현재 품절 상태입니다.`
         );
       }
 
       itemReads.push({
         ref: itemRef,
-        currentStock,
+        currentStock: typeof itemData.stock === 'number' ? itemData.stock : 999,
+        currentSold: typeof itemData.totalSold === 'number' ? itemData.totalSold : 0,
         name: itemData.name || cartItem.item.name,
         item: cartItem.item,
         requestedCount: cartItem.count,
@@ -457,11 +462,10 @@ export async function runOrderTransaction(params: RunOrderParams): Promise<PosOr
       })
     );
 
-    // Deduct stock atomically
+    // Update totalSold atomically
     for (const read of itemReads) {
-      const nextStock = read.currentStock - read.requestedCount;
       transaction.update(read.ref, {
-        stock: nextStock,
+        totalSold: read.currentSold + read.requestedCount,
         updatedAt: nowIso,
       });
     }
@@ -566,9 +570,10 @@ export async function runCancelOrderTransaction(
     restoredItemsSummary = items.map(i => `${i.name} ${i.count}개`);
     restoredGifticonsList = Array.isArray(orderData.usedGifticons) ? orderData.usedGifticons : [];
 
-    // Read current stocks
+    // Read current items to adjust totalSold and stock
     const itemReads: Array<{
       ref: ReturnType<typeof doc>;
+      currentSold: number;
       currentStock: number;
       countToRestore: number;
     }> = [];
@@ -578,10 +583,10 @@ export async function runCancelOrderTransaction(
       const itemDoc = await transaction.get(itemRef);
       if (itemDoc.exists()) {
         const data = itemDoc.data();
-        const currentStock = typeof data.stock === 'number' ? data.stock : 0;
         itemReads.push({
           ref: itemRef,
-          currentStock,
+          currentSold: typeof data.totalSold === 'number' ? data.totalSold : 0,
+          currentStock: typeof data.stock === 'number' ? data.stock : 999,
           countToRestore: orderItem.count,
         });
       }
@@ -611,9 +616,10 @@ export async function runCancelOrderTransaction(
       })
     );
 
-    // Restore stocks
+    // Restore totalSold and stocks atomically
     for (const read of itemReads) {
       transaction.update(read.ref, {
+        totalSold: Math.max(0, read.currentSold - read.countToRestore),
         stock: read.currentStock + read.countToRestore,
         updatedAt: nowIso,
       });
@@ -734,7 +740,9 @@ export async function saveBatchPosItemsWithSummary(
           name: item.name || '',
           categoryId: item.categoryId || '',
           price: typeof item.price === 'number' ? item.price : 0,
-          stock: typeof item.stock === 'number' ? item.stock : 0,
+          stock: typeof item.stock === 'number' ? item.stock : 999,
+          isSoldOut: Boolean(item.isSoldOut),
+          totalSold: typeof item.totalSold === 'number' ? item.totalSold : 0,
           isFavorite: Boolean(item.isFavorite),
           isActive: item.isActive !== false,
           barcode: item.barcode || '',
@@ -748,7 +756,7 @@ export async function saveBatchPosItemsWithSummary(
 
   logPosActivity({
     action: 'IMU',
-    actionTitle: '상품 재고/정보 일괄 저장',
+    actionTitle: '상품 정보/품절상태 일괄 저장',
     category: 'INVENTORY',
     actorName,
     actorUid,
@@ -784,7 +792,9 @@ export async function saveMultiplePosItems(
           name: item.name || '',
           categoryId: item.categoryId || '',
           price: typeof item.price === 'number' ? item.price : 0,
-          stock: typeof item.stock === 'number' ? item.stock : 0,
+          stock: typeof item.stock === 'number' ? item.stock : 999,
+          isSoldOut: Boolean(item.isSoldOut),
+          totalSold: typeof item.totalSold === 'number' ? item.totalSold : 0,
           isFavorite: Boolean(item.isFavorite),
           isActive: item.isActive !== false,
           barcode: item.barcode || '',
@@ -821,21 +831,24 @@ export async function savePosItem(
   const itemRef = doc(db, 'items', id);
   await setDoc(
     itemRef,
-    {
+    sanitizeForFirestore({
       name: item.name || '',
       categoryId: item.categoryId || '',
       price: item.price || 0,
-      stock: typeof item.stock === 'number' ? item.stock : 0,
+      stock: typeof item.stock === 'number' ? item.stock : 999,
+      isSoldOut: Boolean(item.isSoldOut),
+      totalSold: typeof item.totalSold === 'number' ? item.totalSold : 0,
       isFavorite: Boolean(item.isFavorite),
       isActive: item.isActive !== false,
       barcode: item.barcode || '',
       updatedAt: new Date().toISOString(),
-    },
+    }),
     { merge: true }
   );
 
   const diffs: any[] = [];
   if (item.price !== undefined) diffs.push({ field: 'price', label: '판매 가격', from: isNew ? '신규' : '-', to: `${(item.price || 0).toLocaleString()}원` });
+  if (item.isSoldOut !== undefined) diffs.push({ field: 'isSoldOut', label: '품절 상태', from: '-', to: item.isSoldOut ? '품절' : '판매중' });
   if (item.stock !== undefined) diffs.push({ field: 'stock', label: '재고 수량', from: isNew ? '초기' : '-', to: `${item.stock ?? 0}개` });
   if (item.isActive !== undefined) diffs.push({ field: 'isActive', label: '판매 상태', from: '-', to: item.isActive !== false ? '판매중' : '판매중단' });
 
@@ -845,11 +858,12 @@ export async function savePosItem(
     category: 'INVENTORY',
     actorName,
     actorUid,
-    details: `상품 [${item.name || '미정'}] ${isNew ? '신규 등록' : '정보 수정'} (가격: ${(item.price || 0).toLocaleString()}원, 재고: ${item.stock ?? 0}개)`,
+    details: `상품 [${item.name || '미정'}] ${isNew ? '신규 등록' : '정보 수정'} (가격: ${(item.price || 0).toLocaleString()}원, 상태: ${item.isSoldOut ? '품절' : '판매중'})`,
     metadata: {
       itemId: id,
       name: item.name,
       price: item.price,
+      isSoldOut: item.isSoldOut,
       stock: item.stock,
       barcode: item.barcode,
       itemChanges: [
@@ -1107,40 +1121,75 @@ export async function updatePosOrder(order: PosOrder, actorName = '관리자'): 
 }
 
 /**
- * [관리자 전용] 매출 내역(주문) 완전 삭제
+ * [관리자 전용] 매출 내역(주문) 완전 삭제 (미취소 주문일 시 판매 수량 복구 및 기프티콘 원복)
  */
 export async function deletePosOrder(orderId: string, actorName = '관리자'): Promise<void> {
   await ensurePosAuth();
   const orderRef = doc(db, 'orders', orderId);
-  await deleteDoc(orderRef);
+
+  await runTransaction(db, async transaction => {
+    const orderDoc = await transaction.get(orderRef);
+    if (!orderDoc.exists()) return;
+
+    const orderData = orderDoc.data() as PosOrder;
+    // If order was active (not cancelled), decrement items' totalSold and restore gifticons
+    if (!orderData.isCancelled && Array.isArray(orderData.items)) {
+      for (const orderItem of orderData.items) {
+        if (!orderItem.itemId) continue;
+        const itemRef = doc(db, 'items', orderItem.itemId);
+        const itemDoc = await transaction.get(itemRef);
+        if (itemDoc.exists()) {
+          const itemData = itemDoc.data();
+          const currentSold = typeof itemData.totalSold === 'number' ? itemData.totalSold : 0;
+          transaction.update(itemRef, {
+            totalSold: Math.max(0, currentSold - orderItem.count),
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      }
+
+      if (Array.isArray(orderData.usedGifticons)) {
+        for (const ug of orderData.usedGifticons) {
+          const gRef = doc(db, 'gifticons', ug.gifticonId);
+          const gDoc = await transaction.get(gRef);
+          if (gDoc.exists()) {
+            transaction.update(gRef, {
+              status: 'ACTIVE',
+              usedAt: null,
+              usedOrderId: null,
+              usedBy: null,
+            });
+          }
+        }
+      }
+    }
+
+    transaction.delete(orderRef);
+  });
 
   logPosActivity({
     action: 'PDL',
-    actionTitle: '매출 내역 영구 삭제',
+    actionTitle: '매출 내역 삭제 및 판매수량 복구',
     category: 'SALE',
     actorName,
-    details: `주문번호 #${orderId.slice(-6)} 내역 영구 삭제`,
+    details: `주문번호 #${orderId.slice(-6)} 내역 영구 삭제 (판매 수량 복구 처리)`,
     metadata: { orderId },
   }).catch(() => {});
 }
 
 /**
- * [관리자 전용] 여러 매출 내역(주문) 일괄 삭제
+ * [관리자 전용] 여러 매출 내역(주문) 일괄 삭제 (미취소 주문일 시 판매 수량 일괄 복구)
  */
 export async function deleteMultiplePosOrders(orderIds: string[], actorName = '관리자'): Promise<void> {
   if (!orderIds || orderIds.length === 0) return;
   await ensurePosAuth();
-  
-  // Firestore batches support up to 500 operations
-  const chunkSize = 400;
-  for (let i = 0; i < orderIds.length; i += chunkSize) {
-    const chunk = orderIds.slice(i, i + chunkSize);
-    const batch = writeBatch(db);
-    for (const id of chunk) {
-      const orderRef = doc(db, 'orders', id);
-      batch.delete(orderRef);
+
+  for (const id of orderIds) {
+    try {
+      await deletePosOrder(id, actorName);
+    } catch (e) {
+      console.error(`Failed to delete order ${id}:`, e);
     }
-    await batch.commit();
   }
 
   logPosActivity({
@@ -1148,7 +1197,7 @@ export async function deleteMultiplePosOrders(orderIds: string[], actorName = '�
     actionTitle: '매출 내역 일괄 영구 삭제',
     category: 'SALE',
     actorName,
-    details: `총 ${orderIds.length}건의 주문 내역 일괄 영구 삭제`,
+    details: `총 ${orderIds.length}건의 주문 내역 일괄 삭제 (판매 수량 자동 복구)`,
     metadata: { deletedCount: orderIds.length, orderIds: orderIds.slice(0, 10) },
   }).catch(() => {});
 }
@@ -1234,7 +1283,9 @@ export async function applyPosPreset(
         name: item.name,
         categoryId: item.categoryId,
         price: item.price,
-        stock: item.stock,
+        stock: item.stock ?? 999,
+        isSoldOut: Boolean(item.isSoldOut),
+        totalSold: 0,
         isFavorite: Boolean(item.isFavorite),
         isActive: item.isActive !== false,
         barcode: item.barcode || '',

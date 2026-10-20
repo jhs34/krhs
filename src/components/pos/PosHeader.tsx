@@ -165,14 +165,14 @@ export function PosHeader({
 
           {/* Floating Dropdown Menu */}
           {isMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-[#0d162b] border border-white/20 rounded-2xl shadow-2xl p-1.5 z-[100] animate-in fade-in zoom-in-95 backdrop-blur-md">
+            <div className="absolute right-0 top-full mt-2 w-52 bg-[#0d162b] border border-white/20 rounded-2xl shadow-2xl p-1.5 z-[100] animate-in fade-in zoom-in-95 backdrop-blur-md">
               <div className="px-3 py-2 border-b border-white/10 text-[11px] font-bold text-surface-dim flex items-center justify-between">
                 <span>포스 관리 도구</span>
                 <span className="text-[10px] text-secondary">KRHS POS</span>
               </div>
 
               <div className="py-1 space-y-0.5">
-                {/* Product / Stock Management */}
+                {/* Product Management */}
                 {onOpenProductManager && (
                   <button
                     type="button"
@@ -180,13 +180,10 @@ export function PosHeader({
                       setIsMenuOpen(false);
                       onOpenProductManager();
                     }}
-                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-white/90 hover:text-white hover:bg-white/10 transition-colors text-left"
+                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-white/90 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
                   >
                     <Boxes className="w-4 h-4 text-amber-400 shrink-0" />
-                    <div className="flex flex-col">
-                      <span>상품 및 재고 관리</span>
-                      <span className="text-[10px] text-surface-dim font-normal">품목 등록/수정/재고 실사</span>
-                    </div>
+                    <span>상품 관리</span>
                   </button>
                 )}
 
@@ -201,10 +198,7 @@ export function PosHeader({
                     className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-white/90 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
                   >
                     <Ticket className="w-4 h-4 text-amber-400 shrink-0" />
-                    <div className="flex flex-col">
-                      <span>기프티콘 시스템 관리</span>
-                      <span className="text-[10px] text-surface-dim font-normal">기프티콘 등록/시트 붙여넣기/현황</span>
-                    </div>
+                    <span>기프티콘 관리</span>
                   </button>
                 )}
 
@@ -219,10 +213,7 @@ export function PosHeader({
                     className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-white/90 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
                   >
                     <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0" />
-                    <div className="flex flex-col">
-                      <span>POS 감사 로그</span>
-                      <span className="text-[10px] text-surface-dim font-normal">결제/취소/재고/정산 변경 기록</span>
-                    </div>
+                    <span>감사 로그</span>
                   </button>
                 )}
 
@@ -237,10 +228,7 @@ export function PosHeader({
                     className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-white/90 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
                   >
                     <Calculator className="w-4 h-4 text-violet-400 shrink-0" />
-                    <div className="flex flex-col">
-                      <span>일일 시재금 및 마감 정산</span>
-                      <span className="text-[10px] text-surface-dim font-normal">금고 시재 대조 및 마감 일지 조회</span>
-                    </div>
+                    <span>마감 정산 및 시재</span>
                   </button>
                 )}
 
@@ -254,10 +242,7 @@ export function PosHeader({
                   className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-white/90 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
                 >
                   {isFullscreen ? <Minimize className="w-4 h-4 text-secondary shrink-0" /> : <Maximize className="w-4 h-4 text-secondary shrink-0" />}
-                  <div className="flex flex-col">
-                    <span>{isFullscreen ? '전체화면 종료' : '전체화면 모드 (키오스크)'}</span>
-                    <span className="text-[10px] text-surface-dim font-normal">{isFullscreen ? '일반 창 화면으로 복귀' : '브라우저 주소창 숨김'}</span>
-                  </div>
+                  <span>{isFullscreen ? '전체화면 종료' : '전체화면 모드 (키오스크)'}</span>
                 </button>
 
                 <div className="h-[1px] bg-white/10 my-1" />
@@ -269,7 +254,7 @@ export function PosHeader({
                     setIsMenuOpen(false);
                     onExitToPortal();
                   }}
-                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-surface-dim hover:text-white hover:bg-white/10 transition-colors text-left"
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-surface-dim hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
                 >
                   <Home className="w-4 h-4 text-surface-dim shrink-0" />
                   <span>학교 포털 메인으로</span>

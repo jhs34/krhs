@@ -31,6 +31,8 @@ import {
   LogIn,
   Loader2,
   RotateCcw,
+  Ban,
+  TrendingUp,
 } from 'lucide-react';
 import { PosCategory, PosItem, PosPreset, PosUser, PosItemChangeDetail, PosFieldDiff } from '../../types/pos';
 import { DEFAULT_POS_CATEGORIES, DEFAULT_POS_ITEMS } from '../../data/defaultPosData';
@@ -110,16 +112,17 @@ export function PosProductManagerModal({
 
   // Compute modified items compared to original prop items
   const modifiedItems = useMemo(() => {
-    if (!isDirtyRef.current) return [];
     return localItems.filter(local => {
       const orig = items.find(it => it.id === local.id);
       if (!orig) return true; // Newly added
+      const origSoldOut = Boolean(orig.isSoldOut);
+      const localSoldOut = Boolean(local.isSoldOut);
       return (
         orig.name !== local.name ||
         orig.price !== local.price ||
-        orig.stock !== local.stock ||
+        origSoldOut !== localSoldOut ||
         orig.categoryId !== local.categoryId ||
-        orig.isFavorite !== local.isFavorite ||
+        Boolean(orig.isFavorite) !== Boolean(local.isFavorite) ||
         orig.isActive !== local.isActive ||
         orig.barcode !== local.barcode
       );
@@ -127,7 +130,6 @@ export function PosProductManagerModal({
   }, [localItems, items]);
 
   const isCategoriesModified = useMemo(() => {
-    if (!isDirtyRef.current) return false;
     if (localCategories.length !== categories.length) return true;
     return localCategories.some((c, idx) => {
       const orig = categories[idx];
@@ -252,7 +254,7 @@ export function PosProductManagerModal({
       {
         id: 'preset-default-33',
         name: '한철고 매점 기본 메뉴 (33종)',
-        description: '라면 10종, 한강라면 4종, 과자 8종, 간식 3종, 음료수 7종, 아이스크림 1종 (총 33종 / 기본 재고 각 20개)',
+        description: '라면 10종, 한강라면 4종, 과자 8종, 간식 3종, 음료수 7종, 아이스크림 1종 (총 33종 기본 메뉴 세트)',
         isBuiltIn: true,
         categories: DEFAULT_POS_CATEGORIES,
         items: DEFAULT_POS_ITEMS,
@@ -276,6 +278,9 @@ export function PosProductManagerModal({
     });
   }, [allPresets, presetTypeFilter]);
 
+  // Helper: check if item is sold out
+  const isItemSoldOut = (it: PosItem) => Boolean(it.isSoldOut);
+
   // Filtered items (using localItems)
   const filteredItems = useMemo(() => {
     return localItems.filter(item => {
@@ -284,6 +289,8 @@ export function PosProductManagerModal({
           ? true
           : selectedCategoryFilter === 'FAVORITES'
           ? item.isFavorite
+          : selectedCategoryFilter === 'SOLDOUT'
+          ? isItemSoldOut(item)
           : item.categoryId === selectedCategoryFilter;
       const matchQuery =
         !searchQuery.trim() ||
@@ -293,15 +300,48 @@ export function PosProductManagerModal({
   }, [localItems, selectedCategoryFilter, searchQuery]);
 
   // Statistics (using localItems)
-  const totalStockCount = useMemo(() => localItems.reduce((sum, it) => sum + it.stock, 0), [localItems]);
-  const outOfStockCount = useMemo(() => localItems.filter(it => it.stock <= 0).length, [localItems]);
-  const lowStockCount = useMemo(
-    () => localItems.filter(it => it.stock > 0 && it.stock <= 5).length,
-    [localItems]
-  );
+  const outOfStockCount = useMemo(() => localItems.filter(isItemSoldOut).length, [localItems]);
+  const inStockCount = useMemo(() => localItems.length - outOfStockCount, [localItems, outOfStockCount]);
+  const totalSoldCount = useMemo(() => localItems.reduce((sum, it) => sum + (it.totalSold || 0), 0), [localItems]);
   const favoritesCount = useMemo(() => localItems.filter(it => it.isFavorite).length, [localItems]);
 
   // Item Local Handlers (Fast local update only - no Firestore calls until 'Save' is pressed)
+  const handleToggleSoldOut = (itemId: string) => {
+    isDirtyRef.current = true;
+    setLocalItems(prev =>
+      prev.map(it => {
+        if (it.id === itemId) {
+          const nextSoldOut = !Boolean(it.isSoldOut);
+          return {
+            ...it,
+            isSoldOut: nextSoldOut,
+          };
+        }
+        return it;
+      })
+    );
+  };
+
+  const handleBatchSetSoldOut = (soldOut: boolean) => {
+    isDirtyRef.current = true;
+    const targetIds = new Set(filteredItems.map(it => it.id));
+    setLocalItems(prev =>
+      prev.map(it => {
+        if (targetIds.has(it.id)) {
+          return {
+            ...it,
+            isSoldOut: soldOut,
+          };
+        }
+        return it;
+      })
+    );
+    showToast(
+      `${filteredItems.length}개 상품이 '${soldOut ? '품절' : '판매중'}' 상태로 일괄 변경되었습니다. (일괄 저장 버튼으로 확정)`,
+      'success'
+    );
+  };
+
   const handleSaveItem = (savedItem: PosItem) => {
     isDirtyRef.current = true;
     const exists = localItems.some(it => it.id === savedItem.id);
@@ -344,31 +384,6 @@ export function PosProductManagerModal({
     isDirtyRef.current = true;
     setLocalItems(prev =>
       prev.map(it => (it.id === itemId ? { ...it, isActive: !it.isActive } : it))
-    );
-  };
-
-  const handleAdjustStock = (itemId: string, delta: number) => {
-    isDirtyRef.current = true;
-    setLocalItems(prev =>
-      prev.map(it => {
-        if (it.id === itemId) {
-          const nextStock = Math.max(0, it.stock + delta);
-          return { ...it, stock: nextStock };
-        }
-        return it;
-      })
-    );
-  };
-
-  const handleSetExactStock = (itemId: string, exact: number) => {
-    isDirtyRef.current = true;
-    setLocalItems(prev =>
-      prev.map(it => {
-        if (it.id === itemId) {
-          return { ...it, stock: Math.max(0, exact) };
-        }
-        return it;
-      })
     );
   };
 
@@ -497,33 +512,22 @@ export function PosProductManagerModal({
         const catName = cat ? cat.name : '기본 카테고리';
 
         if (!oldItem) {
-          detailsList.push(`[${newItem.name}] 신규등록 (재고 ${newItem.stock}개)`);
+          detailsList.push(`[${newItem.name}] 신규등록 (상태: ${newItem.isSoldOut ? '품절' : '판매중'})`);
           itemChanges.push({
             itemId: newItem.id,
             itemName: newItem.name,
             categoryName: catName,
             changeType: 'CREATED',
-            summary: `신규 상품 등록 (판매가: ${newItem.price.toLocaleString()}원, 초기 재고: ${newItem.stock}개)`,
+            summary: `신규 상품 등록 (판매가: ${newItem.price.toLocaleString()}원, 상태: ${newItem.isSoldOut ? '품절' : '판매중'})`,
             diffs: [
               { field: 'price', label: '판매 가격', from: '없음', to: `${newItem.price.toLocaleString()}원` },
-              { field: 'stock', label: '초기 재고', from: '없음', to: `${newItem.stock}개` },
+              { field: 'isSoldOut', label: '판매 상태', from: '없음', to: newItem.isSoldOut ? '품절' : '판매중' },
             ],
           });
         } else {
           const subChanges: string[] = [];
           const diffs: PosFieldDiff[] = [];
 
-          if (oldItem.stock !== newItem.stock) {
-            const diff = newItem.stock - oldItem.stock;
-            const sign = diff > 0 ? `+${diff}` : `${diff}`;
-            subChanges.push(`재고 ${oldItem.stock}개→${newItem.stock}개 (${sign})`);
-            diffs.push({
-              field: 'stock',
-              label: '재고 수량',
-              from: `${oldItem.stock}개`,
-              to: `${newItem.stock}개 (${sign})`,
-            });
-          }
           if (oldItem.price !== newItem.price) {
             subChanges.push(`가격 ${oldItem.price.toLocaleString()}원→${newItem.price.toLocaleString()}원`);
             diffs.push({
@@ -568,6 +572,17 @@ export function PosProductManagerModal({
               label: '카테고리',
               from: oldCatName,
               to: catName,
+            });
+          }
+          const oldSoldOut = Boolean(oldItem.isSoldOut);
+          const newSoldOut = Boolean(newItem.isSoldOut);
+          if (oldSoldOut !== newSoldOut) {
+            subChanges.push(newSoldOut ? '품절 처리' : '판매 개시(품절 해제)');
+            diffs.push({
+              field: 'isSoldOut',
+              label: '품절 상태',
+              from: oldSoldOut ? '품절' : '판매중',
+              to: newSoldOut ? '품절' : '판매중',
             });
           }
 
@@ -1042,6 +1057,20 @@ export function PosProductManagerModal({
                     <span>즐겨찾기 ({favoritesCount})</span>
                   </button>
 
+                  {/* Sold-out Category Filter */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategoryFilter('SOLDOUT')}
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 flex items-center space-x-1.5 ${
+                      selectedCategoryFilter === 'SOLDOUT'
+                        ? 'bg-rose-500 text-white font-bold shadow-md shadow-rose-500/20'
+                        : 'bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 border border-rose-500/25'
+                    }`}
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    <span>품절 ({outOfStockCount})</span>
+                  </button>
+
                   {localCategories.map(cat => {
                     const count = localItems.filter(it => it.categoryId === cat.id).length;
                     return (
@@ -1163,6 +1192,48 @@ export function PosProductManagerModal({
                   )}
                 </div>
               )}
+
+              {/* Status & Quick Batch Strip */}
+              <div className="mb-3 px-3.5 py-2.5 bg-[#111c33] border border-white/10 rounded-2xl flex flex-wrap items-center justify-between gap-2.5 text-xs">
+                <div className="flex items-center gap-3 text-surface-dim flex-wrap">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span>판매중 <strong className="text-emerald-300 font-bold">{inStockCount}</strong>종</span>
+                  </span>
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                    <span>품절 <strong className="text-rose-400 font-bold">{outOfStockCount}</strong>종</span>
+                  </span>
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <TrendingUp className="w-3.5 h-3.5 text-secondary shrink-0" />
+                    <span>누적 판매 <strong className="text-white font-mono font-bold">{totalSoldCount}</strong>개</span>
+                  </span>
+                </div>
+
+                {filteredItems.length > 0 && (
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => handleBatchSetSoldOut(true)}
+                      title="현재 화면에 표시된 상품들을 모두 품절 상태로 변경합니다"
+                      className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 flex items-center space-x-1 cursor-pointer transition-colors active:scale-95"
+                    >
+                      <Ban className="w-3 h-3" />
+                      <span>목록 품절</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBatchSetSoldOut(false)}
+                      title="현재 화면에 표시된 상품들을 모두 판매중(정상)으로 전환합니다"
+                      className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1 cursor-pointer transition-colors active:scale-95"
+                    >
+                      <Check className="w-3 h-3" />
+                      <span>목록 판매중</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {filteredItems.length === 0 ? (
                 <div className="h-64 flex flex-col items-center justify-center text-center">
                   <Boxes className="w-12 h-12 text-surface-dim/40 mb-3" />
@@ -1185,8 +1256,8 @@ export function PosProductManagerModal({
                   <div className="block sm:hidden space-y-2">
                     {filteredItems.map(item => {
                       const category = localCategories.find(c => c.id === item.categoryId);
-                      const isSoldOut = item.stock <= 0;
-                      const isLow = item.stock > 0 && item.stock <= 5;
+                      const isSoldOut = isItemSoldOut(item);
+                      const isItemModified = modifiedItems.some(m => m.id === item.id);
 
                       return (
                         <div
@@ -1195,7 +1266,9 @@ export function PosProductManagerModal({
                             !item.isActive
                               ? 'border-white/5 opacity-60'
                               : isSoldOut
-                              ? 'border-red-900/30'
+                              ? 'border-rose-900/40 bg-rose-950/15'
+                              : isItemModified
+                              ? 'border-amber-500/40'
                               : 'border-white/10'
                           }`}
                         >
@@ -1237,53 +1310,52 @@ export function PosProductManagerModal({
                                     : 'bg-red-500/15 border-red-500/30 text-red-300'
                                 }`}
                               >
-                                {item.isActive ? '판매 중' : '중단됨'}
+                                {item.isActive ? '진열중' : '숨김'}
                               </button>
                             </div>
                           </div>
 
-                          {/* Mobile Row Bottom: Stock & Actions */}
+                          {/* Mobile Row Bottom: Sold Out Toggle & Sales Count */}
                           <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-surface-dim">재고</span>
-                              <span
-                                className={`font-mono text-xs font-bold ${
+                            <div className="flex items-center gap-2 flex-wrap min-w-0">
+                              {/* Sold Out Toggle Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSoldOut(item.id)}
+                                title={isSoldOut ? '클릭 시 판매중으로 변경' : '클릭 시 품절로 변경'}
+                                className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all flex items-center space-x-1 cursor-pointer active:scale-95 ${
                                   isSoldOut
-                                    ? 'text-red-400'
-                                    : isLow
-                                    ? 'text-amber-400'
-                                    : 'text-emerald-300'
+                                    ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 hover:bg-rose-500/30 shadow-xs'
+                                    : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 shadow-xs'
                                 }`}
                               >
-                                {item.stock}개
-                              </span>
-                              <div className="flex items-center gap-0.5 ml-1">
-                                <button
-                                  type="button"
-                                  onClick={() => handleAdjustStock(item.id, -1)}
-                                  disabled={item.stock <= 0}
-                                  className="w-5 h-5 rounded bg-white/5 hover:bg-white/10 disabled:opacity-20 text-surface-dim hover:text-white flex items-center justify-center font-bold text-xs cursor-pointer"
-                                >
-                                  -
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleAdjustStock(item.id, 1)}
-                                  className="w-5 h-5 rounded bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white flex items-center justify-center font-bold text-xs cursor-pointer"
-                                >
-                                  +
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleAdjustStock(item.id, 10)}
-                                  className="px-1.5 h-5 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-[10px] font-bold cursor-pointer"
-                                >
-                                  +10
-                                </button>
+                                {isSoldOut ? (
+                                  <>
+                                    <Ban className="w-3.5 h-3.5 text-rose-400" />
+                                    <span>품절</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span>판매중</span>
+                                  </>
+                                )}
+                              </button>
+
+                              {/* Sales Count */}
+                              <div className="flex items-center space-x-1 text-xs text-surface-dim font-mono">
+                                <TrendingUp className="w-3.5 h-3.5 text-secondary shrink-0" />
+                                <span>판매 <strong className="text-white font-bold">{item.totalSold || 0}</strong>개</span>
                               </div>
+
+                              {isItemModified && (
+                                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold whitespace-nowrap">
+                                  수정됨
+                                </span>
+                              )}
                             </div>
 
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1321,23 +1393,24 @@ export function PosProductManagerModal({
                           <th className="py-3 px-4">상품명</th>
                           <th className="py-3 px-3">카테고리</th>
                           <th className="py-3 px-4 text-right">판매가</th>
-                          <th className="py-3 px-3 text-center">재고</th>
-                          <th className="py-3 px-3 text-center">상태</th>
+                          <th className="py-3 px-3 text-center">품절 여부 (토글)</th>
+                          <th className="py-3 px-3 text-center">누적 판매량</th>
+                          <th className="py-3 px-3 text-center">진열 상태</th>
                           <th className="py-3 px-4 text-right">관리</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
                         {filteredItems.map(item => {
                           const category = localCategories.find(c => c.id === item.categoryId);
-                          const isSoldOut = item.stock <= 0;
-                          const isLow = item.stock > 0 && item.stock <= 5;
+                          const isSoldOut = isItemSoldOut(item);
+                          const isItemModified = modifiedItems.some(m => m.id === item.id);
 
                           return (
                             <tr
                               key={item.id}
                               className={`hover:bg-white/[0.03] transition-colors ${
                                 !item.isActive ? 'opacity-50' : ''
-                              }`}
+                              } ${isSoldOut ? 'bg-rose-950/10' : ''}`}
                             >
                               <td className="py-3 px-3 text-center">
                                 <button
@@ -1355,7 +1428,14 @@ export function PosProductManagerModal({
                                 </button>
                               </td>
                               <td className="py-3 px-4 font-bold text-white">
-                                {item.name}
+                                <div className="flex items-center space-x-1.5">
+                                  <span>{item.name}</span>
+                                  {isItemModified && (
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold whitespace-nowrap">
+                                      수정됨
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="py-3 px-3 text-surface-dim">
                                 <span className="px-2 py-0.5 rounded-full bg-white/5 text-[11px]">
@@ -1365,43 +1445,35 @@ export function PosProductManagerModal({
                               <td className="py-3 px-4 text-right font-mono font-bold text-amber-300">
                                 {item.price.toLocaleString()}원
                               </td>
-                              <td className="py-3 px-3">
-                                <div className="flex items-center justify-center space-x-2">
-                                  <span
-                                    className={`font-mono font-bold ${
-                                      isSoldOut
-                                        ? 'text-red-400'
-                                        : isLow
-                                        ? 'text-amber-400'
-                                        : 'text-emerald-300'
-                                    }`}
-                                  >
-                                    {item.stock}개
-                                  </span>
-                                  <div className="flex items-center space-x-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAdjustStock(item.id, -1)}
-                                      disabled={item.stock <= 0}
-                                      className="w-5 h-5 rounded bg-white/5 hover:bg-white/10 disabled:opacity-20 text-surface-dim hover:text-white flex items-center justify-center font-bold text-xs cursor-pointer"
-                                    >
-                                      -
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAdjustStock(item.id, 1)}
-                                      className="w-5 h-5 rounded bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white flex items-center justify-center font-bold text-xs cursor-pointer"
-                                    >
-                                      +
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAdjustStock(item.id, 10)}
-                                      className="px-1 h-5 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-[10px] font-bold cursor-pointer"
-                                    >
-                                      +10
-                                    </button>
-                                  </div>
+                              <td className="py-3 px-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleSoldOut(item.id)}
+                                  title={isSoldOut ? '클릭 시 판매중으로 변경' : '클릭 시 품절로 변경'}
+                                  className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all inline-flex items-center space-x-1.5 cursor-pointer active:scale-95 ${
+                                    isSoldOut
+                                      ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 hover:bg-rose-500/30 shadow-xs'
+                                      : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 shadow-xs'
+                                  }`}
+                                >
+                                  {isSoldOut ? (
+                                    <>
+                                      <Ban className="w-3.5 h-3.5 text-rose-400" />
+                                      <span>품절 (SOLD OUT)</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                      <span>판매중 (정상)</span>
+                                    </>
+                                  )}
+                                </button>
+                              </td>
+                              <td className="py-3 px-3 text-center">
+                                <div className="inline-flex items-center space-x-1 font-mono text-xs text-surface-dim">
+                                  <TrendingUp className="w-3.5 h-3.5 text-secondary shrink-0" />
+                                  <span className="font-bold text-white">{item.totalSold || 0}</span>
+                                  <span>개</span>
                                 </div>
                               </td>
                               <td className="py-3 px-3 text-center">
@@ -1414,7 +1486,7 @@ export function PosProductManagerModal({
                                       : 'bg-red-500/15 border-red-500/30 text-red-300'
                                   }`}
                                 >
-                                  {item.isActive ? '판매 중' : '중단됨'}
+                                  {item.isActive ? '진열중' : '숨김'}
                                 </button>
                               </td>
                               <td className="py-3 px-4 text-right">
@@ -1466,8 +1538,8 @@ export function PosProductManagerModal({
                 >
                   {filteredItems.map(item => {
                     const category = localCategories.find(c => c.id === item.categoryId);
-                    const isSoldOut = item.stock <= 0;
-                    const isLow = item.stock > 0 && item.stock <= 5;
+                    const isSoldOut = isItemSoldOut(item);
+                    const isItemModified = modifiedItems.some(m => m.id === item.id);
 
                     return (
                       <div
@@ -1476,17 +1548,24 @@ export function PosProductManagerModal({
                           !item.isActive
                             ? 'bg-[#0f172a]/60 border-white/5 opacity-60'
                             : isSoldOut
-                            ? 'bg-red-950/20 border-red-900/30'
+                            ? 'bg-rose-950/20 border-rose-900/40'
+                            : isItemModified
+                            ? 'bg-[#111c33] border-amber-500/40 shadow-sm'
                             : 'bg-[#111c33] border-white/10 hover:border-white/20 shadow-sm'
                         }`}
                       >
                         {/* Item Top Info */}
                         <div className="flex items-start justify-between gap-2 mb-3">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2 mb-1">
+                            <div className="flex items-center space-x-1.5 mb-1">
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-surface-dim">
                                 {category?.name || '미분류'}
                               </span>
+                              {isItemModified && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold whitespace-nowrap">
+                                  수정됨
+                                </span>
+                              )}
                             </div>
                             <h3 className="text-sm font-bold text-white truncate">{item.name}</h3>
                             <div className="text-xs font-mono font-bold text-amber-300 mt-0.5">
@@ -1499,7 +1578,7 @@ export function PosProductManagerModal({
                             type="button"
                             onClick={() => handleToggleFavorite(item.id)}
                             title={item.isFavorite ? '즐겨찾기 해제' : '즐겨찾기 등록'}
-                            className={`p-1.5 rounded-xl transition-colors cursor-pointer ${
+                            className={`p-1.5 rounded-xl transition-colors cursor-pointer shrink-0 ${
                               item.isFavorite
                                 ? 'bg-amber-500/20 text-amber-300'
                                 : 'bg-white/5 text-surface-dim hover:text-white'
@@ -1511,56 +1590,39 @@ export function PosProductManagerModal({
                           </button>
                         </div>
 
-                        {/* Stock Controls */}
-                        <div className="bg-[#0b1324] border border-white/5 rounded-xl p-2 sm:p-2.5 flex items-center justify-between gap-1 mb-2.5">
-                          <div className="flex items-center space-x-1.5 min-w-0">
-                            <span className="text-xs text-surface-dim whitespace-nowrap shrink-0">재고</span>
-                            <span
-                              className={`text-xs sm:text-sm font-mono font-bold whitespace-nowrap shrink-0 ${
-                                isSoldOut
-                                  ? 'text-red-400'
-                                  : isLow
-                                  ? 'text-amber-400'
-                                  : 'text-emerald-300'
-                              }`}
-                            >
-                              {item.stock}개
-                            </span>
-                            {isSoldOut && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 whitespace-nowrap shrink-0">
-                                품절
-                              </span>
+                        {/* Sold Out Toggle & Sales Count */}
+                        <div className="bg-[#0b1324] border border-white/5 rounded-xl p-2 sm:p-2.5 flex flex-col gap-2 mb-2.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSoldOut(item.id)}
+                            title={isSoldOut ? '클릭 시 판매중으로 변경' : '클릭 시 품절로 변경'}
+                            className={`w-full py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95 ${
+                              isSoldOut
+                                ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 hover:bg-rose-500/30 shadow-xs'
+                                : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 shadow-xs'
+                            }`}
+                          >
+                            {isSoldOut ? (
+                              <>
+                                <Ban className="w-4 h-4 text-rose-400" />
+                                <span>품절 (SOLD OUT)</span>
+                              </>
+                            ) : (
+                              <>
+                                <Check className="w-4 h-4 text-emerald-400" />
+                                <span>판매중 (정상)</span>
+                              </>
                             )}
-                            {isLow && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 whitespace-nowrap shrink-0">
-                                부족
-                              </span>
-                            )}
-                          </div>
+                          </button>
 
-                          <div className="flex items-center space-x-1">
-                            <button
-                              type="button"
-                              onClick={() => handleAdjustStock(item.id, -1)}
-                              disabled={item.stock <= 0}
-                              className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 disabled:opacity-20 text-surface-dim hover:text-white flex items-center justify-center font-bold text-xs"
-                            >
-                              -
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleAdjustStock(item.id, 1)}
-                              className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white flex items-center justify-center font-bold text-xs"
-                            >
-                              +
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleAdjustStock(item.id, 10)}
-                              className="px-1.5 h-6 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-[10px] font-bold cursor-pointer"
-                            >
-                              +10
-                            </button>
+                          <div className="flex items-center justify-between text-xs font-mono text-surface-dim pt-0.5 px-0.5">
+                            <span className="flex items-center space-x-1">
+                              <TrendingUp className="w-3.5 h-3.5 text-secondary shrink-0" />
+                              <span>판매: <strong className="text-white font-bold">{item.totalSold || 0}</strong>개</span>
+                            </span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isSoldOut ? 'bg-rose-500/20 text-rose-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
+                              {isSoldOut ? '품절' : '정상'}
+                            </span>
                           </div>
                         </div>
 
@@ -1570,14 +1632,14 @@ export function PosProductManagerModal({
                           <button
                             type="button"
                             onClick={() => handleToggleActive(item.id)}
-                            title={item.isActive ? '판매 중단으로 전환' : '판매 개시로 전환'}
+                            title={item.isActive ? '진열 숨김으로 전환' : '진열 노출로 전환'}
                             className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
                               item.isActive
                                 ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25'
                                 : 'bg-red-500/15 border-red-500/30 text-red-300 hover:bg-red-500/25'
                             }`}
                           >
-                            {item.isActive ? '판매 중' : '중단됨'}
+                            {item.isActive ? '진열중' : '숨김'}
                           </button>
 
                           <div className="flex items-center space-x-1.5">
@@ -1836,11 +1898,11 @@ export function PosProductManagerModal({
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
-                          구글 시트 / 엑셀 재고로 새 프리셋 만들기
+                          구글 시트 / 엑셀로 새 프리셋 만들기
                         </h3>
                       </div>
                       <p className="text-xs text-surface-dim leading-relaxed">
-                        시트의 [<strong>상품명, 카테고리, 판매가, 재고, 즐겨찾기</strong>] 데이터를 복사-붙여넣기하거나 파일을 올려 한 번에 새 프리셋을 생성하고 포스기에 즉시 세팅합니다.
+                        시트의 [<strong>상품명, 카테고리, 판매가, 즐겨찾기</strong>] 4열 데이터를 복사-붙여넣기하거나 파일을 올려 한 번에 새 프리셋을 생성하고 포스기에 즉시 세팅합니다.
                       </p>
                     </div>
                   </div>
@@ -1850,7 +1912,7 @@ export function PosProductManagerModal({
                     className="w-full md:w-auto px-4.5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center space-x-2 shrink-0 shadow-lg active:scale-[0.98] cursor-pointer bg-secondary hover:brightness-110 text-on-secondary shadow-secondary/25"
                   >
                     <FileSpreadsheet className="w-4 h-4" />
-                    <span>시트/엑셀 재고 가져오기</span>
+                    <span>시트/엑셀 메뉴 가져오기</span>
                   </button>
                 </div>
 
@@ -1954,7 +2016,6 @@ export function PosProductManagerModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4">
                 {filteredPresets.map(preset => {
                   const isExpanded = expandedPresetId === preset.id;
-                  const totalStock = preset.items.reduce((s, it) => s + (it.stock || 0), 0);
 
                   return (
                     <div
@@ -1997,7 +2058,7 @@ export function PosProductManagerModal({
                         </p>
 
                         {/* Quick Metrics Chips */}
-                        <div className="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-white/5 text-[11px] text-center">
+                        <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-white/5 text-[11px] text-center">
                           <div className="bg-white/5 p-1.5 rounded-lg">
                             <span className="text-surface-dim block text-[10px]">상품</span>
                             <strong className="text-white font-mono">{preset.items.length}종</strong>
@@ -2005,10 +2066,6 @@ export function PosProductManagerModal({
                           <div className="bg-white/5 p-1.5 rounded-lg">
                             <span className="text-surface-dim block text-[10px]">카테고리</span>
                             <strong className="text-white font-mono">{preset.categories.length}개</strong>
-                          </div>
-                          <div className="bg-white/5 p-1.5 rounded-lg">
-                            <span className="text-surface-dim block text-[10px]">총 재고</span>
-                            <strong className="text-emerald-400 font-mono">{totalStock.toLocaleString()}개</strong>
                           </div>
                         </div>
 
@@ -2043,7 +2100,11 @@ export function PosProductManagerModal({
                                       <span className="text-white truncate pr-2">{it.name}</span>
                                       <div className="flex items-center space-x-2 shrink-0 font-mono text-[10px]">
                                         <span className="text-amber-300 font-semibold">{it.price.toLocaleString()}원</span>
-                                        <span className="text-emerald-400 font-bold">{it.stock}개</span>
+                                        {it.isSoldOut ? (
+                                          <span className="text-rose-400 font-bold px-1.5 py-0.5 rounded bg-rose-500/10">품절</span>
+                                        ) : (
+                                          <span className="text-emerald-400 font-bold px-1.5 py-0.5 rounded bg-emerald-500/10">판매중</span>
+                                        )}
                                       </div>
                                     </div>
                                   ))

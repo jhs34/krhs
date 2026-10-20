@@ -11,9 +11,7 @@ import {
   Star,
   X,
   Layers,
-  Boxes,
   HelpCircle,
-  ArrowRight,
   Sparkles,
   RefreshCw,
 } from 'lucide-react';
@@ -25,7 +23,6 @@ export interface ParsedSheetItem {
   name: string;
   categoryName: string;
   price: number;
-  stock: number;
   isFavorite: boolean;
   selected: boolean;
   isExisting: boolean;
@@ -41,12 +38,12 @@ interface PosSheetImportModalProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
 }
 
-const SAMPLE_5_COL_TSV = `상품명\t카테고리\t판매가\t재고\t즐겨찾기
-포카칩 오리지널\t스낵류\t1500\t30\tO
-초코에몽\t음료/유제품\t1200\t40\tO
-신라면 컵\t라면류\t1300\t24\tO
-몽쉘 초코\t빵/간식\t800\t20\tX
-볼펜 0.5mm\t문구류\t1000\t15\tX`;
+const SAMPLE_4_COL_TSV = `상품명\t카테고리\t판매가\t즐겨찾기
+포카칩 오리지널\t스낵류\t1500\tO
+초코에몽\t음료/유제품\t1200\tO
+신라면 컵\t라면류\t1300\tO
+몽쉘 초코\t빵/간식\t800\tX
+볼펜 0.5mm\t문구류\t1000\tX`;
 
 export function PosSheetImportModal({
   currentCategories,
@@ -69,15 +66,15 @@ export function PosSheetImportModal({
     const today = new Date();
     const m = today.getMonth() + 1;
     const d = today.getDate();
-    return `${m}월 ${d}일 매점 재고 세팅`;
+    return `${m}월 ${d}일 매점 메뉴 세팅`;
   });
-  const [presetDesc, setPresetDesc] = useState('구글 시트 / 엑셀 5열 재고 목록에서 일괄 생성');
+  const [presetDesc, setPresetDesc] = useState('구글 시트 / 엑셀 4열 메뉴 목록에서 일괄 생성');
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Parse 5-column raw text (TSV or CSV)
+  // Parse raw text (TSV or CSV) - supports standard 4-column [상품명, 카테고리, 판매가, 즐겨찾기] and legacy 5-column formats
   const parseRawText = (text: string) => {
     const lines = text
       .split(/\r?\n/)
@@ -91,7 +88,7 @@ export function PosSheetImportModal({
 
     const results: ParsedSheetItem[] = [];
 
-    // Determine delimiter: tab vs comma vs semicolon
+    // Determine delimiter: tab vs comma vs semicolon vs spaces
     const firstLine = lines[0];
     const isTsv = firstLine.includes('\t');
     const delimiter = isTsv ? '\t' : firstLine.includes(',') ? ',' : /\s{2,}/;
@@ -104,34 +101,61 @@ export function PosSheetImportModal({
       )
     );
 
+    // Column mapping detection if header present
+    let nameCol = 0;
+    let catCol = 1;
+    let priceCol = 2;
+    let favCol = 3;
+    let hasExplicitStockCol = false;
+
+    if (isHeader) {
+      firstTokens.forEach((token, idx) => {
+        const lower = token.toLowerCase();
+        if (['상품명', '품목', '품명', '이름'].some(k => lower.includes(k))) nameCol = idx;
+        else if (['카테고리', '분류', '종류'].some(k => lower.includes(k))) catCol = idx;
+        else if (['판매가', '가격', '단가', '금액'].some(k => lower.includes(k))) priceCol = idx;
+        else if (['재고', '수량'].some(k => lower.includes(k))) hasExplicitStockCol = true;
+        else if (['즐겨찾기', '인기', 'fav', '북마크', '추천'].some(k => lower.includes(k))) favCol = idx;
+      });
+    }
+
     const startIndex = isHeader ? 1 : 0;
 
     for (let i = startIndex; i < lines.length; i++) {
       const line = lines[i];
       if (!line) continue;
 
-      let tokens: string[];
-      if (typeof delimiter === 'string') {
-        tokens = line.split(delimiter).map(t => t.trim().replace(/^["']|["']$/g, ''));
-      } else {
-        tokens = line.split(delimiter).map(t => t.trim().replace(/^["']|["']$/g, ''));
-      }
-
+      const tokens = line.split(delimiter).map(t => t.trim().replace(/^["']|["']$/g, ''));
       if (tokens.length === 0 || !tokens[0]) continue;
 
-      const name = tokens[0] || '';
-      const categoryName = tokens[1] || '기타';
+      let name = '';
+      let categoryName = '기타';
+      let rawPriceStr = '0';
+      let rawFav = '';
 
-      // Price cleaning
-      const rawPriceStr = tokens[2] ? tokens[2].replace(/[^0-9.-]/g, '') : '0';
+      if (isHeader) {
+        name = tokens[nameCol] || '';
+        categoryName = tokens[catCol] || '기타';
+        rawPriceStr = tokens[priceCol] ? tokens[priceCol].replace(/[^0-9.-]/g, '') : '0';
+        rawFav = tokens[favCol] ? tokens[favCol].trim().toLowerCase() : '';
+      } else {
+        // Fallback without headers
+        name = tokens[0] || '';
+        categoryName = tokens[1] || '기타';
+        rawPriceStr = tokens[2] ? tokens[2].replace(/[^0-9.-]/g, '') : '0';
+
+        if (tokens.length >= 5) {
+          // Legacy 5-column: [Name, Category, Price, Stock, Fav] -> Col 4 is Fav
+          rawFav = tokens[4] ? tokens[4].trim().toLowerCase() : '';
+        } else if (tokens.length === 4) {
+          // Standard 4-column: [Name, Category, Price, Fav] -> Col 3 is Fav
+          rawFav = tokens[3] ? tokens[3].trim().toLowerCase() : '';
+        }
+      }
+
+      if (!name.trim()) continue;
+
       const price = Math.max(0, parseInt(rawPriceStr, 10) || 0);
-
-      // Stock cleaning
-      const rawStockStr = tokens[3] ? tokens[3].replace(/[^0-9.-]/g, '') : '0';
-      const stock = Math.max(0, parseInt(rawStockStr, 10) || 0);
-
-      // Favorite cleaning (Col 5)
-      const rawFav = tokens[4] ? tokens[4].trim().toLowerCase() : '';
       const isFavorite = ['o', 'y', '1', 'true', '예', '인기', '즐겨찾기', '★', 'v'].includes(rawFav);
 
       // Check if item exists in current items
@@ -139,10 +163,9 @@ export function PosSheetImportModal({
 
       results.push({
         tempId: `import-${i}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        name,
-        categoryName,
+        name: name.trim(),
+        categoryName: categoryName.trim() || '기타',
         price,
-        stock,
         isFavorite,
         selected: true,
         isExisting: !!existing,
@@ -207,44 +230,44 @@ export function PosSheetImportModal({
     e.target.value = '';
   };
 
-  // Copy 5-column template to clipboard
+  // Copy 4-column template to clipboard
   const handleCopyTemplate = () => {
-    navigator.clipboard.writeText(SAMPLE_5_COL_TSV).then(() => {
+    navigator.clipboard.writeText(SAMPLE_4_COL_TSV).then(() => {
       setCopiedTemplate(true);
-      showToast('구글 시트용 5열 샘플이 복사되었습니다! 시트에 바로 붙여넣기(Ctrl+V)하세요.', 'success');
+      showToast('구글 시트용 4열 샘플이 복사되었습니다! 시트에 바로 붙여넣기(Ctrl+V)하세요.', 'success');
       setTimeout(() => setCopiedTemplate(false), 2500);
     });
   };
 
-  // Download 5-column sample Excel file (.xlsx)
+  // Download 4-column sample Excel file (.xlsx)
   const handleDownloadExcelSample = () => {
     try {
       const data = [
-        ['상품명', '카테고리', '판매가', '재고', '즐겨찾기'],
-        ['포카칩 오리지널', '스낵류', 1500, 30, 'O'],
-        ['초코에몽', '음료/유제품', 1200, 40, 'O'],
-        ['신라면 컵', '라면류', 1300, 24, 'O'],
-        ['몽쉘 초코', '빵/간식', 800, 20, 'X'],
-        ['볼펜 0.5mm', '문구류', 1000, 15, 'X'],
-        ['삼다수 500ml', '음료/유제품', 900, 50, 'O'],
-        ['새우깡', '스낵류', 1400, 25, 'X'],
+        ['상품명', '카테고리', '판매가', '즐겨찾기'],
+        ['포카칩 오리지널', '스낵류', 1500, 'O'],
+        ['초코에몽', '음료/유제품', 1200, 'O'],
+        ['신라면 컵', '라면류', 1300, 'O'],
+        ['몽쉘 초코', '빵/간식', 800, 'X'],
+        ['볼펜 0.5mm', '문구류', 1000, 'X'],
+        ['삼다수 500ml', '음료/유제품', 900, 'O'],
+        ['새우깡', '스낵류', 1400, 'X'],
       ];
 
       const ws = XLSX.utils.aoa_to_sheet(data);
       // set column widths
-      ws['!cols'] = [{ wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 10 }, { wch: 10 }];
+      ws['!cols'] = [{ wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 10 }];
 
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, '재고목록');
-      XLSX.writeFile(wb, '매점_5열_재고_양식.xlsx');
-      showToast('샘플 엑셀 파일(매점_5열_재고_양식.xlsx)이 다운로드되었습니다.', 'success');
+      XLSX.utils.book_append_sheet(wb, ws, '메뉴목록');
+      XLSX.writeFile(wb, '매점_4열_메뉴_양식.xlsx');
+      showToast('샘플 엑셀 파일(매점_4열_메뉴_양식.xlsx)이 다운로드되었습니다.', 'success');
     } catch (e) {
       console.error('Failed to download excel', e);
       showToast('엑셀 파일 생성 실패', 'error');
     }
   };
 
-  // Export current active POS items as 5-column TSV to clipboard
+  // Export current active POS items as 4-column TSV to clipboard
   const handleExportCurrentToClipboard = () => {
     if (currentItems.length === 0) {
       showToast('현재 등록된 상품이 없습니다.', 'error');
@@ -253,17 +276,17 @@ export function PosSheetImportModal({
 
     const categoryMap = new Map(currentCategories.map(c => [c.id, c.name]));
     const lines = [
-      '상품명\t카테고리\t판매가\t재고\t즐겨찾기',
+      '상품명\t카테고리\t판매가\t즐겨찾기',
       ...currentItems.map(it => {
         const catName = categoryMap.get(it.categoryId) || '기타';
         const fav = it.isFavorite ? 'O' : 'X';
-        return `${it.name}\t${catName}\t${it.price}\t${it.stock}\t${fav}`;
+        return `${it.name}\t${catName}\t${it.price}\t${fav}`;
       }),
     ];
 
     navigator.clipboard.writeText(lines.join('\n')).then(() => {
       setCopiedCurrent(true);
-      showToast(`현재 ${currentItems.length}개 상품 재고가 5열 클립보드로 복사되었습니다! 시트에 바로 붙여넣으세요.`, 'success');
+      showToast(`현재 ${currentItems.length}개 상품 메뉴가 4열 클립보드로 복사되었습니다! 시트에 바로 붙여넣으세요.`, 'success');
       setTimeout(() => setCopiedCurrent(false), 2500);
     });
   };
@@ -300,13 +323,12 @@ export function PosSheetImportModal({
   // Statistics
   const stats = useMemo(() => {
     const totalItems = validSelectedRows.length;
-    const totalStock = validSelectedRows.reduce((sum, r) => sum + r.stock, 0);
     const uniqueCategories = Array.from(new Set(validSelectedRows.map(r => r.categoryName.trim() || '기타')));
     const favoriteCount = validSelectedRows.filter(r => r.isFavorite).length;
     const existingCount = validSelectedRows.filter(r => r.isExisting).length;
     const newCount = totalItems - existingCount;
 
-    return { totalItems, totalStock, uniqueCategories, favoriteCount, existingCount, newCount };
+    return { totalItems, uniqueCategories, favoriteCount, existingCount, newCount };
   }, [validSelectedRows]);
 
   // Execute Import & Apply / Save Preset
@@ -372,7 +394,6 @@ export function PosSheetImportModal({
             itemMap.set(key, {
               ...existing,
               price: row.price,
-              stock: row.stock,
               categoryId: catName,
               isFavorite: row.isFavorite,
               isActive: true,
@@ -386,7 +407,8 @@ export function PosSheetImportModal({
               name: row.name.trim(),
               categoryId: catName,
               price: row.price,
-              stock: row.stock,
+              isSoldOut: false,
+              totalSold: 0,
               isFavorite: row.isFavorite,
               isActive: true,
               updatedAt: new Date().toISOString(),
@@ -406,7 +428,8 @@ export function PosSheetImportModal({
             name: row.name.trim(),
             categoryId: catName,
             price: row.price,
-            stock: row.stock,
+            isSoldOut: false,
+            totalSold: existing?.totalSold || 0,
             isFavorite: row.isFavorite,
             isActive: true,
             updatedAt: new Date().toISOString(),
@@ -414,14 +437,14 @@ export function PosSheetImportModal({
         });
       }
 
-      const pName = presetName.trim() || '시트 불러오기 재고 세팅';
+      const pName = presetName.trim() || '시트 불러오기 메뉴 세팅';
 
       // 3. Save as Preset if checked or save_only
       if (saveAsPreset || mode === 'save_only') {
         const newPreset: PosPreset = {
           id: `preset-${Date.now()}`,
           name: pName,
-          description: presetDesc.trim() || `품목 ${finalItems.length}종 / 총 재고 ${finalItems.reduce((s, it) => s + it.stock, 0)}개`,
+          description: presetDesc.trim() || `품목 ${finalItems.length}종 / 카테고리 ${finalCategories.length}개`,
           isBuiltIn: false,
           categories: finalCategories,
           items: finalItems,
@@ -441,8 +464,8 @@ export function PosSheetImportModal({
 
       onClose();
     } catch (err) {
-      console.error('Error importing sheet inventory', err);
-      showToast('재고 데이터를 적용하는 중 오류가 발생했습니다.', 'error');
+      console.error('Error importing sheet menu', err);
+      showToast('메뉴 데이터를 적용하는 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -460,14 +483,14 @@ export function PosSheetImportModal({
             <div>
               <div className="flex items-center space-x-2">
                 <h2 className="text-sm sm:text-base md:text-lg font-bold text-white tracking-tight">
-                  구글 시트 / 엑셀 재고 불러오기
+                  구글 시트 / 엑셀 메뉴 불러오기
                 </h2>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary/20 text-secondary border border-secondary/30">
-                  5열 표준
+                  4열 표준
                 </span>
               </div>
               <p className="text-xs text-surface-dim mt-0.5 hidden sm:block">
-                [상품명 | 카테고리 | 판매가 | 재고 | 즐겨찾기] 5개 열 데이터를 복사해 넣으면 즉시 프리셋으로 등록하고 세팅합니다.
+                [상품명 | 카테고리 | 판매가 | 즐겨찾기] 4개 열 데이터를 복사해 넣으면 즉시 프리셋으로 등록하고 세팅합니다.
               </p>
             </div>
           </div>
@@ -483,19 +506,17 @@ export function PosSheetImportModal({
 
         {/* Action / Helper Bar (Templates & Export) */}
         <div className="px-3.5 sm:px-6 py-2.5 bg-[#09101f] border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs">
-          {/* 5 Column Guide Pills */}
+          {/* 4 Column Guide Pills */}
           <div className="flex items-center space-x-1.5 text-surface-dim font-medium overflow-x-auto scrollbar-hide py-0.5 whitespace-nowrap">
             <HelpCircle className="w-3.5 h-3.5 text-secondary shrink-0" />
-            <span className="text-[11px] text-surface-dim shrink-0">5열 순서:</span>
+            <span className="text-[11px] text-surface-dim shrink-0">4열 순서:</span>
             <span className="bg-white/5 px-1.5 py-0.5 rounded text-white font-mono text-[11px]">1.상품명</span>
             <span className="text-white/30">·</span>
             <span className="bg-white/5 px-1.5 py-0.5 rounded text-white font-mono text-[11px]">2.카테고리</span>
             <span className="text-white/30">·</span>
             <span className="bg-white/5 px-1.5 py-0.5 rounded text-white font-mono text-[11px]">3.판매가</span>
             <span className="text-white/30">·</span>
-            <span className="bg-white/5 px-1.5 py-0.5 rounded text-white font-mono text-[11px]">4.재고</span>
-            <span className="text-white/30">·</span>
-            <span className="bg-white/5 px-1.5 py-0.5 rounded text-white font-mono text-[11px]">5.즐겨찾기(O/X)</span>
+            <span className="bg-white/5 px-1.5 py-0.5 rounded text-white font-mono text-[11px]">4.즐겨찾기(O/X)</span>
           </div>
 
           {/* Quick Action Buttons */}
@@ -504,14 +525,14 @@ export function PosSheetImportModal({
               type="button"
               onClick={handleCopyTemplate}
               className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors flex items-center space-x-1 font-semibold text-[11px] sm:text-xs whitespace-nowrap cursor-pointer shrink-0"
-              title="구글 시트나 엑셀에 붙여넣을 5열 샘플 복사"
+              title="구글 시트나 엑셀에 붙여넣을 4열 샘플 복사"
             >
               {copiedTemplate ? (
                 <ClipboardCheck className="w-3.5 h-3.5 text-emerald-400" />
               ) : (
                 <Clipboard className="w-3.5 h-3.5" />
               )}
-              <span>{copiedTemplate ? '복사완료!' : '5열 양식 샘플'}</span>
+              <span>{copiedTemplate ? '복사완료!' : '4열 양식 샘플'}</span>
             </button>
 
             <button
@@ -528,14 +549,14 @@ export function PosSheetImportModal({
               type="button"
               onClick={handleExportCurrentToClipboard}
               className="px-2.5 py-1 rounded-lg bg-secondary/15 hover:bg-secondary/25 text-secondary transition-colors flex items-center space-x-1 font-semibold text-[11px] sm:text-xs whitespace-nowrap border border-secondary/30 cursor-pointer shrink-0"
-              title="현재 포스기에 있는 재고를 5열 시트 양식으로 복사"
+              title="현재 포스기 메뉴 목록을 4열 시트 양식으로 복사"
             >
               {copiedCurrent ? (
                 <ClipboardCheck className="w-3.5 h-3.5 text-emerald-400" />
               ) : (
                 <Sparkles className="w-3.5 h-3.5" />
               )}
-              <span>현재 재고 5열 복사</span>
+              <span>현재 메뉴 4열 복사</span>
             </button>
           </div>
         </div>
@@ -597,10 +618,10 @@ export function PosSheetImportModal({
                   placeholder={`구글 시트 또는 엑셀에서 표 영역을 복사(Ctrl+C)한 후 여기에 붙여넣기(Ctrl+V)하세요.
 
 예시:
-상품명\t카테고리\t판매가\t재고\t즐겨찾기
-포카칩 오리지널\t스낵류\t1500\t30\tO
-초코에몽\t음료/유제품\t1200\t40\tO
-신라면 컵\t라면류\t1300\t24\tO`}
+상품명\t카테고리\t판매가\t즐겨찾기
+포카칩 오리지널\t스낵류\t1500\tO
+초코에몽\t음료/유제품\t1200\tO
+신라면 컵\t라면류\t1300\tO`}
                   className="w-full bg-[#121c33] border border-white/10 rounded-2xl p-3.5 text-xs text-white font-mono focus:outline-none focus:border-secondary placeholder:text-surface-dim/40 custom-scrollbar leading-relaxed"
                 />
               </div>
@@ -626,7 +647,7 @@ export function PosSheetImportModal({
                   </p>
                 </div>
                 <span className="text-[10px] text-secondary bg-secondary/10 px-2.5 py-1 rounded-full border border-secondary/20">
-                  첫 번째 시트의 [상품명, 카테고리, 판매가, 재고, 즐겨찾기] 5열을 자동으로 읽습니다.
+                  첫 번째 시트의 [상품명, 카테고리, 판매가, 즐겨찾기] 4열을 자동으로 읽습니다.
                 </span>
                 <input
                   ref={fileInputRef}
@@ -653,9 +674,6 @@ export function PosSheetImportModal({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="px-2.5 py-1 rounded-lg bg-white/5 font-bold text-white">
                     선택 품목: <strong className="text-secondary font-mono">{stats.totalItems}종</strong> / {parsedRows.length}종
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-white/5 font-bold text-white">
-                    총 재고: <strong className="text-indigo-400 font-mono">{stats.totalStock.toLocaleString()}개</strong>
                   </span>
                   <span className="px-2.5 py-1 rounded-lg bg-white/5 font-bold text-white">
                     카테고리: <strong className="text-white font-mono">{stats.uniqueCategories.length}개</strong>
@@ -693,7 +711,7 @@ export function PosSheetImportModal({
               {/* Table Preview */}
               <div className="border border-white/10 rounded-2xl overflow-hidden bg-[#101b33]">
                 <div className="max-h-60 overflow-y-auto overflow-x-auto custom-scrollbar">
-                  <table className="w-full text-left text-xs min-w-[540px]">
+                  <table className="w-full text-left text-xs min-w-[500px]">
                     <thead className="bg-[#09101f] text-surface-dim sticky top-0 z-10 border-b border-white/10">
                       <tr>
                         <th className="py-2.5 px-3 w-8 text-center">선택</th>
@@ -701,7 +719,6 @@ export function PosSheetImportModal({
                         <th className="py-2.5 px-3 font-bold text-white">상품명</th>
                         <th className="py-2.5 px-3">카테고리</th>
                         <th className="py-2.5 px-3 text-right">판매가</th>
-                        <th className="py-2.5 px-3 text-center">입고재고</th>
                         <th className="py-2.5 px-3 text-center">구분</th>
                         <th className="py-2.5 px-2 w-8 text-center"></th>
                       </tr>
@@ -764,21 +781,6 @@ export function PosSheetImportModal({
                           {/* Price */}
                           <td className="py-2 px-3 text-right font-mono font-bold text-secondary">
                             {row.price.toLocaleString()}원
-                          </td>
-
-                          {/* Stock */}
-                          <td className="py-2 px-3 text-center">
-                            <span
-                              className={`font-mono font-bold px-2 py-0.5 rounded text-[11px] ${
-                                row.stock === 0
-                                  ? 'bg-red-500/20 text-red-300'
-                                  : row.stock <= 5
-                                  ? 'bg-amber-500/20 text-amber-300'
-                                  : 'bg-emerald-500/15 text-emerald-300'
-                              }`}
-                            >
-                              {row.stock}개
-                            </span>
                           </td>
 
                           {/* Existing Badge */}
@@ -847,10 +849,10 @@ export function PosSheetImportModal({
                     >
                       <div className="font-bold flex items-center space-x-1.5 text-secondary">
                         <Layers className="w-3.5 h-3.5" />
-                        <span>기존 품목 유지 + 재고 갱신</span>
+                        <span>기존 품목 유지 + 정보 갱신</span>
                       </div>
                       <p className="text-[11px] text-surface-dim mt-1">
-                        기존 메뉴를 유지하면서 시트에 있는 품목은 가격/재고를 갱신하고 새 품목을 추가합니다.
+                        기존 메뉴를 유지하면서 시트에 있는 품목은 가격/즐겨찾기 정보를 갱신하고 새 품목을 추가합니다.
                       </p>
                     </button>
                   </div>
@@ -867,7 +869,7 @@ export function PosSheetImportModal({
                       className="rounded border-white/20 bg-white/5 text-secondary focus:ring-secondary cursor-pointer"
                     />
                     <label htmlFor="save-as-preset-check" className="text-xs font-bold text-white cursor-pointer">
-                      이 구성을 '재고 프리셋' 보관함에 저장하여 다음에도 불러오기
+                      이 구성을 '메뉴 프리셋' 보관함에 저장하여 다음에도 불러오기
                     </label>
                   </div>
 
@@ -889,7 +891,7 @@ export function PosSheetImportModal({
                           type="text"
                           value={presetDesc}
                           onChange={e => setPresetDesc(e.target.value)}
-                          placeholder="예: 과자 10종, 음료 5종 (기본 수량)"
+                          placeholder="예: 과자 10종, 음료 5종"
                           className="w-full bg-[#162035] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-secondary"
                         />
                       </div>
@@ -909,7 +911,7 @@ export function PosSheetImportModal({
                 선택된 <strong className="text-white font-bold">{validSelectedRows.length}개</strong> 품목 준비 완료
               </span>
             ) : (
-              <span>구글 시트 5열 데이터를 붙여넣거나 엑셀 파일을 올려주세요.</span>
+              <span>구글 시트 4열 데이터를 붙여넣거나 엑셀 파일을 올려주세요.</span>
             )}
           </div>
 

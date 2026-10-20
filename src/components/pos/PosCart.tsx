@@ -80,7 +80,6 @@ export function PosCart({
           <AnimatePresence initial={false}>
             {cart.map(cartItem => {
               const itemTotal = cartItem.item.price * cartItem.count;
-              const isMaxStock = cartItem.count >= cartItem.item.stock;
 
               return (
                 <motion.div
@@ -142,9 +141,8 @@ export function PosCart({
 
                       <button
                         type="button"
-                        disabled={isMaxStock}
                         onClick={() => onUpdateCount(cartItem.item.id, cartItem.count + 1)}
-                        className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition-all disabled:opacity-30 disabled:pointer-events-none"
+                        className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>

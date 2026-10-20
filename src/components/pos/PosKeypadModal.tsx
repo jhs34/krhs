@@ -11,12 +11,12 @@ interface PosKeypadModalProps {
 
 export function PosKeypadModal({ cartItem, onConfirm, onClose }: PosKeypadModalProps) {
   const [valStr, setValStr] = useState<string>(String(cartItem.count));
-  const maxStock = cartItem.item.stock;
+  const maxLimit = 999;
 
   const handleDigit = (digit: string) => {
     if (valStr === '0') {
       setValStr(digit);
-    } else if (valStr.length < 4) {
+    } else if (valStr.length < 3) {
       setValStr(prev => prev + digit);
     }
   };
@@ -36,15 +36,14 @@ export function PosKeypadModal({ cartItem, onConfirm, onClose }: PosKeypadModalP
   const handleAddPreset = (add: number) => {
     const current = parseInt(valStr, 10) || 0;
     const next = current + add;
-    setValStr(String(Math.min(next, maxStock)));
+    setValStr(String(Math.min(next, maxLimit)));
   };
 
   const currentCount = parseInt(valStr, 10) || 0;
-  const isOverStock = currentCount > maxStock;
 
   const handleSave = () => {
     if (currentCount <= 0) return;
-    const finalCount = Math.min(currentCount, maxStock);
+    const finalCount = Math.min(currentCount, maxLimit);
     onConfirm(finalCount);
   };
 
@@ -64,7 +63,7 @@ export function PosKeypadModal({ cartItem, onConfirm, onClose }: PosKeypadModalP
             <Calculator className="w-5 h-5 text-secondary" />
             <h3 className="font-bold text-white text-base">수량 직접 입력</h3>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-surface-dim hover:text-white hover:bg-white/10">
+          <button onClick={onClose} className="p-1 rounded-lg text-surface-dim hover:text-white hover:bg-white/10 cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -74,16 +73,12 @@ export function PosKeypadModal({ cartItem, onConfirm, onClose }: PosKeypadModalP
           <div className="text-sm font-bold text-white truncate">{cartItem.item.name}</div>
           <div className="text-xs text-surface-dim flex justify-between mt-1">
             <span>단가: {cartItem.item.price.toLocaleString()}원</span>
-            <span className="text-emerald-400 font-bold">남은 재고: {maxStock}개</span>
+            <span className="text-secondary font-bold">주문 수량 설정</span>
           </div>
         </div>
 
         {/* Big Display */}
-        <div className={`p-4 rounded-2xl border text-center my-1 transition-colors ${
-          isOverStock 
-            ? 'bg-red-500/10 border-red-500/40 text-red-400' 
-            : 'bg-black/50 border-white/15 text-white'
-        }`}>
+        <div className="p-4 rounded-2xl border text-center my-1 bg-black/50 border-white/15 text-white">
           <div className="text-3xl md:text-4xl font-black tracking-wider font-mono">
             {valStr}
             <span className="text-sm font-normal text-surface-dim ml-1">개</span>
@@ -91,11 +86,6 @@ export function PosKeypadModal({ cartItem, onConfirm, onClose }: PosKeypadModalP
           <div className="text-xs font-semibold text-secondary-fixed mt-1">
             소계: {(currentCount * cartItem.item.price).toLocaleString()}원
           </div>
-          {isOverStock && (
-            <div className="text-[11px] font-bold text-red-400 mt-1">
-              * 재고({maxStock}개)를 초과하여 입력할 수 없습니다.
-            </div>
-          )}
         </div>
 
         {/* Quick Add Presets */}
@@ -139,7 +129,7 @@ export function PosKeypadModal({ cartItem, onConfirm, onClose }: PosKeypadModalP
         {/* Confirm Button */}
         <button
           type="button"
-          disabled={currentCount <= 0 || isOverStock}
+          disabled={currentCount <= 0}
           onClick={handleSave}
           className="w-full mt-2 py-3.5 rounded-xl font-bold text-sm text-white bg-secondary hover:bg-secondary/90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center space-x-2 shadow-lg shadow-secondary/20"
         >

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, AlertCircle, Plus } from 'lucide-react';
+import { X, Sparkles, AlertCircle, Check, Ban, TrendingUp, Plus } from 'lucide-react';
 import { PosCategory, PosItem } from '../../types/pos';
 
 interface PosItemFormModalProps {
@@ -23,7 +23,7 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
   const [name, setName] = useState(item?.name || '');
   const [categoryId, setCategoryId] = useState(() => resolveCat(item?.categoryId));
   const [price, setPrice] = useState<number | ''>(item?.price ?? 1000);
-  const [stock, setStock] = useState<number | ''>(item?.stock ?? 20);
+  const [isSoldOut, setIsSoldOut] = useState<boolean>(() => Boolean(item?.isSoldOut));
   const [isFavorite, setIsFavorite] = useState(item?.isFavorite ?? false);
   const [isActive, setIsActive] = useState(item?.isActive ?? true);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +33,7 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
       setName(item.name);
       setCategoryId(resolveCat(item.categoryId));
       setPrice(item.price);
-      setStock(item.stock);
+      setIsSoldOut(Boolean(item.isSoldOut));
       setIsFavorite(item.isFavorite);
       setIsActive(item.isActive);
     }
@@ -54,29 +54,21 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
       setError('올바른 판매 가격을 입력해주세요.');
       return;
     }
-    const numStock = Number(stock);
-    if (isNaN(numStock) || numStock < 0) {
-      setError('올바른 재고 수량을 입력해주세요.');
-      return;
-    }
 
     const saved: PosItem = {
       id: item ? item.id : `item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       name: name.trim(),
       categoryId,
       price: numPrice,
-      stock: numStock,
+      stock: item?.stock ?? 999,
+      isSoldOut,
+      totalSold: item?.totalSold || 0,
       isFavorite,
       isActive,
       updatedAt: new Date().toISOString(),
     };
 
     onSave(saved);
-  };
-
-  const addStockQuick = (amount: number) => {
-    const current = typeof stock === 'number' ? stock : 0;
-    setStock(Math.max(0, current + amount));
   };
 
   return (
@@ -172,57 +164,48 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
             </div>
           </div>
 
-          {/* Stock & Quick Buttons */}
+          {/* Status: In Stock (판매중) vs Sold Out (품절) */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-surface-dim">
-                재고 수량 (개) <span className="text-red-400">*</span>
-              </label>
-              <div className="flex items-center space-x-1">
-                <button
-                  type="button"
-                  onClick={() => addStockQuick(5)}
-                  className="px-2 py-0.5 rounded text-[11px] font-bold bg-white/5 hover:bg-white/10 text-sky-300 border border-white/10"
-                >
-                  +5
-                </button>
-                <button
-                  type="button"
-                  onClick={() => addStockQuick(10)}
-                  className="px-2 py-0.5 rounded text-[11px] font-bold bg-white/5 hover:bg-white/10 text-sky-300 border border-white/10"
-                >
-                  +10
-                </button>
-                <button
-                  type="button"
-                  onClick={() => addStockQuick(20)}
-                  className="px-2 py-0.5 rounded text-[11px] font-bold bg-white/5 hover:bg-white/10 text-sky-300 border border-white/10"
-                >
-                  +20
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStock(0)}
-                  className="px-2 py-0.5 rounded text-[11px] font-bold bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30"
-                >
-                  0(품절)
-                </button>
+            <label className="block text-xs font-semibold text-surface-dim mb-1.5">
+              판매 상태
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setIsSoldOut(false)}
+                className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                  !isSoldOut
+                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-sm'
+                    : 'bg-white/5 border-white/10 text-surface-dim hover:text-white'
+                }`}
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>판매중 (정상)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSoldOut(true)}
+                className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                  isSoldOut
+                    ? 'bg-red-500/20 border-red-500/50 text-red-300 shadow-sm'
+                    : 'bg-white/5 border-white/10 text-surface-dim hover:text-white'
+                }`}
+              >
+                <Ban className="w-3.5 h-3.5" />
+                <span>품절 (SOLD OUT)</span>
+              </button>
+            </div>
+            {isEdit && (
+              <div className="mt-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-between text-xs text-surface-dim">
+                <span className="flex items-center space-x-1.5">
+                  <TrendingUp className="w-3.5 h-3.5 text-secondary" />
+                  <span>누적 판매량</span>
+                </span>
+                <span className="font-mono font-bold text-white">
+                  {(item?.totalSold || 0).toLocaleString()}개 판매됨
+                </span>
               </div>
-            </div>
-            <div className="relative">
-              <input
-                type="number"
-                min="0"
-                value={stock}
-                onChange={e => setStock(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="0"
-                className="w-full bg-[#1e293b] border border-white/10 rounded-xl pl-3.5 pr-8 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-secondary"
-                required
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-surface-dim font-bold">
-                개
-              </span>
-            </div>
+            )}
           </div>
 
           {/* Favorite & Active Toggles */}

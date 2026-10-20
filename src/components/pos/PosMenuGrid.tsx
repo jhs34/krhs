@@ -248,8 +248,7 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
   // Render individual product card
   const renderItemCard = (item: PosItem) => {
     const inCartCount = cartCountMap.get(item.id) || 0;
-    const isSoldOut = item.stock <= 0;
-    const isLowStock = item.stock > 0 && item.stock <= 5;
+    const isSoldOut = Boolean(item.isSoldOut);
 
     const cardPadding =
       density === 'compact'
@@ -294,21 +293,17 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
             <PosItemNameMarquee name={item.name} className={titleSize} />
           </div>
 
-          {/* Right: Stock Badge & Favorite right below it */}
+          {/* Right: Sold Out Badge / Sales count & Favorite */}
           <div className="flex flex-col items-end shrink-0 space-y-1">
             {isSoldOut ? (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/25 text-rose-300 border border-rose-500/40 whitespace-nowrap shadow-xs">
                 품절
               </span>
-            ) : isLowStock ? (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/35 whitespace-nowrap">
-                {item.stock}개
+            ) : item.totalSold && item.totalSold > 0 ? (
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-white/5 text-slate-300 whitespace-nowrap">
+                판매 {item.totalSold}개
               </span>
-            ) : (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 whitespace-nowrap">
-                {item.stock}개
-              </span>
-            )}
+            ) : null}
 
             {item.isFavorite && (
               <span
