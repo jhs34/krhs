@@ -1,12 +1,12 @@
 import { PosCategory, PosItem } from '../types/pos';
 
 export const DEFAULT_POS_CATEGORIES: PosCategory[] = [
-  { id: '라면', name: '라면', orderIndex: 1 },
-  { id: '한강라면', name: '한강라면', orderIndex: 2 },
-  { id: '과자', name: '과자', orderIndex: 3 },
-  { id: '간식', name: '간식', orderIndex: 4 },
-  { id: '음료수', name: '음료수', orderIndex: 5 },
-  { id: '아이스크림', name: '아이스크림', orderIndex: 6 },
+  { name: '라면', orderIndex: 1 },
+  { name: '한강라면', orderIndex: 2 },
+  { name: '과자', orderIndex: 3 },
+  { name: '간식', orderIndex: 4 },
+  { name: '음료수', orderIndex: 5 },
+  { name: '아이스크림', orderIndex: 6 },
 ];
 
 export const DEFAULT_POS_ITEMS: PosItem[] = [

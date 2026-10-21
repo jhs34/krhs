@@ -274,11 +274,10 @@ export function PosSheetImportModal({
       return;
     }
 
-    const categoryMap = new Map(currentCategories.map(c => [c.id, c.name]));
     const lines = [
       '상품명\t카테고리\t판매가\t즐겨찾기',
       ...currentItems.map(it => {
-        const catName = categoryMap.get(it.categoryId) || '기타';
+        const catName = it.categoryId || '기타';
         const fav = it.isFavorite ? 'O' : 'X';
         return `${it.name}\t${catName}\t${it.price}\t${fav}`;
       }),
@@ -351,7 +350,6 @@ export function PosSheetImportModal({
           if (cleanName && !seenCatNames.has(cleanName.toLowerCase())) {
             seenCatNames.add(cleanName.toLowerCase());
             finalCategories.push({
-              id: cleanName,
               name: cleanName,
               orderIndex: finalCategories.length + 1,
             });
@@ -366,7 +364,6 @@ export function PosSheetImportModal({
         if (!seenCatNames.has(key)) {
           seenCatNames.add(key);
           finalCategories.push({
-            id: catName,
             name: catName,
             orderIndex: finalCategories.length + 1,
           });

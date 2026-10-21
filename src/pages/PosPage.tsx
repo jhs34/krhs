@@ -109,7 +109,6 @@ export function PosPage() {
             const cleanName = (c.name || '').trim();
             if (cleanName && !map.has(cleanName.toLowerCase())) {
               map.set(cleanName.toLowerCase(), {
-                id: cleanName,
                 name: cleanName,
                 orderIndex: typeof c.orderIndex === 'number' ? c.orderIndex : idx + 1,
               });
@@ -128,14 +127,6 @@ export function PosPage() {
 
   // POS Items State (hydrated from localStorage)
   const [items, setItems] = useState<PosItem[]>(() => {
-    const legacyMap: Record<string, string> = {
-      'cat-ramen': '라면',
-      'cat-hangang': '한강라면',
-      'cat-snack': '과자',
-      'cat-treat': '간식',
-      'cat-drink': '음료수',
-      'cat-icecream': '아이스크림',
-    };
     try {
       const saved = localStorage.getItem(ITEMS_STORAGE_KEY);
       if (saved) {
@@ -143,7 +134,7 @@ export function PosPage() {
         if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed.map(it => ({
             ...it,
-            categoryId: legacyMap[it.categoryId] || it.categoryId.trim(),
+            categoryId: (it.categoryId || '').trim(),
           }));
         }
       }
@@ -479,16 +470,12 @@ export function PosPage() {
             const cleanName = c.name.trim();
             if (cleanName && !map.has(cleanName.toLowerCase())) {
               map.set(cleanName.toLowerCase(), {
-                id: cleanName,
                 name: cleanName,
                 orderIndex: typeof c.orderIndex === 'number' ? c.orderIndex : idx + 1,
               });
             }
           });
           setCategories(Array.from(map.values()).sort((a, b) => a.orderIndex - b.orderIndex));
-        } else {
-          // If completely empty in Firestore on initial load, auto-seed defaults
-          seedInitialPosData(DEFAULT_POS_CATEGORIES, DEFAULT_POS_ITEMS).catch(console.error);
         }
       });
 
@@ -696,7 +683,6 @@ export function PosPage() {
       const cleanName = cat.name.trim();
       if (cleanName && !map.has(cleanName.toLowerCase())) {
         map.set(cleanName.toLowerCase(), {
-          id: cleanName,
           name: cleanName,
           orderIndex: typeof cat.orderIndex === 'number' ? cat.orderIndex : idx + 1,
         });

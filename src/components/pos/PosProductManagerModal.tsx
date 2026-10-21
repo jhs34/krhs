@@ -133,7 +133,7 @@ export function PosProductManagerModal({
     if (localCategories.length !== categories.length) return true;
     return localCategories.some((c, idx) => {
       const orig = categories[idx];
-      return !orig || orig.id !== c.id || orig.name !== c.name || orig.orderIndex !== c.orderIndex;
+      return !orig || orig.name !== c.name || orig.orderIndex !== c.orderIndex;
     });
   }, [localCategories, categories]);
 
@@ -193,7 +193,7 @@ export function PosProductManagerModal({
 
   // Category Tab state
   const [newCatName, setNewCatName] = useState('');
-  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editingCatOldName, setEditingCatOldName] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
   const [deleteConfirmCat, setDeleteConfirmCat] = useState<PosCategory | null>(null);
 
@@ -282,6 +282,12 @@ export function PosProductManagerModal({
   const isItemSoldOut = (it: PosItem) => Boolean(it.isSoldOut);
 
   // Filtered items (using localItems)
+  const findCategoryOfItem = (itemCatId?: string) => {
+    if (!itemCatId) return undefined;
+    const clean = itemCatId.trim().toLowerCase();
+    return localCategories.find(c => c.name.trim().toLowerCase() === clean);
+  };
+
   const filteredItems = useMemo(() => {
     return localItems.filter(item => {
       const matchCat =
@@ -291,7 +297,7 @@ export function PosProductManagerModal({
           ? item.isFavorite
           : selectedCategoryFilter === 'SOLDOUT'
           ? isItemSoldOut(item)
-          : item.categoryId === selectedCategoryFilter;
+          : (item.categoryId || '').trim().toLowerCase() === selectedCategoryFilter.trim().toLowerCase();
       const matchQuery =
         !searchQuery.trim() ||
         item.name.toLowerCase().includes(searchQuery.toLowerCase().trim());
@@ -399,7 +405,6 @@ export function PosProductManagerModal({
     }
 
     const newCategory: PosCategory = {
-      id: cleanName,
       name: cleanName,
       orderIndex: localCategories.length + 1,
     };
@@ -410,30 +415,27 @@ export function PosProductManagerModal({
     showToast(`'${newCategory.name}' 카테고리가 추가되었습니다. (저장 버튼을 눌러 확정)`);
   };
 
-  const handleSaveCategoryName = (catId: string) => {
+  const handleSaveCategoryName = (oldName: string) => {
     const cleanName = editingCatName.trim();
     if (!cleanName) return;
 
-    if (localCategories.some(c => c.id !== catId && c.name.trim().toLowerCase() === cleanName.toLowerCase())) {
+    if (localCategories.some(c => c.name.trim().toLowerCase() === cleanName.toLowerCase() && c.name !== oldName)) {
       showToast(`'${cleanName}' 카테고리 이름이 이미 존재합니다.`, 'error');
       return;
     }
 
-    const oldCat = localCategories.find(c => c.id === catId);
-    const oldName = oldCat?.name || catId;
-
     isDirtyRef.current = true;
     setLocalCategories(prev =>
-      prev.map(c => (c.id === catId ? { ...c, id: cleanName, name: cleanName } : c))
+      prev.map(c => (c.name === oldName ? { ...c, name: cleanName } : c))
     );
     // Cascade rename to local items so assigned items are preserved
     setLocalItems(prev =>
-      prev.map(it => (it.categoryId === catId || it.categoryId === oldName ? { ...it, categoryId: cleanName } : it))
+      prev.map(it => (it.categoryId === oldName ? { ...it, categoryId: cleanName } : it))
     );
-    if (catId !== cleanName) {
-      deletePosCategory(catId, oldName).catch(() => {});
+    if (oldName !== cleanName) {
+      deletePosCategory(oldName, oldName).catch(() => {});
     }
-    setEditingCatId(null);
+    setEditingCatOldName(null);
     setEditingCatName('');
     showToast(`카테고리 이름이 '${cleanName}'(으)로 변경되었습니다. (저장 버튼을 눌러 확정)`);
   };
@@ -462,7 +464,7 @@ export function PosProductManagerModal({
     if (!deleteConfirmCat) return;
 
     const hasItems = localItems.some(
-      it => it.categoryId === deleteConfirmCat.id || it.categoryId === deleteConfirmCat.name
+      it => it.categoryId.trim().toLowerCase() === deleteConfirmCat.name.trim().toLowerCase()
     );
     if (hasItems) {
       showToast('해당 카테고리에 배정된 상품이 있어 삭제할 수 없습니다. 상품을 먼저 이동하거나 삭제하세요.', 'error');
@@ -472,10 +474,10 @@ export function PosProductManagerModal({
 
     isDirtyRef.current = true;
     if (onDeleteCategory) {
-      onDeleteCategory(deleteConfirmCat.id);
+      onDeleteCategory(deleteConfirmCat.name);
     }
-    deletePosCategory(deleteConfirmCat.id, deleteConfirmCat.name).catch(() => {});
-    setLocalCategories(prev => prev.filter(c => c.id !== deleteConfirmCat.id && c.name !== deleteConfirmCat.name));
+    deletePosCategory(deleteConfirmCat.name, deleteConfirmCat.name).catch(() => {});
+    setLocalCategories(prev => prev.filter(c => c.name !== deleteConfirmCat.name));
     showToast(`'${deleteConfirmCat.name}' 카테고리가 삭제되었습니다.`);
     setDeleteConfirmCat(null);
   };
@@ -508,7 +510,7 @@ export function PosProductManagerModal({
 
       modifiedItems.forEach(newItem => {
         const oldItem = items.find(it => it.id === newItem.id);
-        const cat = localCategories.find(c => c.id === newItem.categoryId);
+        const cat = localCategories.find(c => c.name.trim().toLowerCase() === newItem.categoryId.trim().toLowerCase());
         const catName = cat ? cat.name : '기본 카테고리';
 
         if (!oldItem) {
@@ -565,7 +567,7 @@ export function PosProductManagerModal({
             });
           }
           if (oldItem.categoryId !== newItem.categoryId) {
-            const oldCatName = localCategories.find(c => c.id === oldItem.categoryId)?.name || '이전 카테고리';
+            const oldCatName = localCategories.find(c => c.name.trim().toLowerCase() === oldItem.categoryId.trim().toLowerCase())?.name || '이전 카테고리';
             subChanges.push(`카테고리 '${oldCatName}'→'${catName}'`);
             diffs.push({
               field: 'categoryId',
@@ -944,44 +946,47 @@ export function PosProductManagerModal({
             )}
 
             {/* Tabs */}
-            <div className="flex bg-[#162035] p-1 rounded-xl sm:rounded-2xl border border-white/10 text-xs shrink-0 max-w-full overflow-x-auto">
+            <div className="flex items-center gap-1 bg-[#162035] p-1 rounded-xl sm:rounded-2xl border border-white/10 text-xs shrink-0 max-w-full overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setActiveTab('items')}
-                className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all flex items-center space-x-1 sm:space-x-1.5 whitespace-nowrap ${
+                title={`상품/재고 (${localItems.length})`}
+                className={`w-8 h-8 sm:w-auto sm:h-auto sm:px-3.5 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'items'
                     ? 'bg-secondary text-on-secondary shadow'
                     : 'text-surface-dim hover:text-white'
                 }`}
               >
-                <Boxes className="w-3.5 h-3.5" />
-                <span>상품/재고 ({localItems.length})</span>
+                <Boxes className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">상품/재고 ({localItems.length})</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('categories')}
-                className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all flex items-center space-x-1 sm:space-x-1.5 whitespace-nowrap ${
+                title={`카테고리 (${localCategories.length})`}
+                className={`w-8 h-8 sm:w-auto sm:h-auto sm:px-3.5 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'categories'
                     ? 'bg-secondary text-on-secondary shadow'
                     : 'text-surface-dim hover:text-white'
                 }`}
               >
-                <Tag className="w-3.5 h-3.5" />
-                <span>카테고리 ({localCategories.length})</span>
+                <Tag className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">카테고리 ({localCategories.length})</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('presets')}
-                className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all flex items-center space-x-1 sm:space-x-1.5 whitespace-nowrap ${
+                title={`프리셋 (${allPresets.length})`}
+                className={`w-8 h-8 sm:w-auto sm:h-auto sm:px-3.5 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'presets'
                     ? 'bg-secondary text-on-secondary shadow'
                     : 'text-surface-dim hover:text-white'
                 }`}
               >
-                <Layers className="w-3.5 h-3.5" />
-                <span>프리셋 ({allPresets.length})</span>
+                <Layers className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">프리셋 ({allPresets.length})</span>
               </button>
             </div>
 
@@ -1072,14 +1077,15 @@ export function PosProductManagerModal({
                   </button>
 
                   {localCategories.map(cat => {
-                    const count = localItems.filter(it => it.categoryId === cat.id).length;
+                    const catCleanName = cat.name.trim().toLowerCase();
+                    const count = localItems.filter(it => (it.categoryId || '').trim().toLowerCase() === catCleanName).length;
                     return (
                       <button
-                        key={cat.id}
+                        key={cat.name}
                         type="button"
-                        onClick={() => setSelectedCategoryFilter(cat.id)}
+                        onClick={() => setSelectedCategoryFilter(cat.name)}
                         className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors shrink-0 ${
-                          selectedCategoryFilter === cat.id
+                          selectedCategoryFilter.trim().toLowerCase() === catCleanName
                             ? 'bg-secondary text-on-secondary font-bold'
                             : 'bg-white/5 text-surface-dim hover:text-white'
                         }`}
@@ -1170,7 +1176,7 @@ export function PosProductManagerModal({
             </div>
 
             {/* Items Grid / Table List */}
-            <div className="flex-1 overflow-y-auto p-2.5 sm:p-5 min-h-0 custom-scrollbar">
+            <div className={`flex-1 overflow-y-auto p-2.5 sm:p-5 min-h-0 custom-scrollbar ${hasChanges ? 'pb-28 sm:pb-24' : ''}`}>
               {/* Category-level Favorites Management Banner */}
               {selectedCategoryFilter === 'FAVORITES' && (
                 <div className="mb-3 px-3.5 py-2.5 bg-amber-500/10 border border-amber-500/25 rounded-2xl flex flex-wrap items-center justify-between gap-2.5">
@@ -1193,7 +1199,7 @@ export function PosProductManagerModal({
                 </div>
               )}
 
-              {/* Status & Quick Batch Strip */}
+              {/* Status Strip */}
               <div className="mb-3 px-3.5 py-2.5 bg-[#111c33] border border-white/10 rounded-2xl flex flex-wrap items-center justify-between gap-2.5 text-xs">
                 <div className="flex items-center gap-3 text-surface-dim flex-wrap">
                   <span className="flex items-center gap-1.5 font-medium">
@@ -1209,29 +1215,6 @@ export function PosProductManagerModal({
                     <span>누적 판매 <strong className="text-white font-mono font-bold">{totalSoldCount}</strong>개</span>
                   </span>
                 </div>
-
-                {filteredItems.length > 0 && (
-                  <div className="flex items-center gap-1.5 ml-auto">
-                    <button
-                      type="button"
-                      onClick={() => handleBatchSetSoldOut(true)}
-                      title="현재 화면에 표시된 상품들을 모두 품절 상태로 변경합니다"
-                      className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 flex items-center space-x-1 cursor-pointer transition-colors active:scale-95"
-                    >
-                      <Ban className="w-3 h-3" />
-                      <span>목록 품절</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleBatchSetSoldOut(false)}
-                      title="현재 화면에 표시된 상품들을 모두 판매중(정상)으로 전환합니다"
-                      className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1 cursor-pointer transition-colors active:scale-95"
-                    >
-                      <Check className="w-3 h-3" />
-                      <span>목록 판매중</span>
-                    </button>
-                  </div>
-                )}
               </div>
 
               {filteredItems.length === 0 ? (
@@ -1255,7 +1238,7 @@ export function PosProductManagerModal({
                   {/* Mobile Row View (Block/Card rows without horizontal scroll) */}
                   <div className="block sm:hidden space-y-2">
                     {filteredItems.map(item => {
-                      const category = localCategories.find(c => c.id === item.categoryId);
+                      const category = findCategoryOfItem(item.categoryId);
                       const isSoldOut = isItemSoldOut(item);
                       const isItemModified = modifiedItems.some(m => m.id === item.id);
 
@@ -1401,7 +1384,7 @@ export function PosProductManagerModal({
                       </thead>
                       <tbody className="divide-y divide-white/5">
                         {filteredItems.map(item => {
-                          const category = localCategories.find(c => c.id === item.categoryId);
+                          const category = findCategoryOfItem(item.categoryId);
                           const isSoldOut = isItemSoldOut(item);
                           const isItemModified = modifiedItems.some(m => m.id === item.id);
 
@@ -1537,7 +1520,7 @@ export function PosProductManagerModal({
                   }
                 >
                   {filteredItems.map(item => {
-                    const category = localCategories.find(c => c.id === item.categoryId);
+                    const category = findCategoryOfItem(item.categoryId);
                     const isSoldOut = isItemSoldOut(item);
                     const isItemModified = modifiedItems.some(m => m.id === item.id);
 
@@ -1759,13 +1742,13 @@ export function PosProductManagerModal({
               </h3>
               {localCategories.map((cat, idx) => {
                 const assignedItemsCount = localItems.filter(
-                  it => it.categoryId === cat.id || it.categoryId === cat.name
+                  it => it.categoryId.trim().toLowerCase() === cat.name.trim().toLowerCase()
                 ).length;
-                const isEditing = editingCatId === cat.id;
+                const isEditing = editingCatOldName === cat.name;
 
                 return (
                   <div
-                    key={cat.id}
+                    key={cat.name}
                     className="p-3.5 rounded-2xl bg-[#111c33] border border-white/10 flex items-center justify-between gap-3"
                   >
                     {/* Index & Name */}
@@ -1785,14 +1768,14 @@ export function PosProductManagerModal({
                           />
                           <button
                             type="button"
-                            onClick={() => handleSaveCategoryName(cat.id)}
+                            onClick={() => handleSaveCategoryName(cat.name)}
                             className="p-1.5 rounded-lg bg-secondary text-on-secondary hover:brightness-110 cursor-pointer"
                           >
                             <Check className="w-4 h-4" />
                           </button>
                           <button
                             type="button"
-                            onClick={() => setEditingCatId(null)}
+                            onClick={() => setEditingCatOldName(null)}
                             className="p-1.5 rounded-lg bg-white/5 text-surface-dim hover:text-white cursor-pointer"
                           >
                             <X className="w-4 h-4" />
@@ -1837,7 +1820,7 @@ export function PosProductManagerModal({
                         <button
                           type="button"
                           onClick={() => {
-                            setEditingCatId(cat.id);
+                            setEditingCatOldName(cat.name);
                             setEditingCatName(cat.name);
                           }}
                           title="이름 수정"
@@ -2078,8 +2061,8 @@ export function PosProductManagerModal({
                                 {preset.categories.length === 0 ? (
                                   <span className="text-surface-dim text-xs italic">카테고리 없음</span>
                                 ) : (
-                                  preset.categories.map(c => (
-                                    <span key={c.id} className="px-2 py-0.5 rounded-md bg-white/10 text-white text-[10px]">
+                                  preset.categories.map((c, cIdx) => (
+                                    <span key={c.name || cIdx} className="px-2 py-0.5 rounded-md bg-white/10 text-white text-[10px]">
                                       {c.name}
                                     </span>
                                   ))

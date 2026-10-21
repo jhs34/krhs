@@ -197,7 +197,9 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
       if (selectedCategoryId === 'favorites') {
         if (!item.isFavorite) return false;
       } else if (selectedCategoryId !== 'all') {
-        if (item.categoryId !== selectedCategoryId) return false;
+        const cleanSelected = selectedCategoryId.trim().toLowerCase();
+        const itemCat = (item.categoryId || '').trim().toLowerCase();
+        if (itemCat !== cleanSelected) return false;
       }
 
       // Search query
@@ -219,21 +221,27 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
     const sections: { categoryId: string; categoryName: string; items: PosItem[] }[] = [];
 
     categories.forEach(cat => {
-      const catItems = filteredItems.filter(
-        item => item.categoryId === cat.id || item.categoryId === cat.name
-      );
+      const catCleanName = cat.name.trim().toLowerCase();
+
+      const catItems = filteredItems.filter(item => {
+        const itemCat = (item.categoryId || '').trim().toLowerCase();
+        return itemCat === catCleanName;
+      });
+
       if (catItems.length > 0) {
         sections.push({
-          categoryId: cat.id,
+          categoryId: cat.name,
           categoryName: cat.name,
           items: catItems,
         });
       }
     });
 
-    const unassigned = filteredItems.filter(
-      item => !categories.some(cat => cat.id === item.categoryId || cat.name === item.categoryId)
-    );
+    const unassigned = filteredItems.filter(item => {
+      const itemCat = (item.categoryId || '').trim().toLowerCase();
+      return !categories.some(cat => cat.name.trim().toLowerCase() === itemCat);
+    });
+
     if (unassigned.length > 0) {
       sections.push({
         categoryId: 'uncategorized',
@@ -400,14 +408,14 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
 
             {categories.map(cat => {
               const count = items.filter(
-                i => i.isActive && (i.categoryId === cat.id || i.categoryId === cat.name)
+                i => i.isActive && i.categoryId.trim().toLowerCase() === cat.name.trim().toLowerCase()
               ).length;
-              const isSelected = selectedCategoryId === cat.id;
+              const isSelected = selectedCategoryId.trim().toLowerCase() === cat.name.trim().toLowerCase();
               return (
                 <button
-                  key={cat.id}
+                  key={cat.name}
                   type="button"
-                  onClick={() => setSelectedCategoryId(cat.id)}
+                  onClick={() => setSelectedCategoryId(cat.name)}
                   className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
                     isSelected
                       ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'

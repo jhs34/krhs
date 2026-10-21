@@ -284,81 +284,86 @@ export function Dashboard({
           whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           viewport={{ once: true, amount: 0.15 }}
           transition={{ duration: 0.8 }}
-          className="sm:col-span-2 xl:col-span-12 bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden group hover:border-white/10 transition-colors p-6 md:p-10 lg:p-12"
+          className="sm:col-span-2 xl:col-span-12 bg-[#0a1120] rounded-2xl sm:rounded-3xl border border-white/5 overflow-hidden group hover:border-white/10 transition-colors p-3.5 sm:p-6 md:p-8 lg:p-10"
         >
-          <div className="flex items-start justify-between mb-8">
-            <div>
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-secondary/10 border border-secondary/20 flex items-center justify-center mb-4 text-secondary-fixed-dim">
-                <CalendarIcon className="w-5 h-5 md:w-6 md:h-6 text-white" strokeWidth={1.5} />
+          <div className="flex items-center justify-between mb-3 sm:mb-6">
+            <div className="flex items-center space-x-2.5 sm:space-x-3">
+              <div className="w-7 h-7 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-lg sm:rounded-xl bg-secondary/10 border border-secondary/20 flex items-center justify-center text-secondary-fixed-dim shrink-0">
+                <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-white" strokeWidth={1.5} />
               </div>
-              <h3 className="font-sans font-bold text-xl md:text-3xl text-white tracking-tight mb-2">다가오는 학사 일정</h3>
-              <p className="text-surface-dim text-xs md:text-base">중요한 순간을 놓치지 않도록.</p>
+              <div>
+                <h3 className="font-sans font-bold text-sm sm:text-xl md:text-2xl text-white tracking-tight leading-tight">다가오는 학사 일정</h3>
+                <p className="text-surface-dim text-[11px] sm:text-xs hidden xs:block">중요한 순간을 놓치지 않도록.</p>
+              </div>
             </div>
-            <Link to="/events" className="border border-white/10 hover:border-white/30 text-white rounded-full px-3 py-1.5 bg-white/5 transition-colors text-xs md:text-sm font-medium">
+            <Link to="/events" className="border border-white/10 hover:border-white/30 text-white rounded-full px-2.5 py-1 sm:px-3 sm:py-1.5 bg-white/5 hover:bg-white/10 transition-colors text-[11px] sm:text-xs font-medium shrink-0">
               더보기
             </Link>
           </div>
           
-          <ul className="space-y-4 md:space-y-6">
-            {upcomingEvents.length > 0 ? upcomingEvents.map((event, idx) => (
-              <motion.li 
-                key={event.id} 
-                initial={{ opacity: 0, y: 15, filter: 'blur(6px)' }}
-                whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: idx * 0.07 }}
-                className="flex flex-col md:flex-row md:items-center p-6 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors group/item border border-white/5 cursor-pointer relative"
-                onClick={() => onItemClick(event, 'event')}
-              >
-                <div className="flex flex-row items-center gap-3 md:gap-4 mr-8 mb-4 md:mb-0 shrink-0">
-                  <div className="flex flex-col items-center w-14 sm:w-16 shrink-0">
-                    <span className="text-xs sm:text-sm font-space font-bold text-white tracking-widest uppercase">{format(event.date, 'MMM')}</span>
-                    <span className="text-3xl sm:text-4xl font-space font-bold text-white leading-none mb-0.5">{format(event.date, 'dd')}</span>
-                    {event.endDate && event.date.getTime() !== event.endDate.getTime() && (
-                      <span className="text-[10px] sm:text-xs font-space text-surface-dim font-bold text-center">~ {format(event.endDate, 'dd')}</span>
-                    )}
+          <ul className="space-y-2 sm:space-y-3">
+            {upcomingEvents.length > 0 ? upcomingEvents.map((event, idx) => {
+              const dday = getDDayInfo(event.date);
+              return (
+                <motion.li 
+                  key={event.id} 
+                  initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }}
+                  whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: idx * 0.05 }}
+                  className="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-white/[0.04] hover:bg-white/10 transition-colors group/item border border-white/5 cursor-pointer relative flex items-center justify-between gap-2.5 sm:gap-4"
+                  onClick={() => onItemClick(event, 'event')}
+                >
+                  {/* Left: Compact Date Badge + Title/Desc */}
+                  <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                    {/* Date Block */}
+                    <div className="flex flex-col items-center justify-center bg-white/5 border border-white/10 rounded-lg sm:rounded-xl px-2.5 pt-2 pb-1.5 sm:px-3 sm:pt-2.5 sm:pb-2 shrink-0 min-w-[46px] sm:min-w-[56px] text-center">
+                      <span className="text-[9px] sm:text-[10px] font-space font-bold text-surface-dim tracking-wider uppercase leading-none">{format(event.date, 'MMM')}</span>
+                      <span className="text-sm sm:text-lg font-space font-bold text-white leading-none mt-1">{format(event.date, 'dd')}</span>
+                      {event.endDate && event.date.getTime() !== event.endDate.getTime() && (
+                        <span className="text-[8px] sm:text-[9px] font-space text-surface-dim font-medium leading-none mt-0.5">~{format(event.endDate, 'dd')}</span>
+                      )}
+                    </div>
+
+                    {/* Content Column */}
+                    <div className="min-w-0 flex-1 space-y-0.5 sm:space-y-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {event.color && (
+                          <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: event.color }} />
+                        )}
+                        <h4 className="text-xs sm:text-base font-bold text-white group-hover/item:text-secondary-fixed-dim transition-colors truncate">
+                          {event.title}
+                        </h4>
+                        <span className={`px-1.5 py-0.5 rounded-md text-[9px] sm:text-[11px] font-space font-bold border shrink-0 transition-colors ml-1 ${dday.className}`}>
+                          {dday.text}
+                        </span>
+                      </div>
+
+                      {event.description && (
+                        <p className="text-[10px] sm:text-xs text-surface-dim truncate leading-relaxed">
+                          {event.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  {(() => {
-                    const dday = getDDayInfo(event.date);
-                    return (
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] md:text-xs font-space font-bold border shrink-0 transition-colors ${dday.className}`}>
-                        {dday.text}
-                      </span>
-                    );
-                  })()}
-                </div>
-                <div className="flex-grow flex items-start pr-8 min-w-0">
-                  {event.color && <div className="w-2.5 h-2.5 rounded-full mt-2 mr-3 md:mr-4 shrink-0 shadow-sm" style={{ backgroundColor: event.color }} />}
-                  <div className="flex-1 min-w-0">
-                    <span className="block text-xl font-bold text-white mb-2 group-hover/item:text-secondary-fixed-dim transition-colors truncate">{event.title}</span>
-                    <span 
-                      className="block text-xs md:text-sm text-surface-dim break-words" 
-                      style={{ 
-                        display: '-webkit-box', 
-                        WebkitLineClamp: 2, 
-                        WebkitBoxOrient: 'vertical', 
-                        overflow: 'hidden',
-                        whiteSpace: 'pre-wrap'
+
+                  {/* Edit Button (if Admin) */}
+                  {isAdmin && (
+                    <button 
+                      className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-white/5 border border-white/10 hover:bg-white/20 text-white transition-colors shrink-0 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditItem('events', event);
                       }}
+                      title="일정 수정"
                     >
-                      {event.description}
-                    </span>
-                  </div>
-                </div>
-                {isAdmin && (
-                  <button 
-                    className="absolute right-6 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/20 text-white transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEditItem('events', event);
-                    }}
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                )}
-              </motion.li>
-            )) : (
-              <li className="p-6 text-center text-surface-dim">예정된 학사 일정이 없습니다.</li>
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </motion.li>
+              );
+            }) : (
+              <li className="p-3 sm:p-5 text-center text-xs sm:text-sm text-surface-dim bg-white/5 rounded-xl sm:rounded-2xl">예정된 학사 일정이 없습니다.</li>
             )}
           </ul>
         </motion.div>

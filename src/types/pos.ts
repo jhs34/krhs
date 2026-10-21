@@ -1,5 +1,4 @@
 export interface PosCategory {
-  id: string;
   name: string;
   orderIndex: number;
 }

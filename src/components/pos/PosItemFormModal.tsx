@@ -15,7 +15,7 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
   const resolveCat = (val?: string) => {
     if (!val) return categories[0]?.name || '';
     const matched = categories.find(
-      c => c.id === val || c.name.trim().toLowerCase() === val.trim().toLowerCase()
+      c => c.name.trim().toLowerCase() === val.trim().toLowerCase()
     );
     return matched ? matched.name : categories[0]?.name || val;
   };
@@ -135,7 +135,7 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
                 className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-secondary"
               >
                 {categories.map(cat => (
-                  <option key={cat.id} value={cat.id} className="bg-[#0f172a] text-white">
+                  <option key={cat.name} value={cat.name} className="bg-[#0f172a] text-white">
                     {cat.name}
                   </option>
                 ))}

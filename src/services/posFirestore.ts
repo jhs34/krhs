@@ -49,21 +49,20 @@ export function subscribePosCategories(
   onData: (categories: PosCategory[]) => void,
   onError?: (error: Error) => void
 ): () => void {
-  const q = query(collection(db, 'categories'), orderBy('orderIndex', 'asc'));
+  const colRef = collection(db, 'categories');
   return onSnapshot(
-    q,
+    colRef,
     snapshot => {
       const nameMap = new Map<string, PosCategory>();
-      snapshot.docs.forEach(docSnap => {
+      snapshot.docs.forEach((docSnap, idx) => {
         const data = docSnap.data();
         const rawName = (data.name || docSnap.id || '').trim();
         if (!rawName) return;
         const key = rawName.toLowerCase();
         if (!nameMap.has(key)) {
           nameMap.set(key, {
-            id: rawName,
             name: rawName,
-            orderIndex: typeof data.orderIndex === 'number' ? data.orderIndex : nameMap.size + 1,
+            orderIndex: typeof data.orderIndex === 'number' ? data.orderIndex : idx + 1,
           });
         }
       });
@@ -932,7 +931,6 @@ export async function saveBatchPosCategories(
     const cleanName = cat.name.trim();
     if (cleanName && !uniqueCats.has(cleanName.toLowerCase())) {
       uniqueCats.set(cleanName.toLowerCase(), {
-        id: cleanName,
         name: cleanName,
         orderIndex: typeof cat.orderIndex === 'number' ? cat.orderIndex : idx + 1,
       });
@@ -1249,7 +1247,28 @@ export async function applyPosPreset(
 ): Promise<void> {
   await ensurePosAuth();
 
-  // 1. Delete all existing items & categories from Firestore
+  // 1. Build category mapping dictionary to resolve any legacy or raw IDs to clean category names
+  const catMap = new Map<string, string>();
+  const normalizedCats: PosCategory[] = [];
+
+  categories.forEach((cat, idx) => {
+    const cleanName = (cat.name || '').trim();
+    if (!cleanName) return;
+    const key = cleanName.toLowerCase();
+    if (!catMap.has(key)) {
+      const orderIdx = typeof cat.orderIndex === 'number' ? cat.orderIndex : idx + 1;
+      normalizedCats.push({
+        name: cleanName,
+        orderIndex: orderIdx,
+      });
+      catMap.set(key, cleanName);
+      if ((cat as any).id) {
+        catMap.set(String((cat as any).id).trim().toLowerCase(), cleanName);
+      }
+    }
+  });
+
+  // 2. Delete all existing items & categories from Firestore
   const itemsSnapshot = await getDocs(collection(db, 'items'));
   const catsSnapshot = await getDocs(collection(db, 'categories'));
 
@@ -1262,26 +1281,32 @@ export async function applyPosPreset(
   });
   await batch1.commit();
 
-  // 2. Batch insert new preset categories and items (if any)
-  if (categories.length > 0 || items.length > 0) {
+  // 3. Batch insert new preset categories and items (if any)
+  if (normalizedCats.length > 0 || items.length > 0) {
     const batch2 = writeBatch(db);
-    const seenCatNames = new Set<string>();
-    for (const cat of categories) {
-      const cleanName = cat.name.trim();
-      if (!cleanName || seenCatNames.has(cleanName.toLowerCase())) continue;
-      seenCatNames.add(cleanName.toLowerCase());
-      const catRef = doc(db, 'categories', cleanName);
+
+    for (const cat of normalizedCats) {
+      const catRef = doc(db, 'categories', cat.name);
       batch2.set(catRef, {
-        name: cleanName,
+        name: cat.name,
         orderIndex: cat.orderIndex,
       });
     }
 
+    const fallbackCatName = normalizedCats[0]?.name || '기타';
     for (const item of items) {
       const itemRef = doc(db, 'items', item.id);
+      const rawCatId = (item.categoryId || '').trim();
+      const catKey = rawCatId.toLowerCase();
+      const resolvedCategory =
+        catMap.get(catKey) ||
+        catMap.get(catKey.replace(/^cat-/, '')) ||
+        rawCatId ||
+        fallbackCatName;
+
       batch2.set(itemRef, {
         name: item.name,
-        categoryId: item.categoryId,
+        categoryId: resolvedCategory,
         price: item.price,
         stock: item.stock ?? 999,
         isSoldOut: Boolean(item.isSoldOut),
