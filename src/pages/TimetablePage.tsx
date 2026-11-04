@@ -340,10 +340,6 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
       
       {/* 1. Header Section */}
       <div className="text-center md:text-left mb-4 md:mb-5">
-        <div className="inline-flex items-center space-x-2 bg-white/5 border border-white/10 px-2.5 py-1 rounded-full mb-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.2)]">
-          <Sparkles className="w-3.5 h-3.5 text-white" />
-          <span className="text-[10px] sm:text-xs font-bold text-surface-dim font-space uppercase tracking-wider">Academic Tracker</span>
-        </div>
         <h1 className="text-xl sm:text-2xl md:text-3xl font-sans font-black tracking-tight text-white mb-1 leading-tight">
           주간 학급별 시간표
         </h1>

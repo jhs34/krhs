@@ -19,11 +19,6 @@ export function DocumentsPage({ documents, isAdmin, onItemClick, onEditItem }: D
       className="max-w-7xl w-full mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 flex flex-col space-y-6 sm:space-y-12"
     >
       <div>
-        <div className="flex items-center space-x-3 mb-4">
-          <span className="status-chip bg-white/10 text-white border border-white/20">
-            DOCUMENTS
-          </span>
-        </div>
         <h2 className="font-sans font-bold text-4xl md:text-5xl text-white tracking-tighter mb-4">
           자료실
         </h2>

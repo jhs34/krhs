@@ -17,6 +17,7 @@ import {
   LogIn, 
   LogOut, 
   Plus, 
+  Minus,
   AlertTriangle,
   CheckSquare,
   Square,
@@ -25,19 +26,31 @@ import {
   Filter,
   Layers,
   Ticket,
-  ArrowLeft
+  ArrowLeft,
+  RefreshCw,
 } from 'lucide-react';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth, loginWithGoogle, logout, getDisplayUserEmail } from '../../firebase';
-import { PosOrder } from '../../types/pos';
+import { PosOrder, PosRefundedItem } from '../../types/pos';
 
 interface PosSalesHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   orders: PosOrder[];
-  onCancelOrder: (orderId: string, reason?: string) => void;
+  onCancelOrder: (orderId: string, reason?: string) => Promise<void> | void;
+  onPartialCancelOrder?: (
+    orderId: string,
+    refundTargets: Array<{ itemId: string; count: number }>,
+    reason?: string
+  ) => Promise<void> | void;
+  onRestoreCancelledOrder?: (orderId: string, restoreStock?: boolean) => Promise<void> | void;
+  onRestorePartialRefund?: (
+    orderId: string,
+    restoreTargets: Array<{ itemId: string; count: number; name?: string; price?: number }>,
+    restoreStock?: boolean
+  ) => Promise<void> | void;
   onUpdateOrder?: (order: PosOrder) => Promise<void> | void;
   onDeleteOrder?: (orderId: string) => Promise<void> | void;
   onDeleteMultipleOrders?: (orderIds: string[]) => Promise<void> | void;
@@ -49,6 +62,9 @@ export function PosSalesHistoryModal({
   onClose,
   orders,
   onCancelOrder,
+  onPartialCancelOrder,
+  onRestoreCancelledOrder,
+  onRestorePartialRefund,
   onUpdateOrder,
   onDeleteOrder,
   onDeleteMultipleOrders,
@@ -56,12 +72,22 @@ export function PosSalesHistoryModal({
 }: PosSalesHistoryModalProps) {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [filterMethod, setFilterMethod] = useState<'ALL' | 'TRANSFER' | 'CASH' | 'CANCELLED'>('ALL');
-  const [filterDate, setFilterDate] = useState<string>('ALL'); // 'ALL' or 'YYYY-MM-DD'
+  const [filterDate, setFilterDate] = useState<string>(() => format(new Date(), 'yyyy-MM-dd')); // 'ALL' or 'YYYY-MM-DD'
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [confirmCancelTarget, setConfirmCancelTarget] = useState<PosOrder | null>(null);
+  const [refundSelection, setRefundSelection] = useState<Record<string, number>>({});
+  const [isProcessingRefund, setIsProcessingRefund] = useState<boolean>(false);
   const [cancelReason, setCancelReason] = useState<string>('고객 요청 (단순 변심/재결제)');
   const [copiedReceipt, setCopiedReceipt] = useState<boolean>(false);
   const [mobileTab, setMobileTab] = useState<'list' | 'receipt'>('list');
+
+  // Reset date filter to today's date whenever modal is opened
+  useEffect(() => {
+    if (isOpen) {
+      setFilterDate(format(new Date(), 'yyyy-MM-dd'));
+      setSelectedOrderId(null);
+    }
+  }, [isOpen]);
 
   // Multi-selection state
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
@@ -77,7 +103,15 @@ export function PosSalesHistoryModal({
 
   // Modals for Google Admin: Edit Order & Delete Order
   const [editingOrder, setEditingOrder] = useState<PosOrder | null>(null);
+  const [editSyncStockOption, setEditSyncStockOption] = useState<boolean>(true);
   const [deletingOrderTarget, setDeletingOrderTarget] = useState<PosOrder | null>(null);
+
+  // Restore/Revert Refund States
+  const [confirmRestoreCancelTarget, setConfirmRestoreCancelTarget] = useState<PosOrder | null>(null);
+  const [confirmRestorePartialTarget, setConfirmRestorePartialTarget] = useState<PosOrder | null>(null);
+  const [restorePartialSelection, setRestorePartialSelection] = useState<Record<string, number>>({});
+  const [restoreStockOption, setRestoreStockOption] = useState<boolean>(true);
+  const [isProcessingRestore, setIsProcessingRestore] = useState<boolean>(false);
 
   // Listen to Google Auth
   useEffect(() => {
@@ -126,9 +160,12 @@ export function PosSalesHistoryModal({
     return [...orders].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [orders]);
 
-  // Extract all distinct dates available in orders
+  // Extract all distinct dates available in orders (always including today)
   const availableDates = useMemo(() => {
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
     const dateMap = new Map<string, { dateStr: string; count: number; total: number }>();
+    dateMap.set(todayKey, { dateStr: todayKey, count: 0, total: 0 });
+
     orders.forEach(order => {
       try {
         const d = new Date(order.timestamp);
@@ -333,7 +370,18 @@ export function PosSalesHistoryModal({
       ...order.items.map(
         i => `${i.name.padEnd(12, ' ')} ${String(i.count).padStart(3, ' ')}  ${(i.price * i.count).toLocaleString().padStart(8, ' ')}원`
       ),
+      ...(order.refundedItems && order.refundedItems.length > 0
+        ? [
+            '--- [개별/부분 환불 내역] ---',
+            ...order.refundedItems.map(
+              ri => `(환불)${ri.name.padEnd(9, ' ')} -${String(ri.count).padStart(2, ' ')} -${(ri.price * ri.count).toLocaleString().padStart(7, ' ')}원`
+            ),
+          ]
+        : []),
       '--------------------------------',
+      ...(order.refundedAmount && order.refundedAmount > 0
+        ? [`부분환불누계: -${order.refundedAmount.toLocaleString()}원`]
+        : []),
       `총 결제금액: ${order.totalAmount.toLocaleString()}원`,
       `결제수단: ${order.paymentMethod === 'CASH' ? '현금 결제' : '계좌이체 결제'}`,
       ...(order.cashReceived ? [`받은금액: ${order.cashReceived.toLocaleString()}원`, `거스름돈: ${(order.changeAmount || 0).toLocaleString()}원`] : []),
@@ -370,14 +418,116 @@ export function PosSalesHistoryModal({
     window.print();
   };
 
-  const handleConfirmCancel = () => {
-    if (!confirmCancelTarget) return;
-    onCancelOrder(confirmCancelTarget.id, cancelReason);
-    setConfirmCancelTarget(null);
+  const openRefundModal = (order: PosOrder, preselectedItemId?: string) => {
+    setConfirmCancelTarget(order);
+    if (preselectedItemId === '__PARTIAL__') {
+      // Partial mode init: select 1 of the first item (or empty if user wants to pick)
+      const first = order.items[0];
+      if (first) {
+        setRefundSelection({ [first.itemId]: 1 });
+      } else {
+        setRefundSelection({});
+      }
+      setCancelReason('고객 요청 (개별 품목 환불)');
+    } else if (preselectedItemId) {
+      // Specific item clicked on receipt
+      setRefundSelection({ [preselectedItemId]: 1 });
+      setCancelReason('고객 요청 (개별 품목 환불)');
+    } else {
+      // Full order cancel init: select all items & full quantities
+      const allMap: Record<string, number> = {};
+      order.items.forEach(i => {
+        allMap[i.itemId] = (allMap[i.itemId] || 0) + i.count;
+      });
+      setRefundSelection(allMap);
+      setCancelReason('고객 요청 (단순 변심/재결제)');
+    }
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!confirmCancelTarget || isProcessingRefund) return;
+
+    const targets = confirmCancelTarget.items
+      .map(item => ({
+        itemId: item.itemId,
+        count: Math.min(item.count, Math.max(0, refundSelection[item.itemId] || 0)),
+      }))
+      .filter(t => t.count > 0);
+
+    if (targets.length === 0) return;
+
+    const isFullRefund = confirmCancelTarget.items.every(
+      item => (refundSelection[item.itemId] || 0) >= item.count
+    );
+
+    setIsProcessingRefund(true);
+    try {
+      if (isFullRefund || !onPartialCancelOrder) {
+        await onCancelOrder(confirmCancelTarget.id, cancelReason);
+      } else {
+        await onPartialCancelOrder(confirmCancelTarget.id, targets, cancelReason);
+      }
+      setConfirmCancelTarget(null);
+      setRefundSelection({});
+    } finally {
+      setIsProcessingRefund(false);
+    }
+  };
+
+  const openRestorePartialModal = (order: PosOrder, specificItem?: PosRefundedItem) => {
+    setConfirmRestorePartialTarget(order);
+    setRestoreStockOption(true);
+    if (specificItem) {
+      setRestorePartialSelection({ [specificItem.itemId]: specificItem.count });
+    } else {
+      const allRefunds: Record<string, number> = {};
+      (order.refundedItems || []).forEach(r => {
+        allRefunds[r.itemId] = (allRefunds[r.itemId] || 0) + r.count;
+      });
+      setRestorePartialSelection(allRefunds);
+    }
+  };
+
+  const handleExecuteRestoreCancel = async () => {
+    if (!confirmRestoreCancelTarget || !onRestoreCancelledOrder || isProcessingRestore) return;
+    setIsProcessingRestore(true);
+    try {
+      await onRestoreCancelledOrder(confirmRestoreCancelTarget.id, restoreStockOption);
+      setConfirmRestoreCancelTarget(null);
+    } finally {
+      setIsProcessingRestore(false);
+    }
+  };
+
+  const handleExecuteRestorePartial = async () => {
+    if (!confirmRestorePartialTarget || !onRestorePartialRefund || isProcessingRestore) return;
+    const targets = (confirmRestorePartialTarget.refundedItems || [])
+      .map(r => ({
+        itemId: r.itemId,
+        name: r.name,
+        price: r.price,
+        count: Math.min(r.count, Math.max(0, restorePartialSelection[r.itemId] || 0)),
+      }))
+      .filter(t => t.count > 0);
+
+    if (targets.length === 0) return;
+
+    setIsProcessingRestore(true);
+    try {
+      await onRestorePartialRefund(confirmRestorePartialTarget.id, targets, restoreStockOption);
+      setConfirmRestorePartialTarget(null);
+      setRestorePartialSelection({});
+    } finally {
+      setIsProcessingRestore(false);
+    }
   };
 
   const handleOpenEditModal = (order: PosOrder) => {
-    setEditingOrder(JSON.parse(JSON.stringify(order)));
+    const copy = JSON.parse(JSON.stringify(order));
+    if (!copy.refundedItems) copy.refundedItems = [];
+    if (typeof copy.refundedAmount !== 'number') copy.refundedAmount = 0;
+    setEditingOrder(copy);
+    setEditSyncStockOption(true);
   };
 
   const handleSaveEditOrder = async () => {
@@ -445,23 +595,20 @@ export function PosSalesHistoryModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-5 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#0e172e] border-0 sm:border sm:border-white/10 rounded-none sm:rounded-3xl w-full max-w-6xl h-full sm:h-[94vh] sm:max-h-[900px] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-primary border-0 sm:border sm:border-white/10 rounded-none sm:rounded-2xl w-full max-w-6xl h-full sm:h-[94vh] sm:max-h-[900px] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="p-3.5 sm:p-5 border-b border-white/10 bg-[#090e1c] flex items-center justify-between gap-2.5 shrink-0">
-          <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-300 shrink-0">
-              <Receipt className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center space-x-2 flex-wrap">
-                <h2 className="text-base sm:text-xl font-black text-white truncate">매출 내역</h2>
-                <span className="px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold bg-white/10 text-surface-dim shrink-0">
-                  {orders.length}건
+        <div className="px-4 sm:px-6 py-3.5 border-b border-white/10 bg-[#0a1120] flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center space-x-3 min-w-0">
+            <div>
+              <div className="flex items-baseline space-x-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-bold text-white truncate">매출 내역</h2>
+                <span className="text-xs font-mono tabular-nums text-surface-dim font-medium">
+                  총 {orders.length}건
                 </span>
                 {filterDate !== 'ALL' && (
-                  <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/20 text-primary border border-primary/30 shrink-0">
-                    {filterDate} 조회 중
+                  <span className="hidden sm:inline text-xs font-mono tabular-nums text-secondary-container font-bold">
+                    · {filterDate} 조회
                   </span>
                 )}
               </div>
@@ -469,19 +616,18 @@ export function PosSalesHistoryModal({
           </div>
 
           {/* Google Admin Auth Status & Actions */}
-          <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
+          <div className="flex items-center space-x-2 shrink-0">
             {isGoogleAdmin ? (
-              <div className="flex items-center space-x-1.5 sm:space-x-2 bg-emerald-500/10 border border-emerald-500/30 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl">
-                <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0" />
-                <div className="text-[11px] sm:text-xs leading-tight text-emerald-200">
-                  <span className="font-bold block text-emerald-300 text-[10px] sm:text-xs">관리자</span>
-                  <span className="text-[10px] sm:text-[11px] text-emerald-100 font-mono block truncate max-w-[100px] sm:max-w-[180px]">{getDisplayUserEmail(googleUser?.email)}</span>
-                </div>
+              <div className="flex items-center space-x-2 text-xs text-surface-dim pr-2 border-r border-white/10">
+                <ShieldCheck className="w-3.5 h-3.5 text-secondary-container shrink-0" />
+                <span className="font-mono text-[11px] text-white truncate max-w-[120px] sm:max-w-[180px]">
+                  {getDisplayUserEmail(googleUser?.email)}
+                </span>
                 <button
                   type="button"
                   onClick={handleGoogleLogout}
                   title="구글 로그아웃"
-                  className="p-1 rounded-lg hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+                  className="p-1 rounded hover:bg-white/5 text-surface-dim hover:text-white transition-colors cursor-pointer"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -491,135 +637,127 @@ export function PosSalesHistoryModal({
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={isLoggingIn}
-                className="flex items-center space-x-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-[11px] sm:text-xs font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-surface-dim hover:text-white text-xs font-bold transition-all cursor-pointer"
               >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>{isLoggingIn ? '...' : '관리자'}</span>
+                <LogIn className="w-3.5 h-3.5 text-secondary-container" />
+                <span>{isLoggingIn ? '...' : '관리자 인증'}</span>
               </button>
             )}
 
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg hover:bg-white/5 text-surface-dim hover:text-white transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Quick KPI Bar: Dynamic-width cards fitting content length without right-aligned empty space */}
-        <div className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-2.5 bg-[#0c1428] border-b border-white/5 shrink-0 overflow-x-auto scrollbar-hide">
-          {/* Net Actual Sales (기프티콘 제외 실제 수납 매출) */}
-          <div className="bg-emerald-500/10 px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-500/25 shrink-0 min-w-fit">
-            <span className="text-emerald-300 block text-[10px] sm:text-[11px] font-bold whitespace-nowrap">
+        {/* Unboxed KPI Strip (divide-x instead of 6 separate colored boxes) */}
+        <div className="flex items-center divide-x divide-white/10 bg-[#0a1120] border-b border-white/10 shrink-0 overflow-x-auto scrollbar-hide">
+          <div className="px-4 sm:px-5 py-2.5 shrink-0">
+            <span className="text-[10px] sm:text-[11px] font-medium text-surface-dim block whitespace-nowrap">
               실수납 매출
             </span>
-            <span className="text-xs sm:text-sm md:text-base font-black text-emerald-300 font-mono whitespace-nowrap">
+            <span className="text-sm sm:text-base font-black text-secondary-container font-mono tabular-nums whitespace-nowrap">
               {netPaidSalesAmount.toLocaleString()}원
             </span>
           </div>
 
-          {/* Gross Total Sales (기프티콘 포함 총 정가 매출) */}
-          <div className="bg-white/5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/5 shrink-0 min-w-fit">
-            <span className="text-surface-dim block text-[10px] sm:text-[11px] whitespace-nowrap">
-              총 매출
+          <div className="px-4 sm:px-5 py-2.5 shrink-0">
+            <span className="text-[10px] sm:text-[11px] font-medium text-surface-dim block whitespace-nowrap">
+              총 매출 (정가)
             </span>
-            <span className="text-xs sm:text-sm md:text-base font-black text-white font-mono whitespace-nowrap">
+            <span className="text-sm sm:text-base font-black text-white font-mono tabular-nums whitespace-nowrap">
               {grossSalesAmount.toLocaleString()}원
             </span>
           </div>
 
-          {/* Gifticon Discount Total - Fits length dynamically */}
-          <div className="bg-amber-500/10 px-2.5 sm:px-3 py-1.5 rounded-xl border border-amber-500/20 shrink-0 min-w-fit">
-            <span className="text-amber-300 block text-[10px] sm:text-[11px] font-bold flex items-center space-x-1 whitespace-nowrap">
-              <Ticket className="w-3 h-3 text-amber-400" />
-              <span>기프티콘</span>
+          <div className="px-4 sm:px-5 py-2.5 shrink-0">
+            <span className="text-[10px] sm:text-[11px] font-medium text-surface-dim block whitespace-nowrap">
+              계좌이체
             </span>
-            <span className="text-xs sm:text-sm md:text-base font-black text-amber-300 font-mono whitespace-nowrap">
+            <span className="text-sm sm:text-base font-black text-white font-mono tabular-nums whitespace-nowrap">
+              {transferAmount.toLocaleString()}원
+            </span>
+          </div>
+
+          <div className="px-4 sm:px-5 py-2.5 shrink-0">
+            <span className="text-[10px] sm:text-[11px] font-medium text-surface-dim block whitespace-nowrap">
+              현금
+            </span>
+            <span className="text-sm sm:text-base font-black text-white font-mono tabular-nums whitespace-nowrap">
+              {cashAmount.toLocaleString()}원
+            </span>
+          </div>
+
+          <div className="px-4 sm:px-5 py-2.5 shrink-0">
+            <span className="text-[10px] sm:text-[11px] font-medium text-surface-dim block whitespace-nowrap">
+              기프티콘 할인
+            </span>
+            <span className="text-sm sm:text-base font-black text-amber-400 font-mono tabular-nums whitespace-nowrap">
               {totalGifticonDiscountAmount > 0 ? `-${totalGifticonDiscountAmount.toLocaleString()}원` : '0원'}
             </span>
           </div>
 
-          {/* Transfer & Cash breakdown - Responsive inline spacing instead of wide right-aligned gap */}
-          <div className="bg-white/5 px-2.5 sm:px-3 py-1 rounded-xl border border-white/5 shrink-0 min-w-fit flex flex-col justify-center">
-            <div className="flex items-center space-x-1.5 sm:space-x-2 text-[10px] sm:text-[11px] leading-tight whitespace-nowrap">
-              <span className="text-indigo-300">이체</span>
-              <span className="font-mono font-bold text-white">{transferAmount.toLocaleString()}원</span>
-            </div>
-            <div className="flex items-center space-x-1.5 sm:space-x-2 text-[10px] sm:text-[11px] leading-tight text-emerald-400 font-bold mt-0.5 whitespace-nowrap">
-              <span>현금</span>
-              <span className="font-mono text-white">{cashAmount.toLocaleString()}원</span>
-            </div>
-          </div>
-
-          {/* Cancellations - Fits length dynamically */}
-          <div className="bg-white/5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/5 shrink-0 min-w-fit">
-            <span className="text-red-400 block text-[10px] sm:text-[11px] whitespace-nowrap">취소/환불</span>
-            <span className="text-xs sm:text-sm md:text-base font-black text-red-400 font-mono whitespace-nowrap">
+          <div className="px-4 sm:px-5 py-2.5 shrink-0">
+            <span className="text-[10px] sm:text-[11px] font-medium text-surface-dim block whitespace-nowrap">
+              취소/환불
+            </span>
+            <span className="text-sm sm:text-base font-black text-rose-400 font-mono tabular-nums whitespace-nowrap">
               {cancelledCount}건
             </span>
           </div>
         </div>
 
-        {/* Date Selector Navigation Bar */}
-        <div className="px-3 sm:px-4 py-2 bg-[#090f20] border-b border-white/10 flex items-center justify-between gap-3 shrink-0 overflow-x-auto scrollbar-hide">
-          <div className="flex items-center space-x-2">
-            <div className="flex items-center space-x-1 text-xs text-surface-dim font-bold shrink-0">
-              <Calendar className="w-3.5 h-3.5 text-primary" />
-              <span className="hidden sm:inline">일자별:</span>
-            </div>
+        {/* Date Selector Navigation Bar (Underline tabs instead of pills) */}
+        <div className="px-4 sm:px-6 bg-primary border-b border-white/10 flex items-center justify-between gap-3 shrink-0 overflow-x-auto scrollbar-hide">
+          <div className="flex items-center space-x-4">
+            <button
+              type="button"
+              onClick={() => setFilterDate('ALL')}
+              className={`py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
+                filterDate === 'ALL'
+                  ? 'border-secondary-container text-white'
+                  : 'border-transparent text-surface-dim hover:text-white'
+              }`}
+            >
+              전체 일자 <span className="font-mono tabular-nums text-[11px] opacity-70 ml-0.5">{orders.length}</span>
+            </button>
 
-            <div className="flex items-center space-x-1.5">
-              <button
-                type="button"
-                onClick={() => setFilterDate('ALL')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  filterDate === 'ALL'
-                    ? 'bg-primary text-white shadow-md shadow-primary/20'
-                    : 'bg-white/5 text-surface-dim hover:text-white'
-                }`}
-              >
-                전체 일자 ({orders.length})
-              </button>
+            {availableDates.slice(0, 6).map(({ dateStr, count }) => {
+              const isCurrent = filterDate === dateStr;
+              let label = dateStr;
+              try {
+                const d = parseISO(dateStr);
+                if (isToday(d)) label = `오늘 (${format(d, 'M.d')})`;
+                else if (isYesterday(d)) label = `어제 (${format(d, 'M.d')})`;
+                else label = format(d, 'M월 d일');
+              } catch {
+                // ignore
+              }
 
-              {availableDates.slice(0, 6).map(({ dateStr, count, total }) => {
-                const isCurrent = filterDate === dateStr;
-                let label = dateStr;
-                try {
-                  const d = parseISO(dateStr);
-                  if (isToday(d)) label = `오늘 (${format(d, 'M.d')})`;
-                  else if (isYesterday(d)) label = `어제 (${format(d, 'M.d')})`;
-                  else label = format(d, 'M월 d일');
-                } catch {
-                  // ignore
-                }
-
-                return (
-                  <button
-                    key={dateStr}
-                    type="button"
-                    onClick={() => setFilterDate(dateStr)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5 ${
-                      isCurrent
-                        ? 'bg-primary text-white shadow-md shadow-primary/20'
-                        : 'bg-white/5 text-surface-dim hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    <span>{label}</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                      isCurrent ? 'bg-white/20 text-white' : 'bg-white/10 text-surface-dim'
-                    }`}>
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+              return (
+                <button
+                  key={dateStr}
+                  type="button"
+                  onClick={() => setFilterDate(dateStr)}
+                  className={`py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
+                    isCurrent
+                      ? 'border-secondary-container text-white'
+                      : 'border-transparent text-surface-dim hover:text-white'
+                  }`}
+                >
+                  <span>{label}</span>
+                  <span className="font-mono tabular-nums text-[11px] opacity-70 ml-1">{count}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Custom Date Input for older dates */}
-          <div className="flex items-center space-x-2 shrink-0">
+          <div className="flex items-center space-x-2 py-1.5 shrink-0">
             <input
               type="date"
               value={filterDate === 'ALL' ? '' : filterDate}
@@ -630,7 +768,7 @@ export function PosSalesHistoryModal({
                   setFilterDate('ALL');
                 }
               }}
-              className="bg-black/40 border border-white/10 rounded-xl px-2.5 py-1 text-xs text-white outline-none focus:border-primary cursor-pointer"
+              className="bg-[#0a1120] border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white outline-none focus:border-secondary-container cursor-pointer font-mono"
             />
           </div>
         </div>
@@ -638,67 +776,42 @@ export function PosSalesHistoryModal({
         {/* Content Body: Left Orders List with Grouping & Right Receipt Detail */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
           {/* Left: Orders List & Grouped Date View */}
-          <div className={`w-full md:w-7/12 border-r border-white/10 flex flex-col h-full overflow-hidden bg-[#0a1122] ${mobileTab === 'list' ? 'flex' : 'hidden md:flex'}`}>
+          <div className={`w-full md:w-7/12 border-r border-white/10 flex flex-col h-full overflow-hidden bg-primary ${mobileTab === 'list' ? 'flex' : 'hidden md:flex'}`}>
             {/* Filter Bar & Search */}
-            <div className="p-3 border-b border-white/10 space-y-2.5 bg-[#0a1122] shrink-0">
+            <div className="px-4 py-3 border-b border-white/10 space-y-2.5 bg-[#0a1120]/60 shrink-0">
               <div className="flex items-center justify-between gap-2">
                 {/* Method Filter Buttons */}
-                <div className="flex items-center space-x-1.5 overflow-x-auto scrollbar-hide">
-                  <button
-                    type="button"
-                    onClick={() => setFilterMethod('ALL')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                      filterMethod === 'ALL'
-                        ? 'bg-secondary text-white shadow-sm'
-                        : 'bg-white/5 text-surface-dim hover:text-white'
-                    }`}
-                  >
-                    전체 결제
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFilterMethod('TRANSFER')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                      filterMethod === 'TRANSFER'
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'bg-white/5 text-indigo-300 hover:text-white'
-                    }`}
-                  >
-                    계좌이체
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFilterMethod('CASH')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                      filterMethod === 'CASH'
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'bg-white/5 text-emerald-300 hover:text-white'
-                    }`}
-                  >
-                    현금
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFilterMethod('CANCELLED')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                      filterMethod === 'CANCELLED'
-                        ? 'bg-red-600 text-white shadow-sm'
-                        : 'bg-white/5 text-red-400 hover:text-white'
-                    }`}
-                  >
-                    취소/환불
-                  </button>
+                <div className="flex items-center space-x-1 overflow-x-auto scrollbar-hide">
+                  {([
+                    { key: 'ALL', label: '전체 결제' },
+                    { key: 'TRANSFER', label: '계좌이체' },
+                    { key: 'CASH', label: '현금' },
+                    { key: 'CANCELLED', label: '취소/환불' },
+                  ] as const).map(tab => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setFilterMethod(tab.key)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                        filterMethod === tab.key
+                          ? 'bg-secondary text-white'
+                          : 'text-surface-dim hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Bulk Select All Button */}
                 <button
                   type="button"
                   onClick={handleToggleSelectAllFiltered}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-bold transition-colors cursor-pointer shrink-0 border border-white/5"
+                  className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg hover:bg-white/5 text-surface-dim hover:text-white text-xs font-bold transition-colors cursor-pointer shrink-0"
                 >
                   {isAllFilteredSelected ? (
                     <>
-                      <CheckSquare className="w-3.5 h-3.5 text-primary" />
+                      <CheckSquare className="w-3.5 h-3.5 text-secondary-container" />
                       <span>전체 해제</span>
                     </>
                   ) : (
@@ -718,19 +831,19 @@ export function PosSalesHistoryModal({
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="주문번호, 품목명, 담당자, 금액 검색..."
-                  className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-surface-dim/60 focus:border-secondary outline-none"
+                  className="w-full bg-primary border border-white/10 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder:text-surface-dim/50 focus:border-secondary-container outline-none transition-colors"
                 />
               </div>
             </div>
 
             {/* Floating Multi-selection Toolbar */}
             {selectedOrderIds.size > 0 && (
-              <div className="bg-gradient-to-r from-blue-900/60 to-indigo-900/60 border-b border-blue-500/30 p-3 flex items-center justify-between gap-2 shrink-0 animate-in fade-in slide-in-from-top-1">
-                <div className="flex items-center space-x-2 text-xs text-blue-200">
-                  <CheckSquare className="w-4 h-4 text-primary" />
+              <div className="bg-[#0a1120] border-b border-secondary/40 px-4 py-2.5 flex items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center space-x-2 text-xs text-surface-dim">
+                  <CheckSquare className="w-4 h-4 text-secondary-container" />
                   <span>
-                    <strong className="text-white font-black">{selectedOrderIds.size}건</strong> 선택됨
-                    (합계: <strong className="text-white font-mono">{selectedTotalAmount.toLocaleString()}원</strong>)
+                    <strong className="text-white font-bold font-mono tabular-nums">{selectedOrderIds.size}건</strong> 선택됨
+                    (합계 <strong className="text-white font-mono tabular-nums">{selectedTotalAmount.toLocaleString()}원</strong>)
                   </span>
                 </div>
 
@@ -738,28 +851,28 @@ export function PosSalesHistoryModal({
                   <button
                     type="button"
                     onClick={() => setSelectedOrderIds(new Set())}
-                    className="px-2.5 py-1 rounded-lg text-xs font-bold text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                    className="px-2.5 py-1 rounded text-xs font-bold text-surface-dim hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
                   >
-                    선택 해제
+                    해제
                   </button>
 
                   {isGoogleAdmin ? (
                     <button
                       type="button"
                       onClick={() => setShowBatchDeleteModal(true)}
-                      className="flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black shadow-md shadow-red-600/30 transition-all cursor-pointer"
+                      className="flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>선택 항목 일괄 삭제</span>
+                      <span>선택 일괄 삭제</span>
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={handleGoogleLogin}
-                      className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-white/10 text-white/70 hover:text-white text-xs transition-colors cursor-pointer"
+                      className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-white/5 text-surface-dim hover:text-white text-xs transition-colors cursor-pointer"
                     >
-                      <ShieldCheck className="w-3 h-3 text-blue-400" />
-                      <span>로그인 후 일괄삭제 가능</span>
+                      <ShieldCheck className="w-3 h-3 text-secondary-container" />
+                      <span>관리자 인증 후 삭제</span>
                     </button>
                   )}
                 </div>
@@ -767,12 +880,12 @@ export function PosSalesHistoryModal({
             )}
 
             {/* Orders Grouped List */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto px-4 py-3.5 space-y-4 custom-scrollbar">
               {groupedOrdersByDate.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-surface-dim py-16">
-                  <Receipt className="w-12 h-12 mb-3 text-white/20" />
+                  <Receipt className="w-10 h-10 mb-3 text-white/15" />
                   <p className="text-sm font-bold text-white/70">해당 조건의 매출 내역이 없습니다.</p>
-                  <p className="text-xs text-surface-dim mt-1">상단의 일자 또는 결제 수단 필터를 변경해보세요.</p>
+                  <p className="text-xs text-surface-dim mt-1">일자 또는 결제 수단 필터를 변경해보세요.</p>
                 </div>
               ) : (
                 groupedOrdersByDate.map(group => {
@@ -780,11 +893,11 @@ export function PosSalesHistoryModal({
                   const allDateSelected = group.orders.length > 0 && group.orders.every(o => selectedOrderIds.has(o.id));
 
                   return (
-                    <div key={group.dateStr} className="space-y-2">
-                      {/* Date Group Header */}
+                    <div key={group.dateStr} className="bg-[#0a1120] border border-white/15 rounded-xl overflow-hidden">
+                      {/* Distinct Date Group Header */}
                       <div 
                         onClick={() => handleToggleCollapseDate(group.dateStr)}
-                        className="flex items-center justify-between p-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/8 transition-colors cursor-pointer select-none"
+                        className="flex items-center justify-between px-3.5 py-2.5 bg-[#101b33] border-b border-white/10 cursor-pointer select-none group"
                       >
                         <div className="flex items-center space-x-2.5">
                           <button
@@ -794,37 +907,39 @@ export function PosSalesHistoryModal({
                             title="이 날짜 전체 선택/해제"
                           >
                             {allDateSelected ? (
-                              <CheckSquare className="w-4 h-4 text-primary" />
+                              <CheckSquare className="w-4 h-4 text-secondary-container" />
                             ) : (
                               <Square className="w-4 h-4" />
                             )}
                           </button>
 
-                          <div className="flex items-center space-x-1.5 text-xs font-black text-white">
-                            <span>{formatDateHeaderLabel(group.dateStr)}</span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-surface-dim">
+                          <div className="flex items-baseline space-x-2 text-xs">
+                            <span className="font-bold text-white group-hover:text-secondary-container transition-colors">
+                              {formatDateHeaderLabel(group.dateStr)}
+                            </span>
+                            <span className="font-mono tabular-nums text-[11px] text-surface-dim">
                               {group.orders.length}건
                             </span>
                           </div>
                         </div>
 
                         <div className="flex items-center space-x-3 text-xs">
-                          <div className="text-right">
-                            <span className="text-[10px] text-surface-dim block">실매출</span>
-                            <span className="font-mono font-black text-white text-xs sm:text-sm">
+                          <div className="flex items-baseline space-x-1.5">
+                            <span className="text-[11px] text-surface-dim">실매출</span>
+                            <span className="font-mono tabular-nums font-bold text-secondary-container text-xs sm:text-sm">
                               {group.totalAmount.toLocaleString()}원
                             </span>
                           </div>
 
-                          <div className="text-surface-dim p-1">
+                          <div className="text-surface-dim">
                             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                           </div>
                         </div>
                       </div>
 
-                      {/* Date Orders */}
+                      {/* Date Orders with crisp visible dividers */}
                       {!isCollapsed && (
-                        <div className="space-y-2 pl-1 sm:pl-2">
+                        <div className="divide-y divide-white/10">
                           {group.orders.map(order => {
                             const isSelected = activeOrder?.id === order.id;
                             const isChecked = selectedOrderIds.has(order.id);
@@ -839,14 +954,12 @@ export function PosSalesHistoryModal({
                                   setSelectedOrderId(order.id);
                                   setMobileTab('receipt');
                                 }}
-                                className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                                className={`py-3 px-3.5 transition-colors cursor-pointer flex items-center justify-between ${
                                   isChecked
-                                    ? 'bg-blue-950/40 border-blue-500/50 shadow-md shadow-blue-500/10'
+                                    ? 'bg-secondary/20'
                                     : isSelected
-                                    ? 'bg-secondary/20 border-secondary shadow-md shadow-secondary/10'
-                                    : order.isCancelled
-                                    ? 'bg-red-500/5 border-red-500/20 hover:bg-red-500/10'
-                                    : 'bg-white/5 border-white/10 hover:bg-white/10'
+                                    ? 'bg-[#132242] border-l-2 border-secondary-container'
+                                    : 'hover:bg-white/[0.04]'
                                 }`}
                               >
                                 {/* Checkbox & Main Info */}
@@ -854,94 +967,105 @@ export function PosSalesHistoryModal({
                                   <button
                                     type="button"
                                     onClick={(e) => handleToggleSelectOrder(order.id, e)}
-                                    className="text-surface-dim hover:text-white p-1 rounded-lg hover:bg-white/10 cursor-pointer shrink-0"
+                                    className="text-surface-dim hover:text-white p-0.5 cursor-pointer shrink-0"
                                   >
                                     {isChecked ? (
-                                      <CheckSquare className="w-4 h-4 text-primary" />
+                                      <CheckSquare className="w-4 h-4 text-secondary-container" />
                                     ) : (
                                       <Square className="w-4 h-4" />
                                     )}
                                   </button>
 
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center space-x-2 mb-1 flex-wrap gap-y-1">
-                                      <span className="font-mono text-xs font-bold text-white/90">
+                                    {/* Inline metadata line */}
+                                    <div className="flex items-center gap-1.5 mb-0.5 flex-wrap text-[11px]">
+                                      <span className="font-mono font-bold text-white/85 truncate max-w-[130px] sm:max-w-none">
                                         {order.id}
                                       </span>
+                                      <span className="text-white/25">·</span>
 
                                       {order.isCancelled ? (
-                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-red-500/20 text-red-400 border border-red-500/30">
+                                        <span className="font-bold text-rose-400 shrink-0">
                                           결제 취소
                                         </span>
                                       ) : (
-                                        <span
-                                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                            order.paymentMethod === 'TRANSFER'
-                                              ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                          }`}
-                                        >
-                                          {order.paymentMethod === 'TRANSFER' ? '계좌이체' : '현금'}
-                                        </span>
+                                        <>
+                                          <span
+                                            className={`font-bold shrink-0 ${
+                                              order.paymentMethod === 'TRANSFER'
+                                                ? 'text-secondary-container'
+                                                : 'text-emerald-400'
+                                            }`}
+                                          >
+                                            {order.paymentMethod === 'TRANSFER' ? '계좌이체' : '현금'}
+                                          </span>
+                                          {order.refundedAmount && order.refundedAmount > 0 ? (
+                                            <>
+                                              <span className="text-white/25">·</span>
+                                              <span className="font-bold font-mono tabular-nums text-amber-400 shrink-0">
+                                                부분 환불 (-{order.refundedAmount.toLocaleString()}원)
+                                              </span>
+                                            </>
+                                          ) : null}
+                                        </>
                                       )}
 
-                                      <span className="text-[11px] text-surface-dim flex items-center space-x-1">
-                                        <Clock className="w-3 h-3" />
-                                        <span>{format(new Date(order.timestamp), 'HH:mm:ss')}</span>
+                                      <span className="text-white/25">·</span>
+                                      <span className="text-surface-dim font-mono tabular-nums shrink-0">
+                                        {format(new Date(order.timestamp), 'HH:mm:ss')}
                                       </span>
                                     </div>
 
-                                    <div className="text-xs font-semibold text-white/90 truncate">
+                                    <div className="text-xs sm:text-sm font-bold text-white truncate">
                                       {itemTitle}
                                     </div>
 
-                                    <div className="text-[11px] text-surface-dim mt-0.5 flex items-center space-x-2 flex-wrap">
-                                      <span>담당: {order.handlerName}</span>
+                                    <div className="text-[11px] text-surface-dim mt-0.5 flex items-center space-x-1.5 flex-wrap">
+                                      <span>담당 {order.handlerName}</span>
                                       {order.buyerName && (
                                         <>
-                                          <span>·</span>
-                                          <span className="text-blue-300 font-medium">결제자: {order.buyerName}</span>
+                                          <span className="text-white/25">·</span>
+                                          <span className="text-secondary-container font-medium">결제자 {order.buyerName}</span>
                                         </>
                                       )}
                                       {order.memo && (
                                         <>
-                                          <span>·</span>
-                                          <span className="text-amber-300/90 font-medium truncate max-w-[150px]">메모: {order.memo}</span>
+                                          <span className="text-white/25">·</span>
+                                          <span className="text-amber-400/90 font-medium truncate max-w-[150px]">메모: {order.memo}</span>
                                         </>
                                       )}
-                                      <span>·</span>
-                                      <span>{order.items.reduce((s, i) => s + i.count, 0)}개 상품</span>
+                                      <span className="text-white/25">·</span>
+                                      <span className="font-mono tabular-nums">{order.items.reduce((s, i) => s + i.count, 0)}개</span>
                                     </div>
 
                                     {order.isCancelled && (
-                                      <div className="text-[10px] text-red-300 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-md mt-1.5 inline-block">
+                                      <div className="text-[11px] text-rose-400/90 mt-1">
                                         취소 사유: {order.cancelReason || '고객 요청/변심'}
                                       </div>
                                     )}
                                   </div>
                                 </div>
 
-                                    {/* Total Amount */}
-                                    <div className="text-right shrink-0">
-                                      <div
-                                        className={`text-sm md:text-base font-black font-mono ${
-                                          order.isCancelled ? 'line-through text-surface-dim' : 'text-white'
-                                        }`}
-                                      >
-                                        {(order.actualPaidAmount ?? order.totalAmount).toLocaleString()}원
-                                      </div>
-                                      {order.gifticonDiscountAmount && order.gifticonDiscountAmount > 0 && !order.isCancelled && (
-                                        <div className="text-[10px] text-amber-300 font-bold mt-0.5 flex items-center justify-end space-x-1">
-                                          <Ticket className="w-3 h-3" />
-                                          <span>기프티콘 -{order.gifticonDiscountAmount.toLocaleString()}원</span>
-                                        </div>
-                                      )}
-                                      {order.isCancelled && (
-                                        <div className="text-[10px] text-red-400 font-bold mt-0.5">
-                                          환불 완료
-                                        </div>
-                                      )}
+                                {/* Total Amount */}
+                                <div className="text-right shrink-0 pl-2">
+                                  <div
+                                    className={`text-sm sm:text-base font-black font-mono tabular-nums ${
+                                      order.isCancelled ? 'line-through text-surface-dim' : 'text-white'
+                                    }`}
+                                  >
+                                    {(order.actualPaidAmount ?? order.totalAmount).toLocaleString()}원
+                                  </div>
+                                  {order.gifticonDiscountAmount && order.gifticonDiscountAmount > 0 && !order.isCancelled && (
+                                    <div className="text-[10px] text-amber-400 font-mono tabular-nums font-bold mt-0.5">
+                                      기프티콘 -{order.gifticonDiscountAmount.toLocaleString()}원
                                     </div>
+                                  )}
+                                  {order.isCancelled && (
+                                    <div className="text-[10px] text-rose-400 font-bold mt-0.5">
+                                      환불 완료
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             );
                           })}
@@ -955,20 +1079,20 @@ export function PosSalesHistoryModal({
           </div>
 
           {/* Right: Receipt Detail View */}
-          <div className={`w-full md:w-5/12 bg-[#090e1c] flex flex-col h-full overflow-hidden ${mobileTab === 'receipt' ? 'flex' : 'hidden md:flex'}`}>
+          <div className={`w-full md:w-5/12 bg-[#0a1120] flex flex-col h-full overflow-hidden ${mobileTab === 'receipt' ? 'flex' : 'hidden md:flex'}`}>
             {/* Mobile Back Button */}
-            <div className="md:hidden flex items-center justify-between px-3 py-2 bg-[#070b16] border-b border-white/10 shrink-0">
+            <div className="md:hidden flex items-center justify-between px-4 py-2.5 bg-primary border-b border-white/10 shrink-0">
               <button
                 type="button"
                 onClick={() => setMobileTab('list')}
-                className="flex items-center space-x-1.5 text-xs font-bold text-white bg-white/10 hover:bg-white/20 active:scale-95 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                className="flex items-center space-x-1.5 text-xs font-bold text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>이전</span>
+                <span>목록으로</span>
               </button>
               {activeOrder && (
                 <span className="text-xs font-bold text-surface-dim">
-                  영수증 확인
+                  영수증 상세
                 </span>
               )}
             </div>
@@ -1028,14 +1152,46 @@ export function PosSalesHistoryModal({
                       </div>
                     </div>
                     {activeOrder.items.map(item => (
-                      <div key={item.itemId} className="flex justify-between text-gray-900 text-[11px]">
-                        <span className="truncate pr-2">{item.name}</span>
+                      <div key={item.itemId} className="flex items-center justify-between text-gray-900 text-[11px] gap-1">
+                        <span className="truncate pr-1">{item.name}</span>
                         <div className="flex space-x-3 shrink-0 font-medium">
                           <span className="w-8 text-right">{item.count}</span>
                           <span className="w-16 text-right">{(item.price * item.count).toLocaleString()}</span>
                         </div>
                       </div>
                     ))}
+
+                    {/* Partially Refunded Items History on Receipt */}
+                    {activeOrder.refundedItems && activeOrder.refundedItems.length > 0 && (
+                      <div className="pt-2 mt-2 border-t border-dotted border-red-200 space-y-1">
+                        <div className="text-[10px] font-bold text-red-600 flex items-center justify-between">
+                          <span>[개별/부분 환불된 품목]</span>
+                          {activeOrder.refundedAmount ? (
+                            <span>총 -{activeOrder.refundedAmount.toLocaleString()}원</span>
+                          ) : null}
+                        </div>
+                        {activeOrder.refundedItems.map((ri, idx) => (
+                          <div
+                            key={`${ri.itemId}_${idx}`}
+                            className="flex items-center justify-between text-red-500/80 text-[10px] gap-1"
+                          >
+                            <span className="truncate pr-1 line-through">{ri.name} (환불)</span>
+                            <div className="flex items-center space-x-2 shrink-0">
+                              <span className="w-8 text-right line-through">-{ri.count}</span>
+                              <span className="w-16 text-right line-through">-{(ri.price * ri.count).toLocaleString()}</span>
+                              <button
+                                type="button"
+                                onClick={() => openRestorePartialModal(activeOrder, ri)}
+                                title={`${ri.name} 환불 취소 (주문 품목으로 복원)`}
+                                className="px-1 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-[9px] font-bold shrink-0 transition-colors cursor-pointer print:hidden"
+                              >
+                                환불취소
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Total & Payment Summary */}
@@ -1160,16 +1316,59 @@ export function PosSalesHistoryModal({
                     </button>
                   </div>
 
-                  {/* Regular cancel order button */}
-                  {!activeOrder.isCancelled && (
-                    <button
-                      type="button"
-                      onClick={() => setConfirmCancelTarget(activeOrder)}
-                      className="w-full flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition-colors cursor-pointer"
-                    >
-                      <Ban className="w-4 h-4 text-amber-400" />
-                      <span>결제 취소 및 환불 (재고 자동 복원)</span>
-                    </button>
+                  {/* Cancel / Partial Refund OR Restore Order Buttons */}
+                  {activeOrder.isCancelled ? (
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmRestoreCancelTarget(activeOrder);
+                          setRestoreStockOption(true);
+                        }}
+                        className="w-full flex items-center justify-center space-x-2 py-2.5 px-3 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/40 text-xs font-bold transition-all shadow-md shadow-emerald-950/40 cursor-pointer"
+                      >
+                        <RefreshCw className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>결제 취소 철회 (환불 취소 / 정상 결제 복원)</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {(activeOrder.items.length > 1 || activeOrder.items.some(i => i.count > 1)) && (
+                          <button
+                            type="button"
+                            onClick={() => openRefundModal(activeOrder, '__PARTIAL__')}
+                            className="w-full flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/40 text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            <RotateCcw className="w-4 h-4 text-orange-400 shrink-0" />
+                            <span>개별 품목 부분 환불</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => openRefundModal(activeOrder)}
+                          className={`w-full flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition-colors cursor-pointer ${
+                            activeOrder.items.length > 1 || activeOrder.items.some(i => i.count > 1)
+                              ? ''
+                              : 'sm:col-span-2'
+                          }`}
+                        >
+                          <Ban className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span>전체 결제 취소 및 환불</span>
+                        </button>
+                      </div>
+
+                      {activeOrder.refundedItems && activeOrder.refundedItems.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => openRestorePartialModal(activeOrder)}
+                          className="w-full flex items-center justify-center space-x-1.5 py-2 px-3 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/40 text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                          <span>부분 환불 취소 (환불된 품목 복원)</span>
+                        </button>
+                      )}
+                    </div>
                   )}
 
                   {/* Google Admin Special Actions Bar: Edit & Permanent Delete */}
@@ -1287,94 +1486,282 @@ export function PosSalesHistoryModal({
         </div>
       )}
 
-      {/* Cancel Order Confirm Modal */}
-      {confirmCancelTarget && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-[#121c38] border-2 border-red-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center space-x-3 text-red-400">
-              <div className="w-10 h-10 rounded-2xl bg-red-500/20 flex items-center justify-center">
-                <RotateCcw className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-black text-white">결제 취소 및 환불 확인</h3>
-                <span className="text-xs text-surface-dim">주문번호: {confirmCancelTarget.id}</span>
-              </div>
-            </div>
+      {/* Cancel / Partial Refund Order Confirm Modal */}
+      {confirmCancelTarget && (() => {
+        const selectedRefundAmount = confirmCancelTarget.items.reduce((sum, item) => {
+          const c = Math.min(item.count, Math.max(0, refundSelection[item.itemId] || 0));
+          return sum + item.price * c;
+        }, 0);
+        const totalSelectedCount = confirmCancelTarget.items.reduce((sum, item) => {
+          const c = Math.min(item.count, Math.max(0, refundSelection[item.itemId] || 0));
+          return sum + c;
+        }, 0);
+        const isFullRefundSelected = confirmCancelTarget.items.every(
+          item => (refundSelection[item.itemId] || 0) >= item.count
+        );
+        const remainingAmount = Math.max(0, confirmCancelTarget.totalAmount - selectedRefundAmount);
 
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-2xl text-xs text-red-200 leading-relaxed">
-              <p className="font-bold mb-1">
-                취소 시 총 {confirmCancelTarget.totalAmount.toLocaleString()}원이 당일 매출에서 차감되며, 판매되었던 상품 수량이 자동으로 재고에 복원(재입고)됩니다.
-              </p>
-              <p className="text-[11px] text-red-300/80">
-                품목: {confirmCancelTarget.items.map(i => `${i.name}(${i.count}개)`).join(', ')}
-              </p>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-surface-dim">취소 사유 직접 입력</label>
-                {cancelReason && (
-                  <button
-                    type="button"
-                    onClick={() => setCancelReason('')}
-                    className="text-[10px] text-surface-dim hover:text-white underline cursor-pointer"
-                  >
-                    내용 지우기
-                  </button>
-                )}
+        return (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="bg-[#121c38] border-2 border-red-500/40 rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[92vh] flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between shrink-0">
+                <div className="flex items-center space-x-3 text-red-400">
+                  <div className="w-10 h-10 rounded-2xl bg-red-500/20 flex items-center justify-center shrink-0">
+                    <RotateCcw className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-base font-black text-white">결제 취소 및 개별 환불</h3>
+                      <span
+                        className={`h-[18px] px-1.5 rounded-md text-[10px] font-bold border leading-none inline-flex items-center ${
+                          isFullRefundSelected
+                            ? 'bg-red-500/20 text-red-300 border-red-500/40'
+                            : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        }`}
+                      >
+                        {isFullRefundSelected ? '전체 취소' : '부분(개별) 환불'}
+                      </span>
+                    </div>
+                    <span className="text-xs text-surface-dim font-mono">주문번호: {confirmCancelTarget.id}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfirmCancelTarget(null)}
+                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <input
-                type="text"
-                value={cancelReason}
-                onChange={e => setCancelReason(e.target.value)}
-                placeholder="취소 사유를 입력하세요 (예: 품목 변경, 잘못된 수량 입력 등)"
-                className="w-full bg-black/40 border border-white/20 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-white/30 outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400/50 transition-all"
-                autoFocus
-              />
 
-              {/* Quick Preset Buttons */}
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {[
-                  '고객 변심 (구매 취소)',
-                  '품목/수량 입력 오류',
-                  '결제 수단 변경 재결제',
-                  '상품 불량/교환 요청',
-                ].map(preset => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => setCancelReason(preset)}
-                    className={`text-[10px] px-2 py-1 rounded-lg border transition-all cursor-pointer ${
-                      cancelReason === preset
-                        ? 'bg-red-500/20 border-red-500/50 text-red-200 font-bold'
-                        : 'bg-white/5 border-white/10 text-surface-dim hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    {preset}
-                  </button>
-                ))}
+              <div className="flex-1 overflow-y-auto space-y-3.5 pr-1 custom-scrollbar">
+                {/* Item Selection List for Partial or Full Refund */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-white">
+                      환불할 품목 및 수량 선택
+                    </label>
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allMap: Record<string, number> = {};
+                          confirmCancelTarget.items.forEach(i => {
+                            allMap[i.itemId] = i.count;
+                          });
+                          setRefundSelection(allMap);
+                        }}
+                        className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-[11px] font-bold text-white transition-colors cursor-pointer"
+                      >
+                        전체 선택
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRefundSelection({})}
+                        className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-semibold text-surface-dim hover:text-white transition-colors cursor-pointer"
+                      >
+                        선택 해제
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 bg-black/30 p-2.5 rounded-2xl border border-white/10">
+                    {confirmCancelTarget.items.map(item => {
+                      const selectedCount = Math.min(
+                        item.count,
+                        Math.max(0, refundSelection[item.itemId] || 0)
+                      );
+                      const isChecked = selectedCount > 0;
+
+                      return (
+                        <div
+                          key={item.itemId}
+                          onClick={() => {
+                            setRefundSelection(prev => ({
+                              ...prev,
+                              [item.itemId]: isChecked ? 0 : item.count,
+                            }));
+                          }}
+                          className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                            isChecked
+                              ? 'bg-red-500/15 border-red-500/40 text-white'
+                              : 'bg-white/5 border-white/5 text-surface-dim hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                            <div className="shrink-0">
+                              {isChecked ? (
+                                <CheckSquare className="w-4 h-4 text-red-400" />
+                              ) : (
+                                <Square className="w-4 h-4 text-surface-dim" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-bold text-white truncate">
+                                {item.name}
+                              </div>
+                              <div className="text-[11px] text-surface-dim">
+                                단가 {item.price.toLocaleString()}원 · 구매 {item.count}개
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Quantity stepper if item count > 1 or checked */}
+                          <div
+                            className="flex items-center space-x-2 shrink-0"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            {item.count > 1 && (
+                              <div className="flex items-center space-x-1 bg-black/40 border border-white/10 rounded-lg p-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setRefundSelection(prev => ({
+                                      ...prev,
+                                      [item.itemId]: Math.max(0, selectedCount - 1),
+                                    }))
+                                  }
+                                  className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/15 flex items-center justify-center text-white cursor-pointer"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <span className="text-xs font-mono font-bold px-1.5 text-white">
+                                  {selectedCount}/{item.count}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setRefundSelection(prev => ({
+                                      ...prev,
+                                      [item.itemId]: Math.min(item.count, selectedCount + 1),
+                                    }))
+                                  }
+                                  className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/15 flex items-center justify-center text-white cursor-pointer"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+                            )}
+
+                            <div className="text-right min-w-[68px]">
+                              <span
+                                className={`text-xs font-mono font-bold ${
+                                  isChecked ? 'text-red-300' : 'text-surface-dim'
+                                }`}
+                              >
+                                {isChecked ? `-${(item.price * selectedCount).toLocaleString()}원` : '0원'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Live Summary Banner */}
+                <div
+                  className={`p-3 rounded-2xl border text-xs leading-relaxed space-y-1.5 ${
+                    isFullRefundSelected
+                      ? 'bg-red-500/10 border-red-500/25 text-red-200'
+                      : 'bg-amber-500/10 border-amber-500/25 text-amber-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-bold">
+                    <span>선택 환불 금액 ({totalSelectedCount}개 품목):</span>
+                    <span className="text-sm font-black font-mono text-red-300">
+                      -{selectedRefundAmount.toLocaleString()}원
+                    </span>
+                  </div>
+                  {!isFullRefundSelected && totalSelectedCount > 0 && (
+                    <div className="flex items-center justify-between text-[11px] text-emerald-300 font-bold pt-1 border-t border-white/10">
+                      <span>환불 후 유지되는 결제 금액:</span>
+                      <span className="font-mono">{remainingAmount.toLocaleString()}원</span>
+                    </div>
+                  )}
+                  <p className="text-[11px] opacity-85 pt-0.5">
+                    {totalSelectedCount === 0
+                      ? '환불할 품목을 1개 이상 선택해주세요.'
+                      : isFullRefundSelected
+                      ? '주문 내 모든 품목이 선택되어 전체 결제 취소 처리되며 판매 수량이 원복됩니다.'
+                      : '선택한 품목만 부분 환불 처리되어 매출에서 차감되고 재고(판매수량)가 복원됩니다.'}
+                  </p>
+                </div>
+
+                {/* Cancel Reason */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-surface-dim">환불/취소 사유 입력</label>
+                    {cancelReason && (
+                      <button
+                        type="button"
+                        onClick={() => setCancelReason('')}
+                        className="text-[10px] text-surface-dim hover:text-white underline cursor-pointer"
+                      >
+                        내용 지우기
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={cancelReason}
+                    onChange={e => setCancelReason(e.target.value)}
+                    placeholder="환불 사유를 입력하세요 (예: 일부 품목 변심, 수량 오입력 등)"
+                    className="w-full bg-black/40 border border-white/20 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-white/30 outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400/50 transition-all"
+                  />
+
+                  {/* Quick Preset Buttons */}
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {[
+                      '고객 요청 (개별 품목 환불)',
+                      '고객 변심 (구매 취소)',
+                      '품목/수량 입력 오류',
+                      '결제 수단 변경 재결제',
+                      '상품 불량/교환 요청',
+                    ].map(preset => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setCancelReason(preset)}
+                        className={`text-[10px] px-2 py-1 rounded-lg border transition-all cursor-pointer ${
+                          cancelReason === preset
+                            ? 'bg-red-500/20 border-red-500/50 text-red-200 font-bold'
+                            : 'bg-white/5 border-white/10 text-surface-dim hover:text-white hover:bg-white/10'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <div className="flex space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setConfirmCancelTarget(null)}
-                className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-bold transition-colors cursor-pointer"
-              >
-                닫기
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmCancel}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-600/30 transition-all cursor-pointer"
-              >
-                결제 취소 실행
-              </button>
+              <div className="flex space-x-2 pt-2 border-t border-white/10 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setConfirmCancelTarget(null)}
+                  disabled={isProcessingRefund}
+                  className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-bold transition-colors cursor-pointer"
+                >
+                  닫기
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmCancel}
+                  disabled={totalSelectedCount === 0 || isProcessingRefund}
+                  className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white text-xs font-bold shadow-lg shadow-red-600/30 transition-all cursor-pointer"
+                >
+                  {isProcessingRefund
+                    ? '처리 중...'
+                    : isFullRefundSelected
+                    ? `전체 결제 취소 (${selectedRefundAmount.toLocaleString()}원)`
+                    : `선택 품목 부분 환불 (${selectedRefundAmount.toLocaleString()}원)`}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Admin Edit Order Modal */}
       {editingOrder && (
@@ -1609,26 +1996,240 @@ export function PosSalesHistoryModal({
                 </div>
               )}
 
-              {/* Cancel State Edit */}
-              <div className="text-xs p-3 rounded-xl bg-white/5 border border-white/5 space-y-2">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={editingOrder.isCancelled}
-                    onChange={e => {
-                      const isCanc = e.target.checked;
+              {/* Refunded Items Modification */}
+              <div className="text-xs space-y-2.5 p-3 rounded-2xl bg-orange-500/10 border border-orange-500/25">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-orange-200 font-bold flex items-center space-x-1.5">
+                      <RotateCcw className="w-3.5 h-3.5 text-orange-400" />
+                      <span>개별/부분 환불 이력 ({(editingOrder.refundedItems || []).length}건)</span>
+                    </label>
+                    <span className="text-[10px] text-orange-300/80">
+                      개별 품목 환불 내역을 직접 수정하거나 다시 주문 품목으로 복원할 수 있습니다.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentRefunds = editingOrder.refundedItems || [];
+                      const newRefundItem: PosRefundedItem = {
+                        itemId: `refund_${Date.now()}`,
+                        name: '환불 품목',
+                        price: 1000,
+                        count: 1,
+                        cancelReason: '고객 요청',
+                        refundedAt: new Date().toISOString(),
+                        refundedBy: currentUserName || '관리자',
+                      };
+                      const updatedRefunds = [...currentRefunds, newRefundItem];
+                      const newRefundTotal = updatedRefunds.reduce((sum, r) => sum + r.price * r.count, 0);
                       setEditingOrder({
                         ...editingOrder,
-                        isCancelled: isCanc,
-                        cancelledBy: isCanc ? editingOrder.cancelledBy || '관리자' : undefined,
-                        cancelledAt: isCanc ? editingOrder.cancelledAt || new Date().toISOString() : undefined,
-                        cancelReason: isCanc ? editingOrder.cancelReason || '관리자 직접 수정' : undefined,
+                        refundedItems: updatedRefunds,
+                        refundedAmount: newRefundTotal,
                       });
                     }}
-                    className="w-4 h-4 rounded text-red-500 focus:ring-0"
-                  />
-                  <span className="font-bold text-white">결제 취소 상태로 변경</span>
-                </label>
+                    className="text-[11px] text-orange-300 hover:text-orange-200 font-bold flex items-center space-x-1 bg-orange-500/20 px-2.5 py-1 rounded-lg border border-orange-500/30 cursor-pointer transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>환불 품목 추가</span>
+                  </button>
+                </div>
+
+                {(!editingOrder.refundedItems || editingOrder.refundedItems.length === 0) ? (
+                  <div className="text-[11px] text-surface-dim py-2.5 text-center bg-black/20 rounded-xl">
+                    등록된 개별 환불 내역이 없습니다.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {editingOrder.refundedItems.map((refItem, rIdx) => (
+                      <div
+                        key={rIdx}
+                        className="bg-black/40 p-2.5 rounded-xl border border-orange-500/20 space-y-2"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={refItem.name}
+                            onChange={e => {
+                              const updated = [...(editingOrder.refundedItems || [])];
+                              updated[rIdx] = { ...updated[rIdx], name: e.target.value };
+                              setEditingOrder({ ...editingOrder, refundedItems: updated });
+                            }}
+                            placeholder="환불 상품명"
+                            className="flex-1 bg-black/50 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-xs"
+                          />
+                          <div className="flex items-center space-x-1 w-24">
+                            <input
+                              type="number"
+                              value={refItem.price}
+                              onChange={e => {
+                                const val = Math.max(0, parseInt(e.target.value) || 0);
+                                const updated = [...(editingOrder.refundedItems || [])];
+                                updated[rIdx] = { ...updated[rIdx], price: val };
+                                const newRefundTotal = updated.reduce((s, r) => s + r.price * r.count, 0);
+                                setEditingOrder({
+                                  ...editingOrder,
+                                  refundedItems: updated,
+                                  refundedAmount: newRefundTotal,
+                                });
+                              }}
+                              placeholder="단가"
+                              className="w-full bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs text-right"
+                            />
+                            <span className="text-[10px] text-surface-dim">원</span>
+                          </div>
+                          <div className="flex items-center space-x-1 w-16">
+                            <input
+                              type="number"
+                              value={refItem.count}
+                              onChange={e => {
+                                const val = Math.max(1, parseInt(e.target.value) || 1);
+                                const updated = [...(editingOrder.refundedItems || [])];
+                                updated[rIdx] = { ...updated[rIdx], count: val };
+                                const newRefundTotal = updated.reduce((s, r) => s + r.price * r.count, 0);
+                                setEditingOrder({
+                                  ...editingOrder,
+                                  refundedItems: updated,
+                                  refundedAmount: newRefundTotal,
+                                });
+                              }}
+                              placeholder="수량"
+                              className="w-full bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs text-center"
+                            />
+                            <span className="text-[10px] text-surface-dim">개</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-0.5">
+                          <input
+                            type="text"
+                            value={refItem.cancelReason || ''}
+                            onChange={e => {
+                              const updated = [...(editingOrder.refundedItems || [])];
+                              updated[rIdx] = { ...updated[rIdx], cancelReason: e.target.value };
+                              setEditingOrder({ ...editingOrder, refundedItems: updated });
+                            }}
+                            placeholder="환불 사유 (선택)"
+                            className="flex-1 bg-black/30 border border-white/10 rounded-lg px-2.5 py-1 text-white text-[11px]"
+                          />
+                          <div className="flex items-center space-x-1.5 shrink-0">
+                            {/* Move back to active items (환불 취소 및 품목 복원) */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const remainingRefunds = (editingOrder.refundedItems || []).filter((_, i) => i !== rIdx);
+                                const currentItems = [...editingOrder.items];
+                                const matchIdx = currentItems.findIndex(ci => ci.itemId === refItem.itemId);
+                                if (matchIdx >= 0) {
+                                  currentItems[matchIdx] = {
+                                    ...currentItems[matchIdx],
+                                    count: currentItems[matchIdx].count + refItem.count,
+                                  };
+                                } else {
+                                  currentItems.push({
+                                    itemId: refItem.itemId,
+                                    name: refItem.name,
+                                    price: refItem.price,
+                                    count: refItem.count,
+                                  });
+                                }
+                                const newTotal = currentItems.reduce((s, i) => s + i.price * i.count, 0);
+                                const newRefundTotal = remainingRefunds.reduce((s, r) => s + r.price * r.count, 0);
+                                setEditingOrder({
+                                  ...editingOrder,
+                                  items: currentItems,
+                                  totalAmount: newTotal,
+                                  refundedItems: remainingRefunds,
+                                  refundedAmount: newRefundTotal,
+                                });
+                              }}
+                              title="이 환불 내역을 취소하고 정상 주문 품목으로 복원합니다"
+                              className="px-2 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center space-x-1 cursor-pointer"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>품목 복원 (환불 취소)</span>
+                            </button>
+
+                            {/* Remove from refund records */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const remainingRefunds = (editingOrder.refundedItems || []).filter((_, i) => i !== rIdx);
+                                const newRefundTotal = remainingRefunds.reduce((s, r) => s + r.price * r.count, 0);
+                                setEditingOrder({
+                                  ...editingOrder,
+                                  refundedItems: remainingRefunds,
+                                  refundedAmount: newRefundTotal,
+                                });
+                              }}
+                              title="환불 기록에서만 삭제"
+                              className="p-1 text-red-400 hover:bg-red-500/20 rounded-lg cursor-pointer transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Refund total amount banner */}
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-surface-dim font-bold">누적 환불 금액:</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-mono font-bold text-red-300">
+                      -{(editingOrder.refundedAmount || 0).toLocaleString()}원
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const calculated = (editingOrder.refundedItems || []).reduce(
+                          (sum, r) => sum + r.price * r.count,
+                          0
+                        );
+                        setEditingOrder({ ...editingOrder, refundedAmount: calculated });
+                      }}
+                      className="text-[10px] text-orange-400 hover:underline cursor-pointer"
+                    >
+                      품목 합산 재계산
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cancel State Edit */}
+              <div className="text-xs p-3 rounded-xl bg-white/5 border border-white/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingOrder.isCancelled}
+                      onChange={e => {
+                        const isCanc = e.target.checked;
+                        setEditingOrder({
+                          ...editingOrder,
+                          isCancelled: isCanc,
+                          cancelledBy: isCanc ? editingOrder.cancelledBy || currentUserName || '관리자' : undefined,
+                          cancelledAt: isCanc ? editingOrder.cancelledAt || new Date().toISOString() : undefined,
+                          cancelReason: isCanc ? editingOrder.cancelReason || '관리자 직접 수정' : undefined,
+                        });
+                      }}
+                      className="w-4 h-4 rounded text-red-500 focus:ring-0"
+                    />
+                    <span className="font-bold text-white">결제 취소 (전체 환불) 상태로 설정</span>
+                  </label>
+                  {!editingOrder.isCancelled ? (
+                    <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20 leading-none">
+                      정상 결제 유지 중
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-red-400 font-bold bg-red-500/10 px-1.5 py-0.5 rounded-md border border-red-500/20 leading-none">
+                      결제 취소 처리됨
+                    </span>
+                  )}
+                </div>
 
                 {editingOrder.isCancelled && (
                   <div className="pt-2 border-t border-white/5 space-y-2">
@@ -1638,6 +2239,7 @@ export function PosSalesHistoryModal({
                         type="text"
                         value={editingOrder.cancelReason || ''}
                         onChange={e => setEditingOrder({ ...editingOrder, cancelReason: e.target.value })}
+                        placeholder="취소 사유"
                         className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-xs"
                       />
                     </div>
@@ -1709,6 +2311,274 @@ export function PosSalesHistoryModal({
           </div>
         </div>
       )}
+
+      {/* Restore Full Cancellation Modal */}
+      {confirmRestoreCancelTarget && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-[#0e172e] border-2 border-emerald-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center space-x-3 text-emerald-400">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
+                <RefreshCw className="w-5 h-5 text-emerald-300" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white">결제 취소(환불) 철회</h3>
+                <span className="text-xs text-surface-dim font-mono">주문번호: {confirmRestoreCancelTarget.id}</span>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xs text-emerald-200 leading-relaxed space-y-2">
+              <p className="font-bold text-white">
+                이 주문의 결제 취소(환불)를 철회하고 정상 결제 상태로 복원하시겠습니까?
+              </p>
+              <div className="text-[11px] text-emerald-300/80 space-y-1">
+                <div>· 실결제 복원 금액: <span className="font-mono font-bold text-white">{(confirmRestoreCancelTarget.actualPaidAmount ?? confirmRestoreCancelTarget.totalAmount).toLocaleString()}원</span></div>
+                <div>· 주문 품목: {confirmRestoreCancelTarget.items.map(i => `${i.name} ${i.count}개`).join(', ')}</div>
+                {confirmRestoreCancelTarget.cancelReason && (
+                  <div>· 기존 취소 사유: <span className="text-red-300">{confirmRestoreCancelTarget.cancelReason}</span></div>
+                )}
+              </div>
+            </div>
+
+            <label className="flex items-center space-x-2 text-xs text-white p-2.5 bg-white/5 rounded-xl border border-white/5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={restoreStockOption}
+                onChange={e => setRestoreStockOption(e.target.checked)}
+                className="w-4 h-4 rounded text-emerald-500 focus:ring-0"
+              />
+              <span className="font-medium text-emerald-200">
+                상품 재고 및 누적 판매량을 판매 상태로 다시 반영 (재고 차감)
+              </span>
+            </label>
+
+            <div className="flex space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmRestoreCancelTarget(null)}
+                disabled={isProcessingRestore}
+                className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                닫기
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteRestoreCancel}
+                disabled={isProcessingRestore}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition-all cursor-pointer"
+              >
+                {isProcessingRestore ? '복원 처리 중...' : '환불 취소 (정상 결제 복원)'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Restore Partial Refund Modal */}
+      {confirmRestorePartialTarget && (() => {
+        const refundedItems = confirmRestorePartialTarget.refundedItems || [];
+        const totalSelectedRestoreCount = refundedItems.reduce(
+          (sum, i) => sum + Math.min(i.count, Math.max(0, restorePartialSelection[i.itemId] || 0)),
+          0
+        );
+        const selectedRestoreAmount = refundedItems.reduce(
+          (sum, i) =>
+            sum + i.price * Math.min(i.count, Math.max(0, restorePartialSelection[i.itemId] || 0)),
+          0
+        );
+
+        return (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+            <div className="bg-[#0e172e] border-2 border-blue-500/40 rounded-3xl p-5 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
+                <div className="flex items-center space-x-3 text-blue-400">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-500/20 flex items-center justify-center">
+                    <RotateCcw className="w-5 h-5 text-blue-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-white">부분 환불 취소 (품목 복원)</h3>
+                    <span className="text-xs text-surface-dim font-mono">주문번호: {confirmRestorePartialTarget.id}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfirmRestorePartialTarget(null)}
+                  className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white">복원할 환불 품목 및 수량 선택</span>
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allMap: Record<string, number> = {};
+                        refundedItems.forEach(i => {
+                          allMap[i.itemId] = i.count;
+                        });
+                        setRestorePartialSelection(allMap);
+                      }}
+                      className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-[11px] font-bold text-white transition-colors cursor-pointer"
+                    >
+                      전체 선택
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRestorePartialSelection({})}
+                      className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-semibold text-surface-dim hover:text-white transition-colors cursor-pointer"
+                    >
+                      선택 해제
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 bg-black/30 p-2.5 rounded-2xl border border-white/10">
+                  {refundedItems.map(item => {
+                    const selectedCount = Math.min(
+                      item.count,
+                      Math.max(0, restorePartialSelection[item.itemId] || 0)
+                    );
+                    const isChecked = selectedCount > 0;
+
+                    return (
+                      <div
+                        key={item.itemId}
+                        onClick={() => {
+                          setRestorePartialSelection(prev => ({
+                            ...prev,
+                            [item.itemId]: isChecked ? 0 : item.count,
+                          }));
+                        }}
+                        className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                          isChecked
+                            ? 'bg-blue-500/15 border-blue-500/40 text-white'
+                            : 'bg-white/5 border-white/5 text-surface-dim hover:bg-white/10'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                          <div className="shrink-0">
+                            {isChecked ? (
+                              <CheckSquare className="w-4 h-4 text-blue-400" />
+                            ) : (
+                              <Square className="w-4 h-4 text-surface-dim" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-bold text-white truncate">
+                              {item.name}
+                            </div>
+                            <div className="text-[11px] text-surface-dim">
+                              단가 {item.price.toLocaleString()}원 · 환불 {item.count}개
+                              {item.cancelReason ? ` (${item.cancelReason})` : ''}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Quantity stepper */}
+                        <div
+                          className="flex items-center space-x-2 shrink-0"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          {item.count > 1 && (
+                            <div className="flex items-center space-x-1 bg-black/40 border border-white/10 rounded-lg p-0.5">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setRestorePartialSelection(prev => ({
+                                    ...prev,
+                                    [item.itemId]: Math.max(0, selectedCount - 1),
+                                  }))
+                                }
+                                className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/15 flex items-center justify-center text-white cursor-pointer"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="text-xs font-mono font-bold px-1.5 text-white">
+                                {selectedCount}/{item.count}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setRestorePartialSelection(prev => ({
+                                    ...prev,
+                                    [item.itemId]: Math.min(item.count, selectedCount + 1),
+                                  }))
+                                }
+                                className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/15 flex items-center justify-center text-white cursor-pointer"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+
+                          <div className="text-right min-w-[68px]">
+                            <span
+                              className={`text-xs font-mono font-bold ${
+                                isChecked ? 'text-blue-300' : 'text-surface-dim'
+                              }`}
+                            >
+                              {isChecked ? `+${(item.price * selectedCount).toLocaleString()}원` : '0원'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Summary Banner */}
+                <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/25 text-xs text-blue-200 leading-relaxed space-y-1">
+                  <div className="flex items-center justify-between font-bold">
+                    <span>복원 금액 ({totalSelectedRestoreCount}개 품목):</span>
+                    <span className="text-sm font-black font-mono text-emerald-300">
+                      +{selectedRestoreAmount.toLocaleString()}원
+                    </span>
+                  </div>
+                  <p className="text-[11px] opacity-80 pt-0.5">
+                    선택한 품목이 환불 이력에서 차감되고 영수증의 정식 주문 품목으로 복원됩니다.
+                  </p>
+                </div>
+
+                <label className="flex items-center space-x-2 text-xs text-white p-2.5 bg-white/5 rounded-xl border border-white/5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={restoreStockOption}
+                    onChange={e => setRestoreStockOption(e.target.checked)}
+                    className="w-4 h-4 rounded text-blue-500 focus:ring-0"
+                  />
+                  <span className="font-medium text-blue-200">
+                    복원 품목의 재고 및 누적 판매량을 판매 상태로 다시 반영 (재고 차감)
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex space-x-2 pt-2 border-t border-white/10 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setConfirmRestorePartialTarget(null)}
+                  disabled={isProcessingRestore}
+                  className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-bold transition-colors cursor-pointer"
+                >
+                  닫기
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteRestorePartial}
+                  disabled={totalSelectedRestoreCount === 0 || isProcessingRestore}
+                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-bold shadow-lg shadow-blue-600/30 transition-all cursor-pointer"
+                >
+                  {isProcessingRestore
+                    ? '복원 처리 중...'
+                    : `선택 품목 환불 취소 (+${selectedRestoreAmount.toLocaleString()}원)`}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

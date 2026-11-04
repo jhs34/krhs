@@ -72,27 +72,22 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
   };
 
   return (
-    <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-      <div className="bg-[#0f172a] border border-white/15 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+      <div className="bg-[#0a1120] border border-white/10 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-xl bg-secondary/15 text-secondary flex items-center justify-center">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white">
-                {isEdit ? '상품 정보 수정' : '신규 상품 등록'}
-              </h3>
-              <p className="text-[11px] text-surface-dim">
-                {isEdit ? `ID: ${item?.id}` : '매점에 진열할 새 품목을 등록합니다.'}
-              </p>
-            </div>
+        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-primary/40">
+          <div>
+            <h3 className="text-base font-bold text-white">
+              {isEdit ? '상품 정보 수정' : '신규 상품 등록'}
+            </h3>
+            <p className="text-[11px] text-surface-dim mt-0.5">
+              {isEdit ? `상품 ID: ${item?.id}` : '매점에 진열할 새 품목을 등록합니다.'}
+            </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white flex items-center justify-center transition-colors"
+            className="p-2 rounded-lg text-surface-dim hover:text-white hover:bg-white/5 flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -101,8 +96,8 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
-            <div className="flex items-center space-x-2 text-xs text-red-300 bg-red-500/15 border border-red-500/30 px-3.5 py-2.5 rounded-xl">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+            <div className="flex items-center space-x-2 text-xs text-rose-300 bg-rose-500/15 border border-rose-500/30 px-3.5 py-2.5 rounded-xl">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
               <span>{error}</span>
             </div>
           )}
@@ -110,14 +105,14 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
           {/* Product Name */}
           <div>
             <label className="block text-xs font-semibold text-surface-dim mb-1.5">
-              상품명 <span className="text-red-400">*</span>
+              상품명 <span className="text-rose-400">*</span>
             </label>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="예: 포카리스웨트 340ml, 육개장 사발면"
-              className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary placeholder:text-surface-dim/40"
+              className="w-full bg-primary border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-secondary placeholder:text-surface-dim/40"
               required
               autoFocus
             />
@@ -127,15 +122,15 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="block text-xs font-semibold text-surface-dim mb-1.5">
-                카테고리 <span className="text-red-400">*</span>
+                카테고리 <span className="text-rose-400">*</span>
               </label>
               <select
                 value={categoryId}
                 onChange={e => setCategoryId(e.target.value)}
-                className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-secondary"
+                className="w-full bg-primary border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-secondary"
               >
                 {categories.map(cat => (
-                  <option key={cat.name} value={cat.name} className="bg-[#0f172a] text-white">
+                  <option key={cat.name} value={cat.name} className="bg-[#0a1120] text-white">
                     {cat.name}
                   </option>
                 ))}
@@ -144,7 +139,7 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
 
             <div>
               <label className="block text-xs font-semibold text-surface-dim mb-1.5">
-                판매 가격 (원) <span className="text-red-400">*</span>
+                판매 가격 (원) <span className="text-rose-400">*</span>
               </label>
               <div className="relative">
                 <input
@@ -154,7 +149,7 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
                   value={price}
                   onChange={e => setPrice(e.target.value === '' ? '' : Number(e.target.value))}
                   placeholder="1000"
-                  className="w-full bg-[#1e293b] border border-white/10 rounded-xl pl-3.5 pr-8 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-secondary"
+                  className="w-full bg-primary border border-white/10 rounded-xl pl-3.5 pr-8 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-secondary"
                   required
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-surface-dim font-bold">
@@ -173,9 +168,9 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
               <button
                 type="button"
                 onClick={() => setIsSoldOut(false)}
-                className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
                   !isSoldOut
-                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-sm'
+                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
                     : 'bg-white/5 border-white/10 text-surface-dim hover:text-white'
                 }`}
               >
@@ -185,23 +180,23 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
               <button
                 type="button"
                 onClick={() => setIsSoldOut(true)}
-                className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
                   isSoldOut
-                    ? 'bg-red-500/20 border-red-500/50 text-red-300 shadow-sm'
+                    ? 'bg-rose-500/15 border-rose-500/40 text-rose-300'
                     : 'bg-white/5 border-white/10 text-surface-dim hover:text-white'
                 }`}
               >
                 <Ban className="w-3.5 h-3.5" />
-                <span>품절 (SOLD OUT)</span>
+                <span>품절</span>
               </button>
             </div>
             {isEdit && (
               <div className="mt-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-between text-xs text-surface-dim">
                 <span className="flex items-center space-x-1.5">
-                  <TrendingUp className="w-3.5 h-3.5 text-secondary" />
+                  <TrendingUp className="w-3.5 h-3.5 text-secondary-container" />
                   <span>누적 판매량</span>
                 </span>
-                <span className="font-mono font-bold text-white">
+                <span className="font-mono font-bold text-white tabular-nums">
                   {(item?.totalSold || 0).toLocaleString()}개 판매됨
                 </span>
               </div>
@@ -213,14 +208,14 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
             <button
               type="button"
               onClick={() => setIsFavorite(prev => !prev)}
-              className={`p-3 rounded-2xl border text-left flex items-center space-x-3 transition-all ${
+              className={`p-3 rounded-xl border text-left flex items-center space-x-3 transition-all cursor-pointer ${
                 isFavorite
                   ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
                   : 'bg-white/5 border-white/10 text-surface-dim hover:text-white'
               }`}
             >
               <div
-                className={`w-7 h-7 rounded-xl flex items-center justify-center text-sm ${
+                className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${
                   isFavorite ? 'bg-amber-500 text-black font-bold' : 'bg-white/10 text-surface-dim'
                 }`}
               >
@@ -237,40 +232,40 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
             <button
               type="button"
               onClick={() => setIsActive(prev => !prev)}
-              className={`p-3 rounded-2xl border text-left flex items-center space-x-3 transition-all ${
+              className={`p-3 rounded-xl border text-left flex items-center space-x-3 transition-all cursor-pointer ${
                 isActive
                   ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                  : 'bg-red-500/15 border-red-500/40 text-red-300'
+                  : 'bg-rose-500/15 border-rose-500/40 text-rose-300'
               }`}
             >
               <div
-                className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold ${
-                  isActive ? 'bg-emerald-500 text-black' : 'bg-red-500 text-white'
+                className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
+                  isActive ? 'bg-emerald-500 text-black' : 'bg-rose-500 text-white'
                 }`}
               >
-                {isActive ? 'ON' : 'OFF'}
+                {isActive ? '진열' : '숨김'}
               </div>
               <div>
-                <div className="text-xs font-bold text-white">판매 상태</div>
+                <div className="text-xs font-bold text-white">진열 상태</div>
                 <div className="text-[10px] text-surface-dim">
-                  {isActive ? '정상 판매 중' : '임시 판매 중단'}
+                  {isActive ? '메뉴판에 노출' : '메뉴판에서 숨김'}
                 </div>
               </div>
             </button>
           </div>
 
           {/* Footer Submit Buttons */}
-          <div className="pt-3 flex items-center justify-end space-x-2.5">
+          <div className="pt-3 flex items-center justify-end space-x-2.5 border-t border-white/10">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors border border-white/10"
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
             >
               취소
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-secondary text-on-secondary hover:brightness-110 transition-all shadow-md flex items-center space-x-1.5"
+              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-secondary text-white hover:bg-secondary/90 transition-all flex items-center space-x-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>{isEdit ? '변경사항 저장' : '새 상품 등록 완료'}</span>

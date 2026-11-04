@@ -41,6 +41,9 @@ import {
   deletePosPreset,
   runOrderTransaction,
   runCancelOrderTransaction,
+  runPartialCancelOrderTransaction,
+  runRestoreCancelledOrderTransaction,
+  runRestorePartialRefundTransaction,
   updatePosOrder,
   deletePosOrder,
   deleteMultiplePosOrders,
@@ -316,41 +319,14 @@ export function PosPage() {
   const [orders, setOrders] = useState<PosOrder[]>(() => {
     try {
       const saved = localStorage.getItem(ORDERS_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch (e) {
       console.error('Failed to load orders', e);
     }
-    return [
-      {
-        id: `ORD-${format(new Date(), 'yyMMdd')}-001`,
-        sessionId: format(new Date(), 'yyyy-MM-dd'),
-        timestamp: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
-        handlerUid: 'staff',
-        handlerName: '매점판매원 (학생회)',
-        paymentMethod: 'TRANSFER',
-        totalAmount: 3200,
-        items: [
-          { itemId: 'snack-1', name: '포카칩 (오리지널)', price: 1700, count: 1 },
-          { itemId: 'drink-1', name: '코카콜라 (캔 250ml)', price: 1500, count: 1 },
-        ],
-        isCancelled: false,
-      },
-      {
-        id: `ORD-${format(new Date(), 'yyMMdd')}-002`,
-        sessionId: format(new Date(), 'yyyy-MM-dd'),
-        timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-        handlerUid: 'staff',
-        handlerName: '매점판매원 (학생회)',
-        paymentMethod: 'CASH',
-        totalAmount: 2000,
-        cashReceived: 5000,
-        changeAmount: 3000,
-        items: [
-          { itemId: 'ice-1', name: '메로나', price: 1000, count: 2 },
-        ],
-        isCancelled: false,
-      },
-    ];
+    return [];
   });
 
   // Day metrics dynamically calculated from orders
@@ -488,9 +464,7 @@ export function PosPage() {
 
       // Subscribe to Orders
       unsubOrders = subscribePosOrders(firestoreOrders => {
-        if (firestoreOrders.length > 0) {
-          setOrders(firestoreOrders);
-        }
+        setOrders(firestoreOrders);
       });
 
       // Subscribe to Today's Settlement
@@ -573,6 +547,23 @@ export function PosPage() {
         .filter(o => o.paymentMethod === 'TRANSFER')
         .reduce((sum, o) => sum + o.totalAmount, 0),
     [activeTodayOrders]
+  );
+
+  const todaySoldByItemMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    activeTodayOrders.forEach(order => {
+      order.items?.forEach(oi => {
+        if (oi.itemId && oi.count > 0) {
+          map[oi.itemId] = (map[oi.itemId] || 0) + oi.count;
+        }
+      });
+    });
+    return map;
+  }, [activeTodayOrders]);
+
+  const todayTotalSoldCount = useMemo(
+    () => Object.values(todaySoldByItemMap).reduce((sum, cnt) => sum + cnt, 0),
+    [todaySoldByItemMap]
   );
 
   // Notification Toast
@@ -736,6 +727,22 @@ export function PosPage() {
       console.error('Clear favorites error:', e);
       showToast('즐겨찾기 해제 중 오류가 발생했습니다: ' + e.message, 'error');
     }
+  };
+
+  // Long-press quick toggle for Sold-Out status directly from register screen
+  const handleQuickToggleSoldOut = async (item: PosItem) => {
+    const nextSoldOut = !Boolean(item.isSoldOut);
+    await handlePatchSingleItem(item.id, { isSoldOut: nextSoldOut });
+    if (!isSoundMuted) {
+      if (nextSoldOut) PosFeedback.playCancel();
+      else PosFeedback.playBeep();
+    }
+    showToast(
+      nextSoldOut
+        ? `'${item.name}' 품절 처리되었습니다.`
+        : `'${item.name}' 품절이 해제되어 판매중으로 전환되었습니다.`,
+      nextSoldOut ? 'error' : 'success'
+    );
   };
 
   // Cart Operations
@@ -915,6 +922,136 @@ export function PosPage() {
     }
   };
 
+  // [트랜잭션 개별/부분 환불] 주문 내 특정 품목/수량만 선택하여 환불 처리 및 판매 수량 원복
+  const handlePartialCancelOrder = async (
+    orderId: string,
+    refundTargets: Array<{ itemId: string; count: number }>,
+    reason?: string
+  ) => {
+    const target = orders.find(o => o.id === orderId);
+    if (!target) return;
+    if (target.isCancelled) {
+      showToast('이미 취소된 주문입니다.', 'error');
+      return;
+    }
+
+    try {
+      const trimmedReason = reason?.trim() || '고객 요청 (개별 품목 환불)';
+      const cancelAuthor = currentUser?.name || '관리자';
+
+      const updatedOrder = await runPartialCancelOrderTransaction(
+        orderId,
+        refundTargets,
+        cancelAuthor,
+        trimmedReason
+      );
+
+      setOrders(prev => prev.map(o => (o.id === orderId ? updatedOrder : o)));
+      setItems(prevItems =>
+        prevItems.map(it => {
+          const match = refundTargets.find(rt => rt.itemId === it.id);
+          if (match && match.count > 0) {
+            return {
+              ...it,
+              totalSold: Math.max(0, (it.totalSold || 0) - match.count),
+            };
+          }
+          return it;
+        })
+      );
+
+      if (updatedOrder.isCancelled) {
+        showToast(`주문(${orderId.slice(-6)})의 모든 품목이 환불되어 전체 결제 취소 처리되었습니다.`, 'success');
+      } else {
+        showToast(`주문(${orderId.slice(-6)})의 선택 품목 개별 환불 및 판매 수량 복원이 완료되었습니다.`, 'success');
+      }
+    } catch (error: any) {
+      console.error('Partial cancel order failed:', error);
+      showToast(error.message || '개별 환불 처리 중 오류가 발생했습니다.', 'error');
+    }
+  };
+
+  // [트랜잭션 결제 취소(환불) 철회] 환불된 주문을 다시 정상 결제로 복원하고 재고/판매수량 재반영
+  const handleRestoreCancelledOrder = async (orderId: string, restoreStock = true) => {
+    const target = orders.find(o => o.id === orderId);
+    if (!target) return;
+    if (!target.isCancelled) {
+      showToast('이미 정상 결제 상태인 주문입니다.', 'error');
+      return;
+    }
+
+    try {
+      const restoredBy = currentUser?.name || '관리자';
+      const restoredOrder = await runRestoreCancelledOrderTransaction(orderId, restoredBy, restoreStock);
+
+      setOrders(prev => prev.map(o => (o.id === orderId ? restoredOrder : o)));
+
+      if (restoreStock && target.items && target.items.length > 0) {
+        setItems(prevItems =>
+          prevItems.map(it => {
+            const match = target.items?.find(ti => ti.itemId === it.id);
+            if (match) {
+              return {
+                ...it,
+                stock: Math.max(0, (it.stock ?? 999) - match.count),
+                totalSold: (it.totalSold || 0) + match.count,
+              };
+            }
+            return it;
+          })
+        );
+      }
+
+      showToast(`주문(${orderId.slice(-6)})의 결제 취소(환불)가 철회되고 정상 결제로 복원되었습니다.`, 'success');
+    } catch (error: any) {
+      console.error('Restore cancelled order failed:', error);
+      showToast(error.message || '환불 취소 처리 중 오류가 발생했습니다.', 'error');
+    }
+  };
+
+  // [트랜잭션 개별/부분 환불 취소/철회] 환불되었던 특정 품목을 주문으로 복원하고 재고/판매수량 재반영
+  const handleRestorePartialRefund = async (
+    orderId: string,
+    restoreTargets: Array<{ itemId: string; count: number; name?: string; price?: number }>,
+    restoreStock = true
+  ) => {
+    const target = orders.find(o => o.id === orderId);
+    if (!target) return;
+
+    try {
+      const restoredBy = currentUser?.name || '관리자';
+      const restoredOrder = await runRestorePartialRefundTransaction(
+        orderId,
+        restoreTargets,
+        restoredBy,
+        restoreStock
+      );
+
+      setOrders(prev => prev.map(o => (o.id === orderId ? restoredOrder : o)));
+
+      if (restoreStock) {
+        setItems(prevItems =>
+          prevItems.map(it => {
+            const match = restoreTargets.find(rt => rt.itemId === it.id);
+            if (match && match.count > 0) {
+              return {
+                ...it,
+                stock: Math.max(0, (it.stock ?? 999) - match.count),
+                totalSold: (it.totalSold || 0) + match.count,
+              };
+            }
+            return it;
+          })
+        );
+      }
+
+      showToast(`주문(${orderId.slice(-6)})의 부분 환불이 취소되고 품목이 복원되었습니다.`, 'success');
+    } catch (error: any) {
+      console.error('Restore partial refund failed:', error);
+      showToast(error.message || '부분 환불 취소 처리 중 오류가 발생했습니다.', 'error');
+    }
+  };
+
   const handleSaveSettlement = (newSettlement: PosSettlement) => {
     setSettlement(newSettlement);
   };
@@ -930,11 +1067,57 @@ export function PosPage() {
     }
   };
 
-  // [관리자 전용] 매출 내역(주문) 직접 수정
-  const handleUpdateOrder = async (updatedOrder: PosOrder) => {
+  // [관리자 전용] 매출 내역(주문) 직접 수정 (재고/판매량 동기화 지원)
+  const handleUpdateOrder = async (updatedOrder: PosOrder, syncStock = true) => {
+    const prevOrder = orders.find(o => o.id === updatedOrder.id);
     setOrders(prev => prev.map(o => (o.id === updatedOrder.id ? updatedOrder : o)));
+
     try {
-      await updatePosOrder(updatedOrder);
+      await updatePosOrder(updatedOrder, currentUser?.name || '관리자');
+
+      // If syncStock is true and prevOrder is present, synchronize inventory differences
+      if (syncStock && prevOrder) {
+        const itemDeltas = new Map<string, number>();
+
+        // Previous sold quantities
+        if (!prevOrder.isCancelled) {
+          prevOrder.items?.forEach(i => {
+            itemDeltas.set(i.itemId, (itemDeltas.get(i.itemId) || 0) - i.count);
+          });
+        }
+        // Updated sold quantities
+        if (!updatedOrder.isCancelled) {
+          updatedOrder.items?.forEach(i => {
+            itemDeltas.set(i.itemId, (itemDeltas.get(i.itemId) || 0) + i.count);
+          });
+        }
+
+        const changedItemsToUpdate: PosItem[] = [];
+        setItems(prevItems =>
+          prevItems.map(it => {
+            const delta = itemDeltas.get(it.id) || 0;
+            if (delta !== 0) {
+              const updated = {
+                ...it,
+                stock: Math.max(0, (it.stock ?? 999) - delta),
+                totalSold: Math.max(0, (it.totalSold || 0) + delta),
+              };
+              changedItemsToUpdate.push(updated);
+              return updated;
+            }
+            return it;
+          })
+        );
+
+        if (changedItemsToUpdate.length > 0) {
+          saveMultiplePosItems(
+            changedItemsToUpdate,
+            currentUser?.name || '관리자',
+            currentUser?.id
+          ).catch(e => console.warn('Failed to sync item changes from order update:', e));
+        }
+      }
+
       showToast('매출 내역이 성공적으로 수정되었습니다.', 'success');
     } catch (e: any) {
       console.error('Update order error:', e);
@@ -1031,7 +1214,7 @@ export function PosPage() {
   const totalCartCount = cart.reduce((sum, item) => sum + item.count, 0);
 
   return (
-    <div className="fixed inset-0 w-full h-full bg-[#080d1a] text-white flex flex-col overflow-hidden z-50 select-none">
+    <div className="fixed inset-0 w-full h-full bg-primary text-white flex flex-col overflow-hidden z-50 select-none">
       {/* 1. If not logged in at all, show dedicated POS initial login modal */}
       {!currentUser && (
         <PosLoginModal
@@ -1054,6 +1237,7 @@ export function PosPage() {
           cashSalesToday={cashSalesToday}
           transferSalesToday={transferSalesToday}
           todayOrdersCount={activeTodayOrders.length}
+          todayTotalSoldCount={todayTotalSoldCount}
           hasActiveCart={cart.length > 0}
           onStartSales={() => setPosScreenMode('register')}
           onOpenProductManager={() => setShowProductManager(true)}
@@ -1104,7 +1288,9 @@ export function PosPage() {
                 categories={categories}
                 items={items}
                 cart={cart}
+                todaySoldMap={todaySoldByItemMap}
                 onAddToCart={handleAddToCart}
+                onToggleSoldOut={handleQuickToggleSoldOut}
                 onOpenProductManager={() => setShowProductManager(true)}
               />
             </div>
@@ -1150,7 +1336,7 @@ export function PosPage() {
           {/* Bottom Cart Mode (스마트폰 및 탭/태블릿 세로 모드): Floating Bottom Cart Bar */}
           {!isSplitLayout && (
             <div
-              className={`fixed bottom-0 inset-x-0 z-40 bg-[#0b1326]/95 backdrop-blur-xl border-t border-white/10 px-4 sm:px-6 pt-2 pb-3 sm:pb-4 shadow-2xl transition-all select-none ${
+              className={`fixed bottom-0 inset-x-0 z-40 bg-[#0a1120]/95 backdrop-blur-xl border-t border-white/10 px-4 sm:px-6 pt-2 pb-3 sm:pb-4 shadow-2xl transition-all select-none ${
                 isMobileCartOpen ? 'pointer-events-none opacity-0 translate-y-full' : 'opacity-100 translate-y-0'
               }`}
             >
@@ -1164,7 +1350,7 @@ export function PosPage() {
                   className="w-full flex justify-center py-1 cursor-grab active:cursor-grabbing"
                   aria-label="장바구니 열기 제스처 바"
                 >
-                  <div className="w-10 h-1 bg-white/20 rounded-full" />
+                  <div className="w-8 h-1 bg-white/15 rounded-sm" />
                 </div>
 
                 {/* Main Bar Content */}
@@ -1174,27 +1360,17 @@ export function PosPage() {
                     onClick={() => setIsMobileCartOpen(true)}
                     className="flex items-center space-x-3 cursor-pointer min-w-0 flex-1 py-1"
                   >
-                    <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center text-white shrink-0 shadow-sm">
-                      <ShoppingCart className="w-5 h-5 text-blue-400" />
-                      {totalCartCount > 0 && (
-                        <motion.span
-                          key={totalCartCount}
-                          initial={{ scale: 0.6 }}
-                          animate={{ scale: 1 }}
-                          className="absolute -top-1.5 -right-1.5 px-1.5 py-0.2 rounded-full text-[10px] sm:text-xs font-black bg-blue-600 text-white shadow-md border border-white/20 min-w-[18px] text-center"
-                        >
-                          {totalCartCount}
-                        </motion.span>
-                      )}
+                    <div className="relative w-10 h-10 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center text-white shrink-0">
+                      <ShoppingCart className="w-5 h-5 text-secondary-container" />
                     </div>
 
                     <div className="min-w-0">
-                      <div className="text-[11px] sm:text-xs text-slate-400 font-medium truncate">
+                      <div className="text-[11px] sm:text-xs text-surface-dim font-medium truncate">
                         {totalCartCount > 0 ? `선택 품목 ${totalCartCount}개` : '장바구니가 비어 있습니다'}
                       </div>
-                      <div className="text-base sm:text-lg font-black text-white font-mono tracking-tight">
+                      <div className="text-base sm:text-lg font-black text-white font-mono tabular-nums tracking-tight">
                         {totalCartAmount.toLocaleString()}
-                        <span className="text-xs font-normal text-slate-400 ml-0.5">원</span>
+                        <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
                       </div>
                     </div>
                   </div>
@@ -1204,13 +1380,13 @@ export function PosPage() {
                     type="button"
                     id="btn-open-mobile-cart"
                     onClick={() => setIsMobileCartOpen(true)}
-                    className={`flex items-center justify-center space-x-1.5 sm:space-x-2 px-4 sm:px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-black transition-all cursor-pointer shrink-0 ${
+                    className={`flex items-center justify-center space-x-1.5 sm:space-x-2 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 ${
                       totalCartCount > 0
-                        ? 'bg-blue-600 hover:bg-blue-500 active:scale-[0.97] text-white shadow-lg shadow-blue-600/30'
-                        : 'bg-white/10 hover:bg-white/15 active:scale-[0.98] text-slate-300 border border-white/10'
+                        ? 'bg-secondary hover:bg-secondary/90 active:scale-[0.98] text-white'
+                        : 'bg-white/5 hover:bg-white/10 active:scale-[0.98] text-surface-dim border border-white/10'
                     }`}
                   >
-                    <span>{totalCartCount > 0 ? '장바구니 / 결제' : '장바구니 열기'}</span>
+                    <span>{totalCartCount > 0 ? `결제 (${totalCartCount})` : '장바구니 열기'}</span>
                     <ChevronUp className="w-4 h-4" />
                   </button>
                 </div>
@@ -1229,7 +1405,7 @@ export function PosPage() {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     onClick={() => setIsMobileCartOpen(false)}
-                    className="fixed inset-0 z-[120] bg-black/75 backdrop-blur-xs"
+                    className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xs"
                   />
 
                   {/* Bottom Sheet Modal */}
@@ -1238,36 +1414,35 @@ export function PosPage() {
                     animate={{ y: 0 }}
                     exit={{ y: '100%' }}
                     transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-                    className="fixed inset-x-0 bottom-0 z-[125] h-[88vh] max-h-[92vh] max-w-3xl mx-auto bg-[#070b16] border-t sm:border-x border-white/20 rounded-t-3xl shadow-2xl flex flex-col overflow-hidden"
+                    className="fixed inset-x-0 bottom-0 z-[125] h-[88vh] max-h-[92vh] max-w-3xl mx-auto bg-primary border-t sm:border-x border-white/10 rounded-t-2xl shadow-2xl flex flex-col overflow-hidden"
                   >
-                    {/* Sheet Header with Gesture Drag Down Handle (방법 1) & Dedicated Close Button (방법 2) */}
+                    {/* Sheet Header with Gesture Drag Down Handle & Dedicated Close Button */}
                     <div
                       onTouchStart={handleSheetHeaderTouchStart}
                       onTouchMove={handleSheetHeaderTouchMove}
                       onTouchEnd={handleSheetHeaderTouchEnd}
-                      className="pt-2 pb-2.5 px-4 sm:px-6 bg-[#090e1c] border-b border-white/10 flex flex-col select-none cursor-grab active:cursor-grabbing shrink-0"
+                      className="pt-2 pb-3 px-4 sm:px-6 bg-[#0a1120] border-b border-white/10 flex flex-col select-none cursor-grab active:cursor-grabbing shrink-0"
                     >
                       {/* Pull Down Handle Bar */}
-                      <div className="w-12 sm:w-16 h-1.5 bg-white/30 rounded-full mx-auto mb-2" />
+                      <div className="w-10 h-1 bg-white/20 rounded-sm mx-auto mb-2.5" />
 
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
-                          <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-secondary" />
-                          <h3 className="text-sm sm:text-base font-black text-white">주문 내역 및 결제</h3>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-secondary/20 text-secondary border border-secondary/30">
+                          <h3 className="text-sm sm:text-base font-bold text-white">주문 내역 및 결제</h3>
+                          <span className="text-xs font-mono tabular-nums text-secondary-container font-bold">
                             {totalCartCount}개
                           </span>
                         </div>
 
-                        {/* Dedicated Close Button (방법 2) */}
+                        {/* Dedicated Close Button */}
                         <button
                           type="button"
                           id="btn-close-mobile-cart-sheet"
                           onClick={() => setIsMobileCartOpen(false)}
-                          className="flex items-center space-x-1 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white text-xs sm:text-sm font-bold transition-all border border-white/10 cursor-pointer shadow-sm"
+                          className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 text-surface-dim hover:text-white text-xs font-bold transition-all border border-white/10 cursor-pointer"
                         >
-                          <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-surface-dim" />
-                          <span>접기 (메뉴 추가)</span>
+                          <ChevronDown className="w-4 h-4" />
+                          <span>접기</span>
                         </button>
                       </div>
                     </div>
@@ -1300,44 +1475,43 @@ export function PosPage() {
       {/* Modal: End Shift Confirmation */}
       <AnimatePresence>
         {showEndShiftConfirm && (
-          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
+              initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-[#0e172e] border border-white/20 w-full max-w-md rounded-3xl p-6 shadow-2xl relative"
+              exit={{ scale: 0.96, opacity: 0 }}
+              className="bg-[#0a1120] border border-white/10 w-full max-w-sm rounded-2xl p-6 shadow-2xl relative"
             >
-              <div className="w-12 h-12 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center mb-4 mx-auto border border-red-500/30">
-                <Power className="w-6 h-6" />
+              <div className="pb-3 border-b border-white/10">
+                <h3 className="text-base font-bold text-white">
+                  매점 영업을 종료하시겠습니까?
+                </h3>
               </div>
-              <h3 className="text-lg font-bold text-white text-center">
-                매점 영업을 종료하시겠습니까?
-              </h3>
-              <p className="text-xs text-surface-dim text-center mt-2 leading-relaxed">
-                영업 종료 시 판매 화면이 정리되고 <strong className="text-white">POS 메인 화면</strong>으로 복귀합니다. 메인 화면에서 오늘 정산 내역을 확인하거나 안전하게 로그아웃할 수 있습니다.
+              <p className="text-xs text-surface-dim mt-3 leading-relaxed">
+                영업 종료 시 판매 화면이 정리되고 <strong className="text-white">POS 메인 화면</strong>으로 복귀합니다.
               </p>
 
               {cart.length > 0 && (
-                <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-center space-x-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+                <div className="mt-3 pt-3 border-t border-white/10 text-xs text-amber-400 flex items-center space-x-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
                   <span>현재 장바구니에 담긴 {cart.length}개 품목이 비워집니다.</span>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3 mt-6">
+              <div className="grid grid-cols-2 gap-2.5 mt-6">
                 <button
                   type="button"
                   onClick={() => setShowEndShiftConfirm(false)}
-                  className="py-3 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 text-surface-dim hover:text-white transition-colors"
+                  className="py-2.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
                 >
-                  취소 (영업 계속)
+                  취소
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirmEndShift}
-                  className="py-3 rounded-xl text-xs font-bold bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30 transition-all active:scale-[0.98]"
+                  className="py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition-all active:scale-[0.98] cursor-pointer"
                 >
-                  영업 종료 확인
+                  영업 종료
                 </button>
               </div>
             </motion.div>
@@ -1349,19 +1523,19 @@ export function PosPage() {
       <AnimatePresence>
         {toast && (
           <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            initial={{ opacity: 0, y: 20, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] px-5 py-3 rounded-2xl shadow-2xl flex items-center space-x-2 text-xs md:text-sm font-bold border backdrop-blur-md ${
+            exit={{ opacity: 0, y: 20, scale: 0.96 }}
+            className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] px-4 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2 text-xs sm:text-sm font-bold border backdrop-blur-md ${
               toast.type === 'error'
-                ? 'bg-red-600/90 border-red-500/50 text-white'
-                : 'bg-emerald-600/90 border-emerald-500/50 text-white'
+                ? 'bg-[#0a1120]/95 border-rose-500/40 text-rose-300'
+                : 'bg-[#0a1120]/95 border-secondary/50 text-white'
             }`}
           >
             {toast.type === 'error' ? (
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-200" />
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
             ) : (
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-200" />
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-secondary-container" />
             )}
             <span>{toast.message}</span>
           </motion.div>
@@ -1426,6 +1600,7 @@ export function PosPage() {
           <PosProductManagerModal
             categories={categories}
             items={items}
+            todaySoldMap={todaySoldByItemMap}
             isAdmin={currentUser?.role === 'admin'}
             currentUser={currentUser}
             onUpdateItems={handleUpdateItems}
@@ -1457,6 +1632,9 @@ export function PosPage() {
         onClose={() => setShowSalesHistoryModal(false)}
         orders={orders}
         onCancelOrder={handleCancelOrder}
+        onPartialCancelOrder={handlePartialCancelOrder}
+        onRestoreCancelledOrder={handleRestoreCancelledOrder}
+        onRestorePartialRefund={handleRestorePartialRefund}
         onUpdateOrder={handleUpdateOrder}
         onDeleteOrder={handleDeleteOrder}
         onDeleteMultipleOrders={handleDeleteMultipleOrders}

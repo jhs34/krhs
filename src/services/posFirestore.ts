@@ -12,9 +12,9 @@ import {
   deleteDoc,
   getDocs,
   serverTimestamp,
+  deleteField,
 } from 'firebase/firestore';
-import { signInAnonymously } from 'firebase/auth';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
 import {
   PosCategory,
   PosItem,
@@ -26,20 +26,16 @@ import {
   PosAuditLog,
   PosGifticon,
   PosUsedGifticonSummary,
+  PosOrderItem,
+  PosRefundedItem,
 } from '../types/pos';
 
 /**
- * Ensures a valid Firebase Authentication session for the POS tablet.
- * Uses background anonymous sign-in so operations succeed with security rules.
+ * POS uses PIN-based staff authentication and dedicated Firestore rules for POS collections.
+ * Skipping anonymous sign-in prevents 400 Bad Request console logs when Anonymous Auth is disabled.
  */
 export async function ensurePosAuth(): Promise<void> {
-  try {
-    if (!auth.currentUser) {
-      await signInAnonymously(auth);
-    }
-  } catch {
-    // Graceful fallback for environments where anonymous auth provider is not enabled
-  }
+  return;
 }
 
 /**
@@ -144,6 +140,8 @@ export function subscribePosOrders(
           cashReceived: typeof data.cashReceived === 'number' ? data.cashReceived : undefined,
           changeAmount: typeof data.changeAmount === 'number' ? data.changeAmount : undefined,
           items: Array.isArray(data.items) ? data.items : [],
+          refundedItems: Array.isArray(data.refundedItems) ? data.refundedItems : undefined,
+          refundedAmount: typeof data.refundedAmount === 'number' ? data.refundedAmount : undefined,
           isCancelled: Boolean(data.isCancelled),
           cancelledBy: data.cancelledBy || undefined,
           cancelledAt: data.cancelledAt || undefined,
@@ -682,6 +680,574 @@ export async function runCancelOrderTransaction(
 }
 
 /**
+ * [개별/부분 환불 트랜잭션] 주문 내 특정 품목/수량만 선택하여 환불 처리하고 재고 및 판매수량을 원자적으로 복원합니다.
+ * 만약 모든 잔여 품목이 환불되면 전체 주문 취소(isCancelled: true)로 자동 전환됩니다.
+ */
+export async function runPartialCancelOrderTransaction(
+  orderId: string,
+  refundTargets: Array<{ itemId: string; count: number }>,
+  cancelledBy: string,
+  cancelReason?: string
+): Promise<PosOrder> {
+  await ensurePosAuth();
+
+  const validTargets = refundTargets.filter(t => t.itemId && t.count > 0);
+  if (validTargets.length === 0) {
+    throw new Error('환불할 품목과 수량을 선택해주세요.');
+  }
+
+  const orderRef = doc(db, 'orders', orderId);
+  let updatedOrderResult: PosOrder | null = null;
+  let refundedItemsSummary: string[] = [];
+  let thisRefundTotal = 0;
+  let becameFullyCancelled = false;
+  let restoredGifticonsList: PosUsedGifticonSummary[] = [];
+
+  await runTransaction(db, async transaction => {
+    // 1. ALL READS FIRST
+    const orderDoc = await transaction.get(orderRef);
+    if (!orderDoc.exists()) {
+      throw new Error('해당 주문 내역을 찾을 수 없습니다.');
+    }
+
+    const orderData = orderDoc.data() as PosOrder;
+    if (orderData.isCancelled) {
+      throw new Error('이미 전체 취소된 주문입니다.');
+    }
+
+    const currentItems = Array.isArray(orderData.items) ? orderData.items : [];
+    const targetMap = new Map<string, number>();
+    for (const t of validTargets) {
+      targetMap.set(t.itemId, (targetMap.get(t.itemId) || 0) + t.count);
+    }
+
+    // Read all target item docs before any writes
+    const itemReads: Array<{
+      ref: ReturnType<typeof doc>;
+      currentSold: number;
+      currentStock: number;
+      countToRestore: number;
+    }> = [];
+
+    for (const [itemId, reqCount] of targetMap.entries()) {
+      const orderItem = currentItems.find(i => i.itemId === itemId);
+      if (!orderItem) continue;
+      const actualRefundCount = Math.min(orderItem.count, reqCount);
+      if (actualRefundCount <= 0) continue;
+
+      const itemRef = doc(db, 'items', itemId);
+      const itemDoc = await transaction.get(itemRef);
+      if (itemDoc.exists()) {
+        const data = itemDoc.data();
+        itemReads.push({
+          ref: itemRef,
+          currentSold: typeof data.totalSold === 'number' ? data.totalSold : 0,
+          currentStock: typeof data.stock === 'number' ? data.stock : 999,
+          countToRestore: actualRefundCount,
+        });
+      }
+    }
+
+    // Also read gifticons in case all remaining items are refunded
+    const gifticonRefsToRestore: Array<ReturnType<typeof doc>> = [];
+    const existingGifticons = Array.isArray(orderData.usedGifticons) ? orderData.usedGifticons : [];
+    for (const ug of existingGifticons) {
+      if (!ug.gifticonId) continue;
+      const gRef = doc(db, 'gifticons', ug.gifticonId);
+      const gDoc = await transaction.get(gRef);
+      if (gDoc.exists()) {
+        gifticonRefsToRestore.push(gRef);
+      }
+    }
+
+    // 2. COMPUTE NEW ORDER STATE
+    const nowIso = new Date().toISOString();
+    const cleanReason = cancelReason?.trim() || '고객 요청 (개별 품목 환불)';
+    const remainingItems: typeof currentItems = [];
+    const newlyRefundedItems: NonNullable<PosOrder['refundedItems']> = [];
+
+    thisRefundTotal = 0;
+    refundedItemsSummary = [];
+
+    for (const item of currentItems) {
+      const reqRefund = targetMap.get(item.itemId) || 0;
+      const refundCount = Math.min(item.count, reqRefund);
+      const remainCount = item.count - refundCount;
+
+      if (refundCount > 0) {
+        thisRefundTotal += item.price * refundCount;
+        refundedItemsSummary.push(`${item.name} ${refundCount}개`);
+        newlyRefundedItems.push({
+          itemId: item.itemId,
+          name: item.name,
+          price: item.price,
+          count: refundCount,
+          refundedAt: nowIso,
+          refundedBy: cancelledBy || '관리자',
+          cancelReason: cleanReason,
+        });
+      }
+
+      if (remainCount > 0) {
+        remainingItems.push({
+          ...item,
+          count: remainCount,
+        });
+      }
+    }
+
+    if (newlyRefundedItems.length === 0) {
+      throw new Error('환불 가능한 품목 수량이 없습니다.');
+    }
+
+    const updatedRefundedItems = [
+      ...(Array.isArray(orderData.refundedItems) ? orderData.refundedItems : []),
+      ...newlyRefundedItems,
+    ];
+    const updatedRefundedAmount = (orderData.refundedAmount || 0) + thisRefundTotal;
+
+    if (remainingItems.length === 0) {
+      // All remaining items were refunded -> mark entire order as cancelled
+      becameFullyCancelled = true;
+      restoredGifticonsList = existingGifticons;
+
+      const patch = {
+        items: currentItems, // Preserve last items on cancelled receipt
+        refundedItems: updatedRefundedItems,
+        refundedAmount: updatedRefundedAmount,
+        isCancelled: true,
+        cancelledBy: cancelledBy || '관리자',
+        cancelledAt: nowIso,
+        cancelReason: cleanReason,
+      };
+
+      transaction.update(
+        orderRef,
+        sanitizeForFirestore({
+          ...patch,
+          updatedAt: serverTimestamp(),
+        })
+      );
+
+      for (const gRef of gifticonRefsToRestore) {
+        transaction.update(gRef, {
+          status: 'ACTIVE',
+          usedAt: null,
+          usedOrderId: null,
+          usedBy: null,
+        });
+      }
+
+      updatedOrderResult = {
+        ...orderData,
+        id: orderId,
+        ...patch,
+      };
+    } else {
+      // Partial refund -> order remains active with reduced items & amount
+      becameFullyCancelled = false;
+      const newTotalAmount = remainingItems.reduce((sum, i) => sum + i.price * i.count, 0);
+      const discount = orderData.gifticonDiscountAmount || 0;
+      const newActualPaidAmount = Math.max(0, newTotalAmount - discount);
+      const newChangeAmount =
+        orderData.paymentMethod === 'CASH' && typeof orderData.cashReceived === 'number'
+          ? Math.max(0, orderData.cashReceived - newActualPaidAmount)
+          : orderData.changeAmount;
+
+      const patch: Partial<PosOrder> = {
+        items: remainingItems,
+        totalAmount: newTotalAmount,
+        actualPaidAmount: newActualPaidAmount,
+        changeAmount: newChangeAmount,
+        refundedItems: updatedRefundedItems,
+        refundedAmount: updatedRefundedAmount,
+      };
+
+      transaction.update(
+        orderRef,
+        sanitizeForFirestore({
+          ...patch,
+          updatedAt: serverTimestamp(),
+        })
+      );
+
+      updatedOrderResult = {
+        ...orderData,
+        id: orderId,
+        ...patch,
+      };
+    }
+
+    // 3. UPDATE ITEMS STOCK & TOTAL SOLD
+    for (const read of itemReads) {
+      transaction.update(read.ref, {
+        totalSold: Math.max(0, read.currentSold - read.countToRestore),
+        stock: read.currentStock + read.countToRestore,
+        updatedAt: nowIso,
+      });
+    }
+  });
+
+  if (!updatedOrderResult) {
+    throw new Error('부분 환불 처리 결과를 생성하지 못했습니다.');
+  }
+
+  const finalOrder: PosOrder = updatedOrderResult;
+
+  // Audit Log
+  await logPosActivity({
+    action: 'PCC',
+    actionTitle: becameFullyCancelled ? '결제 취소 (전체 품목 환불)' : '개별 품목 부분 환불 (재고복원)',
+    category: 'SALE',
+    actorId: cancelledBy || '관리자',
+    actorName: cancelledBy || '관리자',
+    actorUid: cancelledBy,
+    sessionId: finalOrder.sessionId,
+    details: becameFullyCancelled
+      ? `주문번호 #${orderId.slice(-6)} 잔여 품목 전체 환불로 주문 취소 처리 (${refundedItemsSummary.join(', ')}, -${thisRefundTotal.toLocaleString()}원)`
+      : `주문번호 #${orderId.slice(-6)} 개별 품목 부분 환불 완료 [${refundedItemsSummary.join(', ')}] (-${thisRefundTotal.toLocaleString()}원 환불 → 잔여 결제액 ${(finalOrder.actualPaidAmount ?? finalOrder.totalAmount).toLocaleString()}원, 사유: ${cancelReason || '고객 요청'})`,
+    metadata: {
+      orderId,
+      isPartialRefund: !becameFullyCancelled,
+      refundAmount: thisRefundTotal,
+      remainingAmount: finalOrder.actualPaidAmount ?? finalOrder.totalAmount,
+      refundedItems: refundedItemsSummary,
+      cancelReason: cancelReason || '고객 요청',
+      restoredGifticons: restoredGifticonsList,
+    },
+  }).catch(e => console.warn('Audit log failed:', e));
+
+  return finalOrder;
+}
+
+/**
+ * [트랜잭션 일관성] 결제 취소(전체 환불) 철회 및 정상 결제 복원
+ * - orders.isCancelled: false, cancelledBy/cancelledAt/cancelReason 삭제
+ * - 환불 시 복구되었던 재고와 누적 판매량을 다시 판매 상태로 재반영 (stock 차감, totalSold 증가)
+ * - 원본 주문에 기프티콘이 사용되었던 경우 기프티콘을 다시 USED 상태로 전환
+ */
+export async function runRestoreCancelledOrderTransaction(
+  orderId: string,
+  restoredBy: string,
+  restoreStock = true
+): Promise<PosOrder> {
+  await ensurePosAuth();
+
+  const orderRef = doc(db, 'orders', orderId);
+  let restoredOrderResult: PosOrder | null = null;
+  let affectedItemsSummary: string[] = [];
+
+  await runTransaction(db, async transaction => {
+    // 1. ALL READS FIRST
+    const orderDoc = await transaction.get(orderRef);
+    if (!orderDoc.exists()) {
+      throw new Error('해당 주문 내역을 찾을 수 없습니다.');
+    }
+
+    const orderData = orderDoc.data() as PosOrder;
+    if (!orderData.isCancelled) {
+      throw new Error('결제 취소 상태가 아닌 주문입니다.');
+    }
+
+    const items: Array<{ itemId: string; count: number; name: string }> = Array.isArray(orderData.items) ? orderData.items : [];
+    affectedItemsSummary = items.map(i => `${i.name} ${i.count}개`);
+
+    const itemReads: Array<{
+      ref: ReturnType<typeof doc>;
+      currentSold: number;
+      currentStock: number;
+      countToDeduct: number;
+    }> = [];
+
+    if (restoreStock) {
+      for (const orderItem of items) {
+        if (!orderItem.itemId) continue;
+        const itemRef = doc(db, 'items', orderItem.itemId);
+        const itemDoc = await transaction.get(itemRef);
+        if (itemDoc.exists()) {
+          const data = itemDoc.data();
+          itemReads.push({
+            ref: itemRef,
+            currentSold: typeof data.totalSold === 'number' ? data.totalSold : 0,
+            currentStock: typeof data.stock === 'number' ? data.stock : 999,
+            countToDeduct: orderItem.count,
+          });
+        }
+      }
+    }
+
+    const gifticonsToMarkUsed: Array<{ ref: ReturnType<typeof doc>; amount: number; id: string }> = [];
+    if (Array.isArray(orderData.usedGifticons)) {
+      for (const ug of orderData.usedGifticons) {
+        if (!ug.gifticonId) continue;
+        const gRef = doc(db, 'gifticons', ug.gifticonId);
+        const gDoc = await transaction.get(gRef);
+        if (gDoc.exists()) {
+          gifticonsToMarkUsed.push({ ref: gRef, amount: ug.amount, id: ug.gifticonId });
+        }
+      }
+    }
+
+    // 2. ALL WRITES AFTER READS
+    const nowIso = new Date().toISOString();
+
+    transaction.update(
+      orderRef,
+      sanitizeForFirestore({
+        isCancelled: false,
+        cancelledBy: deleteField(),
+        cancelledAt: deleteField(),
+        cancelReason: deleteField(),
+        updatedAt: serverTimestamp(),
+      })
+    );
+
+    if (restoreStock) {
+      for (const read of itemReads) {
+        transaction.update(read.ref, {
+          totalSold: read.currentSold + read.countToDeduct,
+          stock: Math.max(0, read.currentStock - read.countToDeduct),
+          updatedAt: nowIso,
+        });
+      }
+    }
+
+    for (const g of gifticonsToMarkUsed) {
+      transaction.update(g.ref, {
+        status: 'USED',
+        usedAt: nowIso,
+        usedOrderId: orderId,
+        usedBy: restoredBy || '관리자',
+      });
+    }
+
+    restoredOrderResult = {
+      ...orderData,
+      id: orderId,
+      isCancelled: false,
+      cancelledBy: undefined,
+      cancelledAt: undefined,
+      cancelReason: undefined,
+    };
+  });
+
+  if (!restoredOrderResult) {
+    throw new Error('주문 복원 결과를 생성하지 못했습니다.');
+  }
+
+  const finalOrder = restoredOrderResult;
+
+  await logPosActivity({
+    action: 'PCR',
+    actionTitle: '결제 취소(환불) 철회 및 정상 복원',
+    category: 'SALE',
+    actorId: restoredBy || '관리자',
+    actorName: restoredBy || '관리자',
+    sessionId: finalOrder.sessionId,
+    details: `주문번호 #${orderId.slice(-6)} 결제 취소(환불) 철회 완료 (정상 결제 상태로 복원, ${affectedItemsSummary.join(', ')} 판매량 재반영)`,
+    metadata: {
+      orderId,
+      restoredBy,
+      restoreStock,
+      totalAmount: finalOrder.totalAmount,
+    },
+  }).catch(e => console.warn('Audit log failed:', e));
+
+  return finalOrder;
+}
+
+/**
+ * [개별/부분 환불 취소/철회 트랜잭션] 특정 부분 환불 품목의 환불을 취소하고 원래 주문 품목으로 복원합니다.
+ * - order.refundedItems에서 해당 품목 수량 차감(또는 제거)
+ * - order.items에 해당 품목 수량 복원(또는 추가)
+ * - order.totalAmount, order.actualPaidAmount, order.changeAmount 자동 재계산
+ * - 상품 재고 stock 차감 및 totalSold 증가
+ * - 만약 해당 주문이 전체 취소(isCancelled: true) 상태였다면 정상 결제 상태로 자동 복원
+ */
+export async function runRestorePartialRefundTransaction(
+  orderId: string,
+  restoreTargets: Array<{ itemId: string; count: number; name?: string; price?: number }>,
+  restoredBy: string,
+  restoreStock = true
+): Promise<PosOrder> {
+  await ensurePosAuth();
+
+  const validTargets = restoreTargets.filter(t => t.itemId && t.count > 0);
+  if (validTargets.length === 0) {
+    throw new Error('복원할 환불 품목을 선택해주세요.');
+  }
+
+  const orderRef = doc(db, 'orders', orderId);
+  let updatedOrderResult: PosOrder | null = null;
+  let restoredSummary: string[] = [];
+  let restoredMoneyTotal = 0;
+
+  await runTransaction(db, async transaction => {
+    // 1. ALL READS FIRST
+    const orderDoc = await transaction.get(orderRef);
+    if (!orderDoc.exists()) {
+      throw new Error('해당 주문 내역을 찾을 수 없습니다.');
+    }
+
+    const orderData = orderDoc.data() as PosOrder;
+    const currentRefundedItems: PosRefundedItem[] = Array.isArray(orderData.refundedItems) ? [...orderData.refundedItems] : [];
+    if (currentRefundedItems.length === 0) {
+      throw new Error('복원할 수 있는 부분 환불 내역이 없습니다.');
+    }
+
+    const targetMap = new Map<string, number>();
+    for (const t of validTargets) {
+      targetMap.set(t.itemId, (targetMap.get(t.itemId) || 0) + t.count);
+    }
+
+    // Read item docs if restoreStock is true
+    const itemReads: Array<{
+      ref: ReturnType<typeof doc>;
+      currentSold: number;
+      currentStock: number;
+      countToDeduct: number;
+    }> = [];
+
+    if (restoreStock) {
+      for (const [itemId, reqCount] of targetMap.entries()) {
+        const itemRef = doc(db, 'items', itemId);
+        const itemDoc = await transaction.get(itemRef);
+        if (itemDoc.exists()) {
+          const data = itemDoc.data();
+          itemReads.push({
+            ref: itemRef,
+            currentSold: typeof data.totalSold === 'number' ? data.totalSold : 0,
+            currentStock: typeof data.stock === 'number' ? data.stock : 999,
+            countToDeduct: reqCount,
+          });
+        }
+      }
+    }
+
+    // 2. COMPUTE NEW ORDER STATE
+    const newItems: PosOrderItem[] = Array.isArray(orderData.items) ? [...orderData.items] : [];
+    const newRefundedItems: PosRefundedItem[] = [];
+    restoredSummary = [];
+    restoredMoneyTotal = 0;
+
+    for (const refItem of currentRefundedItems) {
+      const neededCount = targetMap.get(refItem.itemId) || 0;
+      if (neededCount <= 0) {
+        newRefundedItems.push(refItem);
+        continue;
+      }
+
+      const countToRevert = Math.min(refItem.count, neededCount);
+      targetMap.set(refItem.itemId, neededCount - countToRevert);
+      restoredMoneyTotal += refItem.price * countToRevert;
+      restoredSummary.push(`${refItem.name} ${countToRevert}개`);
+
+      // Put back to active items
+      const existingItemIndex = newItems.findIndex(i => i.itemId === refItem.itemId);
+      if (existingItemIndex >= 0) {
+        newItems[existingItemIndex] = {
+          ...newItems[existingItemIndex],
+          count: newItems[existingItemIndex].count + countToRevert,
+        };
+      } else {
+        newItems.push({
+          itemId: refItem.itemId,
+          name: refItem.name,
+          price: refItem.price,
+          count: countToRevert,
+        });
+      }
+
+      const remainRefundCount = refItem.count - countToRevert;
+      if (remainRefundCount > 0) {
+        newRefundedItems.push({
+          ...refItem,
+          count: remainRefundCount,
+        });
+      }
+    }
+
+    const newRefundedAmount = Math.max(0, (orderData.refundedAmount || 0) - restoredMoneyTotal);
+    const newTotalAmount = newItems.reduce((sum, i) => sum + i.price * i.count, 0);
+    const discount = orderData.gifticonDiscountAmount || 0;
+    const newActualPaidAmount = Math.max(0, newTotalAmount - discount);
+    const newChangeAmount =
+      orderData.paymentMethod === 'CASH' && typeof orderData.cashReceived === 'number'
+        ? Math.max(0, orderData.cashReceived - newActualPaidAmount)
+        : (typeof orderData.changeAmount === 'number' ? orderData.changeAmount : undefined);
+
+    const patch: Record<string, any> = {
+      items: newItems,
+      refundedItems: newRefundedItems,
+      refundedAmount: newRefundedAmount,
+      totalAmount: newTotalAmount,
+      actualPaidAmount: newActualPaidAmount,
+      isCancelled: false, // Reopen order if it was marked cancelled
+      cancelledAt: deleteField(),
+      cancelledBy: deleteField(),
+      cancelReason: deleteField(),
+      updatedAt: serverTimestamp(),
+    };
+
+    if (newChangeAmount !== undefined) {
+      patch.changeAmount = newChangeAmount;
+    }
+
+    transaction.update(orderRef, sanitizeForFirestore(patch));
+
+    if (restoreStock) {
+      const nowIso = new Date().toISOString();
+      for (const read of itemReads) {
+        transaction.update(read.ref, {
+          totalSold: read.currentSold + read.countToDeduct,
+          stock: Math.max(0, read.currentStock - read.countToDeduct),
+          updatedAt: nowIso,
+        });
+      }
+    }
+
+    updatedOrderResult = {
+      ...orderData,
+      id: orderId,
+      items: newItems,
+      refundedItems: newRefundedItems,
+      refundedAmount: newRefundedAmount,
+      totalAmount: newTotalAmount,
+      actualPaidAmount: newActualPaidAmount,
+      changeAmount: newChangeAmount,
+      isCancelled: false,
+      cancelledAt: undefined,
+      cancelledBy: undefined,
+      cancelReason: undefined,
+    };
+  });
+
+  if (!updatedOrderResult) {
+    throw new Error('부분 환불 취소 결과를 생성하지 못했습니다.');
+  }
+
+  const finalOrder = updatedOrderResult;
+
+  await logPosActivity({
+    action: 'PCR',
+    actionTitle: '개별 품목 환불 취소 (품목 복원)',
+    category: 'SALE',
+    actorId: restoredBy || '관리자',
+    actorName: restoredBy || '관리자',
+    sessionId: finalOrder.sessionId,
+    details: `주문번호 #${orderId.slice(-6)} 부분 환불 취소 완료 [${restoredSummary.join(', ')}] (+${restoredMoneyTotal.toLocaleString()}원 복원 → 실결제 ${(finalOrder.actualPaidAmount ?? finalOrder.totalAmount).toLocaleString()}원)`,
+    metadata: {
+      orderId,
+      restoredBy,
+      restoredItems: restoredSummary,
+      restoredAmount: restoredMoneyTotal,
+    },
+  }).catch(e => console.warn('Audit log failed:', e));
+
+  return finalOrder;
+}
+
+/**
  * Fast atomic update for a single POS item (stock adjustment, favorite toggle, active state, name, etc.)
  */
 export async function saveSinglePosItemPartial(
@@ -1098,23 +1664,35 @@ export async function deletePosSettlement(
 export async function updatePosOrder(order: PosOrder, actorName = '관리자'): Promise<void> {
   await ensurePosAuth();
   const orderRef = doc(db, 'orders', order.id);
-  await setDoc(
-    orderRef,
-    sanitizeForFirestore({
-      ...order,
-      updatedAt: serverTimestamp(),
-    }),
-    { merge: true }
-  );
+  const dataToSave: Record<string, any> = {
+    ...order,
+    refundedItems: Array.isArray(order.refundedItems) ? order.refundedItems : [],
+    refundedAmount: typeof order.refundedAmount === 'number' ? order.refundedAmount : 0,
+    updatedAt: serverTimestamp(),
+  };
+
+  if (!order.isCancelled) {
+    dataToSave.cancelledBy = deleteField();
+    dataToSave.cancelledAt = deleteField();
+    dataToSave.cancelReason = deleteField();
+  }
+
+  await setDoc(orderRef, sanitizeForFirestore(dataToSave), { merge: true });
 
   logPosActivity({
     action: 'PUP',
-    actionTitle: '결제 정보 수정',
+    actionTitle: '결제/매출 정보 직접 수정',
     category: 'SALE',
     actorName,
     sessionId: order.sessionId,
-    details: `주문번호 #${order.id.slice(-6)} 내역 수정 (금액: ${order.totalAmount.toLocaleString()}원)`,
-    metadata: { orderId: order.id, totalAmount: order.totalAmount, paymentMethod: order.paymentMethod },
+    details: `주문번호 #${order.id.slice(-6)} 내역 수정 (금액: ${(order.actualPaidAmount ?? order.totalAmount).toLocaleString()}원, 품목수: ${order.items.length}개, 부분환불: ${(order.refundedItems || []).length}개)`,
+    metadata: {
+      orderId: order.id,
+      totalAmount: order.totalAmount,
+      paymentMethod: order.paymentMethod,
+      isCancelled: order.isCancelled,
+      refundedCount: (order.refundedItems || []).length,
+    },
   }).catch(() => {});
 }
 
@@ -1125,45 +1703,81 @@ export async function deletePosOrder(orderId: string, actorName = '관리자'): 
   await ensurePosAuth();
   const orderRef = doc(db, 'orders', orderId);
 
-  await runTransaction(db, async transaction => {
-    const orderDoc = await transaction.get(orderRef);
-    if (!orderDoc.exists()) return;
+  try {
+    await runTransaction(db, async transaction => {
+      // 1. ALL READS MUST HAPPEN BEFORE ANY WRITES IN FIRESTORE TRANSACTIONS
+      const orderDoc = await transaction.get(orderRef);
+      if (!orderDoc.exists()) return;
 
-    const orderData = orderDoc.data() as PosOrder;
-    // If order was active (not cancelled), decrement items' totalSold and restore gifticons
-    if (!orderData.isCancelled && Array.isArray(orderData.items)) {
-      for (const orderItem of orderData.items) {
-        if (!orderItem.itemId) continue;
-        const itemRef = doc(db, 'items', orderItem.itemId);
-        const itemDoc = await transaction.get(itemRef);
-        if (itemDoc.exists()) {
-          const itemData = itemDoc.data();
-          const currentSold = typeof itemData.totalSold === 'number' ? itemData.totalSold : 0;
-          transaction.update(itemRef, {
-            totalSold: Math.max(0, currentSold - orderItem.count),
-            updatedAt: new Date().toISOString(),
-          });
+      const orderData = orderDoc.data() as PosOrder;
+      const itemReads: Array<{
+        ref: ReturnType<typeof doc>;
+        currentSold: number;
+        currentStock: number;
+        countToRestore: number;
+      }> = [];
+      const gifticonRefsToRestore: Array<ReturnType<typeof doc>> = [];
+
+      // If order was active (not cancelled), read all items and gifticons first
+      if (!orderData.isCancelled && Array.isArray(orderData.items)) {
+        // Aggregate counts by itemId in case the same item appears multiple times
+        const itemCountMap = new Map<string, number>();
+        for (const orderItem of orderData.items) {
+          if (!orderItem.itemId) continue;
+          itemCountMap.set(orderItem.itemId, (itemCountMap.get(orderItem.itemId) || 0) + (orderItem.count || 0));
         }
-      }
 
-      if (Array.isArray(orderData.usedGifticons)) {
-        for (const ug of orderData.usedGifticons) {
-          const gRef = doc(db, 'gifticons', ug.gifticonId);
-          const gDoc = await transaction.get(gRef);
-          if (gDoc.exists()) {
-            transaction.update(gRef, {
-              status: 'ACTIVE',
-              usedAt: null,
-              usedOrderId: null,
-              usedBy: null,
+        for (const [itemId, countToRestore] of itemCountMap.entries()) {
+          const itemRef = doc(db, 'items', itemId);
+          const itemDoc = await transaction.get(itemRef);
+          if (itemDoc.exists()) {
+            const itemData = itemDoc.data();
+            itemReads.push({
+              ref: itemRef,
+              currentSold: typeof itemData.totalSold === 'number' ? itemData.totalSold : 0,
+              currentStock: typeof itemData.stock === 'number' ? itemData.stock : 999,
+              countToRestore,
             });
           }
         }
-      }
-    }
 
-    transaction.delete(orderRef);
-  });
+        if (Array.isArray(orderData.usedGifticons)) {
+          for (const ug of orderData.usedGifticons) {
+            if (!ug.gifticonId) continue;
+            const gRef = doc(db, 'gifticons', ug.gifticonId);
+            const gDoc = await transaction.get(gRef);
+            if (gDoc.exists()) {
+              gifticonRefsToRestore.push(gRef);
+            }
+          }
+        }
+      }
+
+      // 2. NOW EXECUTE ALL WRITES AFTER ALL READS HAVE COMPLETED
+      const nowIso = new Date().toISOString();
+      for (const read of itemReads) {
+        transaction.update(read.ref, {
+          totalSold: Math.max(0, read.currentSold - read.countToRestore),
+          stock: read.currentStock + read.countToRestore,
+          updatedAt: nowIso,
+        });
+      }
+
+      for (const gRef of gifticonRefsToRestore) {
+        transaction.update(gRef, {
+          status: 'ACTIVE',
+          usedAt: null,
+          usedOrderId: null,
+          usedBy: null,
+        });
+      }
+
+      transaction.delete(orderRef);
+    });
+  } catch (txError) {
+    console.warn('Transaction failed in deletePosOrder, falling back to direct delete:', txError);
+    await deleteDoc(orderRef);
+  }
 
   logPosActivity({
     action: 'PDL',
@@ -1183,11 +1797,7 @@ export async function deleteMultiplePosOrders(orderIds: string[], actorName = '�
   await ensurePosAuth();
 
   for (const id of orderIds) {
-    try {
-      await deletePosOrder(id, actorName);
-    } catch (e) {
-      console.error(`Failed to delete order ${id}:`, e);
-    }
+    await deletePosOrder(id, actorName);
   }
 
   logPosActivity({

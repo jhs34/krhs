@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Home, Clock, Store, Boxes, RefreshCw, Power, ReceiptText, MoreVertical, ChevronDown, LogOut, Cloud, WifiOff, Volume2, VolumeX, ShieldCheck, Maximize, Minimize, Calculator, Ticket } from 'lucide-react';
+import { Home, Boxes, Power, ReceiptText, ChevronDown, LogOut, WifiOff, Volume2, VolumeX, ShieldCheck, Maximize, Minimize, Calculator, Ticket } from 'lucide-react';
 import { format } from 'date-fns';
 import { PosUser } from '../../types/pos';
 import { useFullscreen } from '../../utils/useFullscreen';
@@ -25,7 +25,6 @@ interface PosHeaderProps {
 
 export function PosHeader({
   user,
-  isCloudConnected = true,
   isOnline = true,
   isSoundMuted = false,
   onToggleSound,
@@ -37,6 +36,7 @@ export function PosHeader({
   onOpenAuditLog,
   onOpenSettlement,
   onEndShift,
+  totalSalesToday = 0,
 }: PosHeaderProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -48,7 +48,6 @@ export function PosHeader({
     return () => clearInterval(timer);
   }, []);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -60,44 +59,100 @@ export function PosHeader({
   }, []);
 
   return (
-    <header className="h-12 md:h-14 bg-[#080d1a] border-b border-white/10 px-2.5 sm:px-4 flex items-center justify-between shrink-0 select-none shadow-md relative z-50 flex-nowrap whitespace-nowrap">
-      {/* Left: Store Title & Status Pill */}
-      <div className="flex items-center space-x-2 shrink-0 min-w-0">
-        <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-gradient-to-tr from-secondary to-indigo-600 flex items-center justify-center shadow-md shadow-secondary/20 shrink-0">
-          <Store className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" />
-        </div>
-        <div className="flex items-center space-x-1.5 min-w-0">
-          <span className="font-bold text-xs sm:text-sm md:text-base text-white tracking-tight whitespace-nowrap">
+    <header className="h-14 glass-panel-dark border-b border-white/5 px-3 sm:px-5 flex items-center justify-between shrink-0 select-none relative z-50 flex-nowrap whitespace-nowrap pt-[2px]">
+      {/* Zone 1: Brand Title matching Navigation.tsx */}
+      <div className="flex items-center space-x-3 shrink-0 min-w-0">
+        <div className="flex items-center space-x-2">
+          <img
+            src={`${import.meta.env.BASE_URL}logo.png`}
+            className="w-[20px] sm:w-[22px] h-auto brightness-0 invert opacity-90 block shrink-0"
+            alt="KRHS"
+          />
+          <span className="font-sans font-bold text-sm sm:text-base text-white tracking-tight leading-none translate-y-[1.5px] whitespace-nowrap">
             KRHS 매점
           </span>
-          <span className="px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center space-x-1 whitespace-nowrap shrink-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="hidden xs:inline sm:inline">영업 중</span>
-          </span>
-          {!isOnline && (
-            <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse shrink-0">
-              <WifiOff className="w-3 h-3 text-amber-400" />
-              <span className="hidden sm:inline">오프라인</span>
-            </span>
-          )}
         </div>
+
+        {/* Quiet unboxed metadata instead of pill chips */}
+        <div className="hidden sm:flex items-center space-x-2 text-xs text-surface-dim pl-2 border-l border-white/10 leading-none translate-y-[1.5px]">
+          <span>담당: <strong className="text-white font-semibold">{user.name}</strong></span>
+          <span aria-hidden="true">·</span>
+          <span className="hidden lg:inline font-mono tabular-nums text-white/80">
+            당일 {totalSalesToday.toLocaleString()}원
+          </span>
+          <span aria-hidden="true" className="hidden xl:inline">·</span>
+          <span className="hidden xl:inline font-mono tabular-nums text-surface-dim">
+            {format(currentTime, 'HH:mm:ss')}
+          </span>
+        </div>
+
+        {!isOnline && (
+          <span className="inline-flex items-center space-x-1 text-xs font-bold text-amber-300 pl-2">
+            <WifiOff className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline leading-none translate-y-[1.5px]">오프라인</span>
+          </span>
+        )}
       </div>
 
-      {/* Right: Sound Toggle, Compact Clock, Staff Badge, Sales History, Management Dropdown, End Shift */}
-      <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0 flex-nowrap">
+      {/* Zone 2 & 3: Clean Text Actions & Primary Shift End */}
+      <div className="flex items-center space-x-1 sm:space-x-2 shrink-0 flex-nowrap">
+        {/* Direct Text Navigation Links (Desktop) */}
+        <div className="hidden md:flex items-center space-x-1 mr-1">
+          {onOpenSalesHistory && (
+            <button
+              type="button"
+              onClick={onOpenSalesHistory}
+              className="h-8 px-2.5 inline-flex items-center justify-center text-xs font-medium text-surface-dim hover:text-white transition-colors cursor-pointer whitespace-nowrap leading-none translate-y-[1.5px]"
+            >
+              매출 내역
+            </button>
+          )}
+          {onOpenProductManager && (
+            <button
+              type="button"
+              onClick={onOpenProductManager}
+              className="h-8 px-2.5 inline-flex items-center justify-center text-xs font-medium text-surface-dim hover:text-white transition-colors cursor-pointer whitespace-nowrap leading-none translate-y-[1.5px]"
+            >
+              상품 관리
+            </button>
+          )}
+          {onOpenSettlement && (
+            <button
+              type="button"
+              onClick={onOpenSettlement}
+              className="h-8 px-2.5 inline-flex items-center justify-center text-xs font-medium text-surface-dim hover:text-white transition-colors cursor-pointer whitespace-nowrap leading-none translate-y-[1.5px]"
+            >
+              마감 정산
+            </button>
+          )}
+        </div>
+
+        {/* Mobile Quick Sales History Icon */}
+        {onOpenSalesHistory && (
+          <button
+            type="button"
+            onClick={onOpenSalesHistory}
+            title="매출 내역"
+            className="md:hidden h-8 px-2.5 flex items-center space-x-1 rounded-lg text-xs font-medium text-surface-dim hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+          >
+            <ReceiptText className="w-3.5 h-3.5 shrink-0" />
+            <span className="leading-none translate-y-[1.5px]">매출</span>
+          </button>
+        )}
+
         {/* Sound Feedback Toggle */}
         {onToggleSound && (
           <button
             type="button"
             onClick={onToggleSound}
             title={isSoundMuted ? '효과음 켜기' : '효과음 끄기 (음소거)'}
-            className={`w-8 h-8 flex items-center justify-center rounded-xl border text-xs transition-colors shrink-0 cursor-pointer ${
+            className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs transition-colors shrink-0 cursor-pointer ${
               isSoundMuted
-                ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20'
-                : 'bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-white/10'
+                ? 'text-red-400 hover:bg-white/5'
+                : 'text-surface-dim hover:text-white hover:bg-white/5'
             }`}
           >
-            {isSoundMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-secondary" />}
+            {isSoundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
         )}
 
@@ -105,74 +160,40 @@ export function PosHeader({
         <button
           type="button"
           onClick={toggleFullscreen}
-          title={isFullscreen ? '전체화면 종료 (ESC)' : '전체화면 모드 (POS 키오스크)'}
-          className={`w-8 h-8 flex items-center justify-center rounded-xl border text-xs transition-colors shrink-0 cursor-pointer ${
+          title={isFullscreen ? '전체화면 종료 (ESC)' : '전체화면 모드'}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs transition-colors shrink-0 cursor-pointer ${
             isFullscreen
-              ? 'bg-secondary/25 border-secondary/40 text-secondary hover:bg-secondary/35 shadow-sm shadow-secondary/20'
-              : 'bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-white/10'
+              ? 'text-secondary-container bg-secondary/15'
+              : 'text-surface-dim hover:text-white hover:bg-white/5'
           }`}
           aria-label={isFullscreen ? '전체화면 종료' : '전체화면 모드'}
         >
-          {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5 text-secondary" />}
+          {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
         </button>
 
-        {/* Compact Clock (Time only - visible on large screens) */}
-        <div className="hidden xl:flex items-center space-x-1.5 text-xs text-surface-dim bg-white/5 h-8 px-2.5 rounded-xl border border-white/5 font-mono whitespace-nowrap">
-          <Clock className="w-3 h-3 text-secondary" />
-          <span className="text-white/80">{format(currentTime, 'HH:mm:ss')}</span>
-        </div>
-
-        {/* Staff badge */}
-        <div className="h-8 flex items-center space-x-1.5 bg-secondary/15 border border-secondary/30 px-2.5 rounded-xl text-xs whitespace-nowrap shrink-0">
-          <div className="w-1.5 h-1.5 rounded-full bg-secondary" />
-          <span className="text-white font-bold max-w-[70px] sm:max-w-none truncate">{user.name}</span>
-          {user.role === 'admin' && (
-            <span className="hidden sm:inline text-[10px] text-amber-300 font-bold bg-amber-500/20 px-1.5 py-0.5 rounded">
-              관리자
-            </span>
-          )}
-        </div>
-
-        {/* Action 1: Sales History & Receipts (Direct quick button) */}
-        {onOpenSalesHistory && (
-          <button
-            type="button"
-            onClick={onOpenSalesHistory}
-            title="매출 내역 조회 및 영수증 확인"
-            className="h-8 w-8 sm:w-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 rounded-xl text-xs font-bold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 hover:text-emerald-200 transition-colors border border-emerald-500/30 shadow-sm whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            <ReceiptText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span className="hidden sm:inline">매출 내역</span>
-          </button>
-        )}
-
-        {/* Action 2: Consolidated Management Menu (Dropdown) */}
+        {/* Consolidated Management Menu */}
         <div className="relative shrink-0" ref={menuRef}>
           <button
             type="button"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            title="관리 도구 및 추가 메뉴"
-            className={`h-8 w-8 sm:w-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 rounded-xl text-xs font-bold transition-all border shadow-sm whitespace-nowrap shrink-0 cursor-pointer ${
+            title="관리 메뉴"
+            className={`h-8 px-2.5 flex items-center gap-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
               isMenuOpen
-                ? 'bg-secondary text-white border-secondary shadow-secondary/30'
-                : 'bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white border-white/10'
+                ? 'bg-white/15 text-white'
+                : 'text-surface-dim hover:text-white hover:bg-white/5'
             }`}
           >
-            <MoreVertical className="w-3.5 h-3.5 shrink-0" />
-            <span className="hidden sm:inline">관리</span>
-            <ChevronDown className={`hidden sm:inline w-3 h-3 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`} />
+            <span className="leading-none translate-y-[1.5px]">더보기</span>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`} />
           </button>
 
-          {/* Floating Dropdown Menu */}
           {isMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-52 bg-[#0d162b] border border-white/20 rounded-2xl shadow-2xl p-1.5 z-[100] animate-in fade-in zoom-in-95 backdrop-blur-md">
-              <div className="px-3 py-2 border-b border-white/10 text-[11px] font-bold text-surface-dim flex items-center justify-between">
-                <span>포스 관리 도구</span>
-                <span className="text-[10px] text-secondary">KRHS POS</span>
+            <div className="absolute right-0 top-full mt-2 w-52 bg-[#0a1120] border border-white/15 rounded-2xl shadow-2xl p-1.5 z-[100] backdrop-blur-xl">
+              <div className="px-3 py-2 border-b border-white/5 text-[11px] font-space text-surface-dim flex items-center justify-between">
+                <span>담당: {user.name}</span>
               </div>
 
               <div className="py-1 space-y-0.5">
-                {/* Product Management */}
                 {onOpenProductManager && (
                   <button
                     type="button"
@@ -180,14 +201,13 @@ export function PosHeader({
                       setIsMenuOpen(false);
                       onOpenProductManager();
                     }}
-                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-white/90 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-white/90 hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
                   >
-                    <Boxes className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span>상품 관리</span>
+                    <Boxes className="w-4 h-4 text-surface-dim shrink-0" />
+                    <span>상품 및 재고 관리</span>
                   </button>
                 )}
 
-                {/* Gifticon Management */}
                 {onOpenGifticonManager && (
                   <button
                     type="button"
@@ -195,29 +215,13 @@ export function PosHeader({
                       setIsMenuOpen(false);
                       onOpenGifticonManager();
                     }}
-                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-white/90 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-white/90 hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
                   >
-                    <Ticket className="w-4 h-4 text-amber-400 shrink-0" />
+                    <Ticket className="w-4 h-4 text-surface-dim shrink-0" />
                     <span>기프티콘 관리</span>
                   </button>
                 )}
 
-                {/* Audit Log */}
-                {onOpenAuditLog && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      onOpenAuditLog();
-                    }}
-                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-white/90 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
-                  >
-                    <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0" />
-                    <span>감사 로그</span>
-                  </button>
-                )}
-
-                {/* Shift Settlement & Cash Drawer */}
                 {onOpenSettlement && (
                   <button
                     type="button"
@@ -225,36 +229,36 @@ export function PosHeader({
                       setIsMenuOpen(false);
                       onOpenSettlement();
                     }}
-                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-white/90 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-white/90 hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
                   >
-                    <Calculator className="w-4 h-4 text-violet-400 shrink-0" />
+                    <Calculator className="w-4 h-4 text-surface-dim shrink-0" />
                     <span>마감 정산 및 시재</span>
                   </button>
                 )}
 
-                {/* Fullscreen Kiosk Mode */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    toggleFullscreen();
-                  }}
-                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-white/90 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
-                >
-                  {isFullscreen ? <Minimize className="w-4 h-4 text-secondary shrink-0" /> : <Maximize className="w-4 h-4 text-secondary shrink-0" />}
-                  <span>{isFullscreen ? '전체화면 종료' : '전체화면 모드 (키오스크)'}</span>
-                </button>
+                {onOpenAuditLog && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onOpenAuditLog();
+                    }}
+                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-white/90 hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-surface-dim shrink-0" />
+                    <span>감사 로그</span>
+                  </button>
+                )}
 
-                <div className="h-[1px] bg-white/10 my-1" />
+                <div className="h-[1px] bg-white/5 my-1" />
 
-                {/* Exit to School Portal */}
                 <button
                   type="button"
                   onClick={() => {
                     setIsMenuOpen(false);
                     onExitToPortal();
                   }}
-                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-surface-dim hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-surface-dim hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
                 >
                   <Home className="w-4 h-4 text-surface-dim shrink-0" />
                   <span>학교 포털 메인으로</span>
@@ -264,26 +268,26 @@ export function PosHeader({
           )}
         </div>
 
-        {/* Action 3: End Shift / Logout Button */}
+        {/* Primary Action: End Shift / Return to Hub */}
         {onEndShift ? (
           <button
             type="button"
             onClick={onEndShift}
-            title="영업 종료 후 메인화면으로 이동"
-            className="h-8 w-8 sm:w-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 rounded-xl text-xs font-bold bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-red-200 transition-colors border border-red-500/30 shadow-sm whitespace-nowrap shrink-0 cursor-pointer"
+            title="POS 허브 화면으로 이동"
+            className="h-8 px-3 flex items-center justify-center gap-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-white border border-white/10 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
-            <Power className="w-3.5 h-3.5 shrink-0" />
-            <span className="hidden sm:inline">영업 종료</span>
+            <Power className="w-3.5 h-3.5 text-surface-dim shrink-0" />
+            <span className="hidden sm:inline leading-none translate-y-[1.5px]">영업 종료</span>
           </button>
         ) : onLogout ? (
           <button
             type="button"
             onClick={onLogout}
             title="POS 로그아웃"
-            className="h-8 w-8 sm:w-auto flex items-center justify-center sm:gap-1.5 sm:px-2.5 rounded-xl text-xs font-semibold bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-red-200 transition-colors border border-red-500/20 whitespace-nowrap shrink-0 cursor-pointer"
+            className="h-8 px-3 flex items-center justify-center gap-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-white border border-white/10 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5 shrink-0" />
-            <span className="hidden sm:inline">로그아웃</span>
+            <span className="hidden sm:inline leading-none translate-y-[1.5px]">로그아웃</span>
           </button>
         ) : null}
       </div>

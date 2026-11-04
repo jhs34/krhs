@@ -83,11 +83,6 @@ export function ArchivePage({
         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
         transition={{ duration: 0.8 }}
       >
-        <div className="flex items-center space-x-3 mb-4">
-          <span className="status-chip bg-secondary/10 text-white border border-secondary/20 flex items-center gap-1.5 py-1 px-3">
-            <Archive className="w-3.5 h-3.5 text-white" /> ARCHIVE STORAGE
-          </span>
-        </div>
         <h2 className="font-sans font-bold text-4xl md:text-5xl text-white tracking-tighter mb-4">
           보관함
         </h2>

@@ -38,6 +38,16 @@ export interface PosOrderItem {
   count: number;
 }
 
+export interface PosRefundedItem {
+  itemId: string;
+  name: string;
+  price: number;
+  count: number;
+  refundedAt?: string;
+  refundedBy?: string;
+  cancelReason?: string;
+}
+
 /**
  * Gifticon Model
  * - id: 고유 기프티콘 번호/코드
@@ -71,13 +81,15 @@ export interface PosOrder {
   buyerName?: string; // 결제자 이름 (선택사항)
   memo?: string; // 추가 메모 (선택사항)
   paymentMethod: PaymentMethod;
-  totalAmount: number; // 상품 정가 합계 (원래 주문 금액)
+  totalAmount: number; // 상품 정가 합계 (현재 유효 주문 금액)
   gifticonDiscountAmount?: number; // 기프티콘 총 할인 금액
   actualPaidAmount?: number; // 실제 고객 결제 금액 (totalAmount - 할인금액, 최소 0원)
   usedGifticons?: PosUsedGifticonSummary[]; // 사용된 기프티콘 목록
   cashReceived?: number;
   changeAmount?: number;
   items: PosOrderItem[];
+  refundedItems?: PosRefundedItem[]; // 부분(개별) 환불된 품목 내역
+  refundedAmount?: number; // 부분(개별) 환불 누적 금액
   isCancelled: boolean;
   cancelledBy?: string;
   cancelledAt?: string;
@@ -122,6 +134,7 @@ export type PosLogAction =
   | 'PCA' // 현금 결제 완료
   | 'PTR' // 계좌이체 결제 완료
   | 'PCC' // 결제 취소 (환불/재고복원)
+  | 'PCR' // 결제 취소(환불) 철회 및 정상 복원
   | 'PUP' // 결제 정보 수정
   | 'PDL' // 매출 내역 영구 삭제
   // 재고/상품 (Inventory)

@@ -74,7 +74,7 @@ export function PosGifticonManagerModal({
   // Batch import form state (Google Sheet / Excel paste)
   const [batchRawText, setBatchRawText] = useState('');
   const [batchDefaultAmount, setBatchDefaultAmount] = useState<number>(3000);
-  const [batchDefaultDesc, setBatchDefaultDesc] = useState('학생회/매점 이벤트 기프티콘');
+  const [batchDefaultDesc, setBatchDefaultDesc] = useState('매점 이벤트 기프티콘');
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchResult, setBatchResult] = useState<{ success: number; skipped: number } | null>(null);
 
@@ -462,108 +462,98 @@ export function PosGifticonManagerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-[#0b1328] border border-white/20 rounded-3xl w-full max-w-5xl h-[92vh] max-h-[850px] flex flex-col shadow-2xl overflow-hidden relative">
+      <div className="bg-primary border border-white/10 rounded-2xl w-full max-w-5xl h-[92vh] max-h-[850px] flex flex-col shadow-2xl overflow-hidden relative">
         {/* Top Header */}
-        <div className="p-4 sm:p-5 border-b border-white/10 bg-[#070d1e] flex items-center justify-between shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
-              <Ticket className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h2 className="text-base sm:text-lg font-black text-white tracking-tight">기프티콘 시스템 관리</h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  {activeGifticons.length}장
-                </span>
-              </div>
-            </div>
+        <div className="px-4 sm:px-6 py-4 border-b border-white/10 bg-[#0a1120] flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5 leading-none translate-y-[1px]">
+            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">기프티콘 관리</h2>
+            <span className="text-xs font-mono text-surface-dim tabular-nums">
+              · 총 {activeGifticons.length}장
+            </span>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-surface-dim hover:text-white hover:bg-white/10 transition-colors"
+            className="p-2 rounded-lg text-surface-dim hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Quick KPI Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 sm:p-4 bg-[#091024] border-b border-white/5 shrink-0 text-xs">
-          <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
-            <span className="text-surface-dim block mb-0.5">전체 발행 기프티콘</span>
-            <span className="text-base font-black text-white font-mono">
+        {/* Crisp 1px Grid KPI Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/15 border-b border-white/15 shrink-0 text-xs">
+          <div className="bg-[#0a1120] px-4 py-3">
+            <span className="text-[11px] text-surface-dim block mb-1">전체 발행</span>
+            <span className="text-base sm:text-lg font-bold text-white font-mono tabular-nums">
               {stats.total.toLocaleString()}장
             </span>
           </div>
-          <div className="bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
-            <span className="text-emerald-300 block mb-0.5">사용 가능 (미사용)</span>
-            <div className="flex items-baseline space-x-1.5">
-              <span className="text-base font-black text-emerald-300 font-mono">
+          <div className="bg-[#0a1120] px-4 py-3">
+            <span className="text-[11px] text-surface-dim block mb-1">사용 가능 (미사용)</span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base sm:text-lg font-bold text-emerald-400 font-mono tabular-nums">
                 {stats.active.toLocaleString()}장
               </span>
-              <span className="text-[11px] text-emerald-200/70">
+              <span className="text-[11px] font-mono text-surface-dim/70 tabular-nums">
                 ({stats.activeTotalAmount.toLocaleString()}원)
               </span>
             </div>
           </div>
-          <div className="bg-blue-500/10 p-2.5 rounded-xl border border-blue-500/20">
-            <span className="text-blue-300 block mb-0.5">결제 사용 완료</span>
-            <div className="flex items-baseline space-x-1.5">
-              <span className="text-base font-black text-blue-300 font-mono">
+          <div className="bg-[#0a1120] px-4 py-3">
+            <span className="text-[11px] text-surface-dim block mb-1">사용 완료</span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base sm:text-lg font-bold text-secondary-container font-mono tabular-nums">
                 {stats.used.toLocaleString()}장
               </span>
-              <span className="text-[11px] text-blue-200/70">
+              <span className="text-[11px] font-mono text-surface-dim/70 tabular-nums">
                 ({stats.usedTotalAmount.toLocaleString()}원)
               </span>
             </div>
           </div>
-          <div className="bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20">
-            <span className="text-rose-300 block mb-0.5">폐기/비활성화</span>
-            <span className="text-base font-black text-rose-300 font-mono">
+          <div className="bg-[#0a1120] px-4 py-3">
+            <span className="text-[11px] text-surface-dim block mb-1">폐기 / 비활성화</span>
+            <span className="text-base sm:text-lg font-bold text-rose-400 font-mono tabular-nums">
               {stats.cancelled.toLocaleString()}장
             </span>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="px-4 py-2 border-b border-white/10 bg-[#080e22] flex items-center justify-between gap-2 shrink-0">
-          <div className="flex items-center space-x-1.5">
+        <div className="px-4 sm:px-6 border-b border-white/10 bg-[#0a1120]/60 flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-5">
             <button
               type="button"
               onClick={() => setActiveTab('list')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+              className={`py-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'list'
-                  ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
-                  : 'bg-white/5 text-surface-dim hover:text-white'
+                  ? 'border-secondary-container text-white'
+                  : 'border-transparent text-surface-dim hover:text-white'
               }`}
             >
-              <Ticket className="w-3.5 h-3.5" />
               <span>기프티콘 목록 ({filteredGifticons.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('batch')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+              className={`py-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'batch'
-                  ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
-                  : 'bg-white/5 text-surface-dim hover:text-white'
+                  ? 'border-secondary-container text-white'
+                  : 'border-transparent text-surface-dim hover:text-white'
               }`}
             >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
               <span>일괄 등록</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('single')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+              className={`py-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'single'
-                  ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
-                  : 'bg-white/5 text-surface-dim hover:text-white'
+                  ? 'border-secondary-container text-white'
+                  : 'border-transparent text-surface-dim hover:text-white'
               }`}
             >
-              <Plus className="w-3.5 h-3.5" />
               <span>단건 등록</span>
             </button>
           </div>
@@ -571,10 +561,10 @@ export function PosGifticonManagerModal({
           {/* Feedback banner */}
           {feedback && (
             <div
-              className={`text-xs px-3 py-1 rounded-xl font-bold flex items-center space-x-1.5 animate-in fade-in ${
+              className={`text-xs px-3 py-1 rounded-lg font-bold flex items-center gap-1.5 animate-in fade-in ${
                 feedback.type === 'success'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                  ? 'text-emerald-300'
+                  : 'text-rose-300'
               }`}
             >
               <span>{feedback.message}</span>
@@ -583,12 +573,12 @@ export function PosGifticonManagerModal({
         </div>
 
         {/* Tab Body Contents */}
-        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
           {/* TAB 1: LIST & SEARCH */}
           {activeTab === 'list' && (
-            <div className="space-y-3.5">
+            <div className="space-y-4">
               {/* Search & Status Filter bar */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 bg-black/40 p-2.5 rounded-2xl border border-white/10">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 border-b border-white/10">
                 <div className="relative w-full sm:w-72">
                   <Search className="w-4 h-4 text-surface-dim absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
@@ -596,7 +586,7 @@ export function PosGifticonManagerModal({
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder="기프티콘 번호, 설명, 금액 검색..."
-                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-500/50"
+                    className="w-full bg-[#0a1120] border border-white/10 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-surface-dim/40 outline-none focus:border-secondary"
                   />
                   {searchQuery && (
                     <button
@@ -608,15 +598,15 @@ export function PosGifticonManagerModal({
                   )}
                 </div>
 
-                <div className="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto">
+                <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto">
                   {(['ALL', 'ACTIVE', 'USED', 'CANCELLED'] as const).map(st => (
                     <button
                       key={st}
                       type="button"
                       onClick={() => setStatusFilter(st)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 ${
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 cursor-pointer ${
                         statusFilter === st
-                          ? 'bg-white text-black'
+                          ? 'bg-secondary text-white font-bold'
                           : 'bg-white/5 text-surface-dim hover:text-white'
                       }`}
                     >
@@ -628,12 +618,12 @@ export function PosGifticonManagerModal({
                   ))}
 
                   {selectedIds.size > 0 && (
-                    <div className="flex items-center space-x-1.5 ml-2 shrink-0">
+                    <div className="flex items-center gap-1.5 ml-2 shrink-0">
                       <button
                         type="button"
                         onClick={handleOpenBatchEdit}
                         disabled={isDeleting}
-                        className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black flex items-center space-x-1 shrink-0 transition-colors cursor-pointer shadow-md shadow-amber-500/20"
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-secondary hover:bg-secondary/90 text-white flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
                       >
                         <SlidersHorizontal className="w-3 h-3" />
                         <span>{selectedIds.size}개 일괄 수정</span>
@@ -643,7 +633,7 @@ export function PosGifticonManagerModal({
                         type="button"
                         onClick={requestDeleteBatch}
                         disabled={isDeleting}
-                        className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white flex items-center space-x-1 shrink-0 transition-colors cursor-pointer shadow-md shadow-rose-950/40"
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3 h-3" />
                         <span>{selectedIds.size}개 일괄 삭제</span>
@@ -652,7 +642,7 @@ export function PosGifticonManagerModal({
                       <button
                         type="button"
                         onClick={() => setSelectedIds(new Set())}
-                        className="px-2 py-1 rounded-lg text-xs font-medium text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 shrink-0 transition-colors cursor-pointer"
+                        className="px-2 py-1.5 rounded-lg text-xs font-medium text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 shrink-0 transition-colors cursor-pointer"
                       >
                         선택 해제
                       </button>
@@ -662,14 +652,14 @@ export function PosGifticonManagerModal({
               </div>
 
               {/* Quick Selection & Cleanup Action Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[#081024] rounded-2xl border border-white/5 text-xs">
-                <div className="flex items-center flex-wrap gap-1.5">
-                  <span className="text-[11px] font-bold text-surface-dim mr-1">체크박스 빠른 선택:</span>
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-2 text-xs">
+                <div className="flex items-center flex-wrap gap-2">
+                  <span className="text-[11px] font-semibold text-surface-dim">빠른 선택:</span>
                   <button
                     type="button"
                     onClick={handleSelectAllUsed}
                     disabled={stats.used === 0}
-                    className="px-2 py-1 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 font-semibold text-[11px] disabled:opacity-40 transition-colors cursor-pointer"
+                    className="px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white font-semibold text-[11px] disabled:opacity-40 transition-colors cursor-pointer"
                   >
                     사용 완료 ({stats.used}장)
                   </button>
@@ -677,7 +667,7 @@ export function PosGifticonManagerModal({
                     type="button"
                     onClick={handleSelectAllCancelled}
                     disabled={stats.cancelled === 0}
-                    className="px-2 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 font-semibold text-[11px] disabled:opacity-40 transition-colors cursor-pointer"
+                    className="px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white font-semibold text-[11px] disabled:opacity-40 transition-colors cursor-pointer"
                   >
                     폐기/무효 ({stats.cancelled}장)
                   </button>
@@ -685,7 +675,7 @@ export function PosGifticonManagerModal({
                     type="button"
                     onClick={handleSelectAllCleanupTargets}
                     disabled={stats.used + stats.cancelled === 0}
-                    className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white border border-white/10 font-semibold text-[11px] disabled:opacity-40 transition-colors cursor-pointer"
+                    className="px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white font-semibold text-[11px] disabled:opacity-40 transition-colors cursor-pointer"
                   >
                     정리대상 전체 ({stats.used + stats.cancelled}장)
                   </button>
@@ -696,7 +686,7 @@ export function PosGifticonManagerModal({
                     type="button"
                     onClick={requestDirectCleanup}
                     disabled={isDeleting}
-                    className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-bold text-[11px] flex items-center space-x-1 transition-colors cursor-pointer ml-auto"
+                    className="px-2.5 py-1 rounded-md bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer ml-auto"
                   >
                     <Trash2 className="w-3 h-3 text-rose-400" />
                     <span>사용완료/폐기 일괄 정리 ({stats.used + stats.cancelled}장)</span>
@@ -707,32 +697,30 @@ export function PosGifticonManagerModal({
               {/* Gifticons List Table */}
               {filteredGifticons.length === 0 ? (
                 <div className="py-16 text-center text-surface-dim flex flex-col items-center justify-center">
-                  <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-3">
-                    <Ticket className="w-7 h-7 text-white/30" />
-                  </div>
-                  <p className="text-sm font-bold text-white/70">등록된 기프티콘이 없습니다</p>
+                  <Ticket className="w-8 h-8 text-surface-dim/30 mb-2" />
+                  <p className="text-sm font-medium text-surface-dim">등록된 기프티콘이 없습니다</p>
                 </div>
               ) : (
-                <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+                <div className="border-t border-b border-white/10 divide-y divide-white/5">
                   {/* Table Header */}
-                  <div className="grid grid-cols-12 gap-2 p-3 bg-black/40 text-[11px] font-bold text-surface-dim border-b border-white/10 select-none">
+                  <div className="grid grid-cols-12 gap-2 py-2.5 px-3 bg-[#0a1120] text-[11px] font-semibold text-surface-dim select-none">
                     <div className="col-span-1 flex items-center">
                       <button
                         type="button"
                         onClick={handleToggleSelectAll}
-                        className="text-surface-dim hover:text-white"
+                        className="text-surface-dim hover:text-white cursor-pointer"
                       >
                         {selectedIds.size > 0 && selectedIds.size === filteredGifticons.length ? (
-                          <CheckSquare className="w-4 h-4 text-amber-400" />
+                          <CheckSquare className="w-4 h-4 text-secondary-container" />
                         ) : (
                           <Square className="w-4 h-4" />
                         )}
                       </button>
                     </div>
-                    <div className="col-span-3">기프티콘 번호 (코드)</div>
+                    <div className="col-span-3">기프티콘 코드</div>
                     <div className="col-span-2 text-right">할인 금액</div>
-                    <div className="col-span-1 text-center">상태</div>
-                    <div className="col-span-3">설명 / 메모 / 사용정보</div>
+                    <div className="col-span-2 text-center">상태</div>
+                    <div className="col-span-2">설명 / 사용정보</div>
                     <div className="col-span-2 text-right">제어</div>
                   </div>
 
@@ -743,76 +731,59 @@ export function PosGifticonManagerModal({
                       return (
                         <div
                           key={gifticon.id}
-                          className={`grid grid-cols-12 gap-2 p-3 text-xs items-center transition-colors ${
-                            isSelected ? 'bg-amber-500/10' : 'hover:bg-white/[0.03]'
+                          className={`grid grid-cols-12 gap-2 py-3 px-3 text-xs items-center transition-colors ${
+                            isSelected ? 'bg-secondary/10' : 'hover:bg-white/[0.02]'
                           }`}
                         >
                           <div className="col-span-1 flex items-center">
                             <button
                               type="button"
                               onClick={() => handleToggleSelect(gifticon.id)}
-                              className="text-surface-dim hover:text-white"
+                              className="text-surface-dim hover:text-white cursor-pointer"
                             >
                               {isSelected ? (
-                                <CheckSquare className="w-4 h-4 text-amber-400" />
+                                <CheckSquare className="w-4 h-4 text-secondary-container" />
                               ) : (
                                 <Square className="w-4 h-4" />
                               )}
                             </button>
                           </div>
 
-                          <div className="col-span-3 font-mono font-bold text-white tracking-wider truncate flex items-center space-x-1.5">
-                            <span>{gifticon.id}</span>
+                          <div className="col-span-3 font-mono font-bold text-white tracking-wider truncate">
+                            {gifticon.id}
                           </div>
 
-                          <div className="col-span-2 text-right font-mono font-black text-amber-300">
+                          <div className="col-span-2 text-right font-mono font-bold text-white tabular-nums">
                             {gifticon.amount.toLocaleString()}원
                           </div>
 
-                          <div className="col-span-1 text-center">
+                          <div className="col-span-2 text-center font-semibold text-[11px]">
                             {gifticon.status === 'ACTIVE' && (
-                              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
-                                사용 가능
-                              </span>
+                              <span className="text-emerald-400">사용 가능</span>
                             )}
                             {gifticon.status === 'USED' && (
-                              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 whitespace-nowrap">
-                                사용 완료
-                              </span>
+                              <span className="text-secondary-container">사용 완료</span>
                             )}
                             {gifticon.status === 'CANCELLED' && (
-                              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 whitespace-nowrap">
-                                무효/폐기
-                              </span>
+                              <span className="text-rose-400">무효/폐기</span>
                             )}
                           </div>
 
-                          <div className="col-span-3 text-[11px] space-y-0.5 min-w-0 pr-1">
+                          <div className="col-span-2 text-[11px] space-y-0.5 min-w-0 pr-1">
                             {gifticon.description && (
-                              <div className="text-white/85 font-medium truncate" title={`설명: ${gifticon.description}`}>
+                              <div className="text-surface-dim truncate" title={`설명: ${gifticon.description}`}>
                                 {gifticon.description}
                               </div>
                             )}
                             {gifticon.memo && (
-                              <div
-                                className="text-amber-300 text-[10px] flex items-center space-x-1.5 truncate"
-                                title={`메모: ${gifticon.memo}`}
-                              >
-                                <span className="px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold text-[9px] shrink-0 border border-amber-500/30">
-                                  메모
-                                </span>
-                                <span className="truncate">{gifticon.memo}</span>
+                              <div className="text-surface-dim/70 text-[10px] truncate" title={`메모: ${gifticon.memo}`}>
+                                메모: {gifticon.memo}
                               </div>
                             )}
                             {gifticon.status === 'USED' && (
-                              <div className="text-blue-300 text-[10px] font-medium truncate flex items-center space-x-1">
-                                <span className="px-1 py-0.5 rounded bg-blue-500/20 text-blue-300 font-semibold text-[9px] shrink-0 border border-blue-500/30">
-                                  사용처
-                                </span>
-                                <span className="truncate">
-                                  {gifticon.usedBy ? gifticon.usedBy : '결제 사용'}
-                                  {gifticon.usedOrderId ? ` (#${gifticon.usedOrderId.slice(-4)})` : ''}
-                                </span>
+                              <div className="text-secondary-container/80 text-[10px] truncate">
+                                {gifticon.usedBy ? gifticon.usedBy : '결제 사용'}
+                                {gifticon.usedOrderId ? ` (#${gifticon.usedOrderId.slice(-4)})` : ''}
                               </div>
                             )}
                             {!gifticon.description && !gifticon.memo && gifticon.status !== 'USED' && (
@@ -820,13 +791,12 @@ export function PosGifticonManagerModal({
                             )}
                           </div>
 
-                          <div className="col-span-2 flex items-center justify-end space-x-1">
-                            {/* Individual Edit Button */}
+                          <div className="col-span-2 flex items-center justify-end gap-1">
                             <button
                               type="button"
-                              title="기프티콘 번호, 금액, 설명, 메모 상세 수정"
+                              title="상세 수정"
                               onClick={() => handleOpenEdit(gifticon)}
-                              className="p-1.5 rounded-lg text-amber-300 hover:text-amber-200 hover:bg-amber-500/20 cursor-pointer transition-colors"
+                              className="p-1.5 rounded-md text-surface-dim hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
@@ -834,9 +804,9 @@ export function PosGifticonManagerModal({
                             {gifticon.status === 'USED' && (
                               <button
                                 type="button"
-                                title="미사용 상태로 되돌리기 (수동 복구)"
+                                title="미사용 상태로 되돌리기"
                                 onClick={() => handleChangeStatus(gifticon.id, 'ACTIVE')}
-                                className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-emerald-300 text-[10px] font-bold flex items-center space-x-0.5"
+                                className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-emerald-300 text-[10px] font-semibold flex items-center gap-0.5 cursor-pointer"
                               >
                                 <RotateCcw className="w-3 h-3" />
                                 <span>복구</span>
@@ -846,9 +816,9 @@ export function PosGifticonManagerModal({
                             {gifticon.status === 'ACTIVE' && (
                               <button
                                 type="button"
-                                title="기프티콘 폐기/무효화"
+                                title="폐기/무효화"
                                 onClick={() => handleChangeStatus(gifticon.id, 'CANCELLED')}
-                                className="px-1.5 py-1 rounded bg-white/5 hover:bg-rose-500/20 text-surface-dim hover:text-rose-300 text-[10px]"
+                                className="px-1.5 py-1 rounded bg-white/5 hover:bg-rose-500/20 text-surface-dim hover:text-rose-300 text-[10px] cursor-pointer"
                               >
                                 폐기
                               </button>
@@ -859,7 +829,7 @@ export function PosGifticonManagerModal({
                                 type="button"
                                 title="다시 활성화"
                                 onClick={() => handleChangeStatus(gifticon.id, 'ACTIVE')}
-                                className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-emerald-300 text-[10px] font-bold"
+                                className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-emerald-300 text-[10px] font-semibold cursor-pointer"
                               >
                                 활성화
                               </button>
@@ -869,7 +839,7 @@ export function PosGifticonManagerModal({
                               type="button"
                               title="영구 삭제"
                               onClick={() => requestDeleteSingle(gifticon.id)}
-                              className="p-1.5 rounded-lg text-surface-dim hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer transition-colors"
+                              className="p-1.5 rounded-md text-surface-dim hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -929,7 +899,7 @@ export function PosGifticonManagerModal({
                     type="text"
                     value={batchDefaultDesc}
                     onChange={e => setBatchDefaultDesc(e.target.value)}
-                    placeholder="예: 학생회 이벤트 발급"
+                    placeholder="예: 매점 이벤트 발급"
                     className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
                   />
                 </div>

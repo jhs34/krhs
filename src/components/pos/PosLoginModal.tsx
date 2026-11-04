@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Lock, UserCheck, AlertCircle, RefreshCw, X, User, KeyRound, ShieldCheck, Loader2 } from 'lucide-react';
+import { AlertCircle, X, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { loginPosUser, createGoogleAdminPosUser } from '../../services/posAuth';
-import { loginWithGoogle, auth } from '../../firebase';
+import { loginWithGoogle } from '../../firebase';
 import { PosUser } from '../../types/pos';
 
 interface PosLoginModalProps {
@@ -75,66 +75,58 @@ export function PosLoginModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto select-none">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-primary/90 backdrop-blur-xl overflow-y-auto select-none">
       <motion.div
-        initial={{ scale: 0.94, opacity: 0, y: 10 }}
+        initial={{ scale: 0.96, opacity: 0, y: 12 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="bg-[#0b1222] border border-white/15 w-full max-w-sm sm:max-w-md max-h-[95vh] overflow-y-auto custom-scrollbar rounded-2xl sm:rounded-3xl p-4 sm:p-5 md:p-6 shadow-2xl flex flex-col relative"
+        className="bg-[#0a1120] border border-white/10 w-full max-w-sm sm:max-w-md max-h-[95vh] overflow-y-auto custom-scrollbar rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col relative"
       >
-        {/* Close Button if switch mode */}
         {isSwitchMode && onClose && (
           <button
             type="button"
             onClick={onClose}
             aria-label="닫기"
-            className="absolute right-3.5 top-3.5 w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white flex items-center justify-center transition-colors cursor-pointer z-10"
+            className="absolute right-5 top-5 p-1.5 rounded-lg text-surface-dim hover:text-white hover:bg-white/5 transition-colors cursor-pointer z-10"
           >
             <X className="w-4 h-4" />
           </button>
         )}
 
-        {/* Ambient background glows (clipped inside container) */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-2xl sm:rounded-3xl">
-          <div className="absolute -top-12 -left-12 w-36 h-36 bg-secondary/15 rounded-full blur-3xl" />
-          <div className="absolute -bottom-12 -right-12 w-36 h-36 bg-indigo-500/15 rounded-full blur-3xl" />
-        </div>
-
-        {/* Top Header: Compact Row */}
-        <div className="flex items-center space-x-3 mb-3 shrink-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-secondary/30 to-indigo-500/30 border border-white/20 flex items-center justify-center text-white shadow-md shrink-0">
-            {isSwitchMode ? (
-              <RefreshCw className="w-5 h-5 text-secondary" />
-            ) : (
-              <Lock className="w-5 h-5 text-secondary" />
-            )}
+        {/* Editorial Header */}
+        <div className="mb-6">
+          <div className="flex items-center space-x-2.5 mb-3">
+            <img
+              src={`${import.meta.env.BASE_URL}logo.png`}
+              alt="KRHS"
+              className="w-5 h-auto brightness-0 invert opacity-90"
+            />
+            <span className="text-xs font-bold text-white/90 tracking-tight leading-none translate-y-[1px]">
+              KRHS POS
+            </span>
           </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-base sm:text-lg font-black text-white tracking-tight leading-tight truncate">
-              {isSwitchMode ? '근무자 계정 교환' : 'KRHS 매점 POS 로그인'}
-            </h2>
-            <p className="text-[11px] text-surface-dim truncate">
-              {isSwitchMode
-                ? `현재: ${currentUserName || '미지정'} → 새 담당자 로그인`
-                : '학생회 매점 운영자 및 관리자 전용 인증'}
-            </p>
-          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+            {isSwitchMode ? '근무자 계정 전환' : '매점 터미널 로그인'}
+          </h2>
+          <p className="text-xs text-surface-dim mt-1">
+            {isSwitchMode
+              ? `현재 담당: ${currentUserName || '미지정'} · 교대할 담당자 정보를 입력하세요.`
+              : '부여받은 담당자 아이디와 PIN 번호를 입력하세요.'}
+          </p>
         </div>
 
         {error && (
-          <div className="w-full bg-red-500/15 border border-red-500/30 text-red-200 text-xs rounded-xl p-2.5 mb-2.5 flex items-center space-x-2 shrink-0 animate-in fade-in">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-400" />
-            <span className="text-[11px] leading-tight">{error}</span>
+          <div className="w-full bg-red-500/10 border border-red-500/25 text-red-200 text-xs rounded-xl p-3 mb-4 flex items-center space-x-2 shrink-0">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+            <span className="text-xs leading-snug">{error}</span>
           </div>
         )}
 
-        {/* Form Fields: Side-by-side or Compact Stack */}
-        <form onSubmit={handleSubmit} className="w-full flex flex-col space-y-2.5">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-surface-dim flex items-center space-x-1 pl-0.5">
-                <User className="w-2.5 h-2.5 text-secondary" />
-                <span>아이디</span>
+        <form onSubmit={handleSubmit} className="w-full flex flex-col space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-surface-dim block">
+                아이디
               </label>
               <input
                 type="text"
@@ -142,15 +134,13 @@ export function PosLoginModal({
                 onChange={e => setUsername(e.target.value)}
                 required
                 autoComplete="username"
-                className="w-full bg-black/50 border border-white/15 rounded-xl px-2.5 py-1.5 text-white text-xs sm:text-sm focus:border-secondary outline-none transition-colors"
-                placeholder=""
+                className="w-full bg-white/[0.04] hover:bg-white/[0.07] focus:bg-primary border border-white/10 focus:border-secondary-container/50 rounded-xl px-3 py-2 text-white text-sm outline-none transition-colors"
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-surface-dim flex items-center space-x-1 pl-0.5">
-                <KeyRound className="w-2.5 h-2.5 text-secondary" />
-                <span>비밀번호</span>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-surface-dim block">
+                비밀번호 (PIN)
               </label>
               <input
                 type="password"
@@ -159,14 +149,13 @@ export function PosLoginModal({
                 required
                 maxLength={12}
                 autoComplete="current-password"
-                className="w-full bg-black/50 border border-white/15 rounded-xl px-2.5 py-1.5 text-white text-xs sm:text-sm tracking-widest focus:border-secondary outline-none transition-colors font-mono"
-                placeholder=""
+                className="w-full bg-white/[0.04] hover:bg-white/[0.07] focus:bg-primary border border-white/10 focus:border-secondary-container/50 rounded-xl px-3 py-2 text-white text-sm tracking-widest outline-none transition-colors font-mono"
               />
             </div>
           </div>
 
-          {/* Compact PIN Numpad */}
-          <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+          {/* Minimal Numpad */}
+          <div className="grid grid-cols-3 gap-1.5 pt-1">
             {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map(btn => (
               <button
                 key={btn}
@@ -176,12 +165,12 @@ export function PosLoginModal({
                   else if (btn === '⌫') handleBackspace();
                   else handleQuickKeypad(btn);
                 }}
-                className={`py-2 rounded-lg text-xs sm:text-sm font-bold transition-all active:scale-95 cursor-pointer ${
+                className={`py-2.5 rounded-xl text-sm font-semibold font-mono transition-colors active:scale-95 cursor-pointer ${
                   btn === 'C'
-                    ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
+                    ? 'bg-white/[0.03] text-red-300 hover:bg-red-500/15'
                     : btn === '⌫'
-                    ? 'bg-white/10 text-surface-dim hover:bg-white/20'
-                    : 'bg-white/5 text-white hover:bg-white/10 border border-white/5'
+                    ? 'bg-white/[0.03] text-surface-dim hover:bg-white/10 hover:text-white'
+                    : 'bg-white/[0.04] text-white hover:bg-white/10'
                 }`}
               >
                 {btn}
@@ -189,33 +178,30 @@ export function PosLoginModal({
             ))}
           </div>
 
-          {/* Submit and Navigation Action Buttons */}
-          <div className="pt-1 flex flex-col space-y-1.5">
+          <div className="pt-2 flex flex-col space-y-2">
             <button
               type="submit"
               disabled={isLoading || isGoogleLoading}
-              className="w-full py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm text-white bg-secondary hover:bg-secondary/90 active:scale-[0.99] transition-all shadow-md shadow-secondary/20 flex items-center justify-center space-x-1.5 disabled:opacity-50 cursor-pointer"
+              className="w-full py-3 rounded-xl font-bold text-xs sm:text-sm text-white bg-secondary hover:brightness-110 active:scale-[0.99] transition-all flex items-center justify-center space-x-1.5 disabled:opacity-50 cursor-pointer"
             >
-              <UserCheck className="w-4 h-4" />
               <span>
                 {isLoading
-                  ? '확인 중...'
+                  ? '인증 확인 중...'
                   : isSwitchMode
-                  ? '계정 교환 및 판매 계속'
-                  : 'POS 시작하기'}
+                  ? '계정 전환 완료'
+                  : '터미널 접속하기'}
               </span>
             </button>
 
-            {/* Google Admin Login Button */}
             <button
               type="button"
               onClick={handleGoogleAdminLogin}
               disabled={isLoading || isGoogleLoading}
-              className="w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-white/10 hover:bg-white/15 active:bg-white/20 text-white border border-white/20 transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-sm disabled:opacity-50"
+              className="w-full py-2.5 rounded-xl font-semibold text-xs sm:text-sm bg-white/5 hover:bg-white/10 text-white border border-white/10 transition-colors flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
             >
               {isGoogleLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                  <Loader2 className="w-4 h-4 animate-spin text-secondary-container" />
                   <span>구글 계정 인증 중...</span>
                 </>
               ) : (
@@ -238,7 +224,7 @@ export function PosLoginModal({
                       d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                     />
                   </svg>
-                  <span>구글 계정(포털 관리자)으로 로그인</span>
+                  <span>구글 관리자 계정으로 접속</span>
                 </>
               )}
             </button>
@@ -247,18 +233,18 @@ export function PosLoginModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full py-2 rounded-xl text-xs font-medium text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                className="w-full py-2 text-xs font-medium text-surface-dim hover:text-white transition-colors cursor-pointer"
               >
-                취소 (현재 계정 유지)
+                취소
               </button>
             ) : (
               onExitToPortal && (
                 <button
                   type="button"
                   onClick={onExitToPortal}
-                  className="w-full py-2 rounded-xl text-xs font-medium text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                  className="w-full py-2 text-xs font-medium text-surface-dim hover:text-white transition-colors cursor-pointer"
                 >
-                  학교 포털 메인으로 나가기
+                  학교 포털 메인으로 돌아가기
                 </button>
               )
             )}

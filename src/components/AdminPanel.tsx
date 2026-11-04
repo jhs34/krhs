@@ -372,9 +372,6 @@ export function AdminPanel({
           <div>
             <div className="flex items-center space-x-2">
               <h2 className="text-lg md:text-2xl font-bold text-white">관리자 패널</h2>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-secondary/15 text-secondary border border-secondary/30">
-                PORTAL ADMIN
-              </span>
             </div>
             {auth.currentUser && (
               <div className="flex items-center space-x-2 mt-1">

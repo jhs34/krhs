@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Star, Search, AlertOctagon, ShoppingBag, Settings2, X, SlidersHorizontal, Check } from 'lucide-react';
+import { Star, Search, ShoppingBag, Settings2, X, SlidersHorizontal, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PosCategory, PosItem, CartItem } from '../../types/pos';
 
@@ -11,15 +11,12 @@ interface PosMenuGridProps {
   categories: PosCategory[];
   items: PosItem[];
   cart: CartItem[];
+  todaySoldMap?: Record<string, number>;
   onAddToCart: (item: PosItem) => void;
+  onToggleSoldOut?: (item: PosItem) => void;
   onOpenProductManager?: () => void;
 }
 
-/**
- * Item Name Marquee Component
- * Automatically detects if text width exceeds container width.
- * If overflowing, smoothly scrolls back and forth with fade-in-out edge masking.
- */
 function PosItemNameMarquee({
   name,
   className = '',
@@ -88,7 +85,19 @@ function PosItemNameMarquee({
   );
 }
 
-export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProductManager }: PosMenuGridProps) {
+const LONG_PRESS_DURATION_MS = 550;
+const LONG_PRESS_VISUAL_DELAY_MS = 120;
+const POINTER_MOVE_THRESHOLD_PX = 8;
+
+export function PosMenuGrid({
+  categories,
+  items,
+  cart,
+  todaySoldMap,
+  onAddToCart,
+  onToggleSoldOut,
+  onOpenProductManager,
+}: PosMenuGridProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
@@ -98,7 +107,33 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState<number>(0);
 
-  // Card density state (compact: ~120px, standard: ~155px, large: ~210px)
+  // Long-press state for toggling sold-out without interfering with scroll/swipe
+  const [holdingItemId, setHoldingItemId] = useState<string | null>(null);
+  const holdTimerRef = useRef<number | null>(null);
+  const holdVisualTimerRef = useRef<number | null>(null);
+  const pointerStartRef = useRef<{ x: number; y: number; itemId: string } | null>(null);
+  const longPressTriggeredRef = useRef<boolean>(false);
+
+  const cancelLongPress = () => {
+    if (holdTimerRef.current !== null) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    if (holdVisualTimerRef.current !== null) {
+      window.clearTimeout(holdVisualTimerRef.current);
+      holdVisualTimerRef.current = null;
+    }
+    pointerStartRef.current = null;
+    setHoldingItemId(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current !== null) window.clearTimeout(holdTimerRef.current);
+      if (holdVisualTimerRef.current !== null) window.clearTimeout(holdVisualTimerRef.current);
+    };
+  }, []);
+
   const [density, setDensity] = useState<MenuCardDensity>(() => {
     try {
       const saved = localStorage.getItem(MENU_DENSITY_STORAGE_KEY);
@@ -111,7 +146,6 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
     return 'standard';
   });
 
-  // Persist density setting
   useEffect(() => {
     try {
       localStorage.setItem(MENU_DENSITY_STORAGE_KEY, density);
@@ -120,7 +154,6 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
     }
   }, [density]);
 
-  // Close density dropdown on outside click
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       if (densityRef.current && !densityRef.current.contains(e.target as Node)) {
@@ -133,7 +166,6 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [isDensityOpen]);
 
-  // Track container width in real-time as user drags split bar
   useEffect(() => {
     const el = gridContainerRef.current;
     if (!el) return;
@@ -150,11 +182,8 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
     return () => observer.disconnect();
   }, []);
 
-  // Compute minimum card width dynamically adapted to mobile vs tablet/desktop
   const minCardWidth = useMemo(() => {
-    // 좁은 모바일 화면 (폭 480px 미만)에서는 standard가 확실하게 2열이 나오도록 155px 이상 지정
     const isNarrow = containerWidth > 0 && containerWidth < 480;
-
     switch (density) {
       case 'compact':
         return isNarrow ? 92 : 105;
@@ -166,7 +195,6 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
     }
   }, [density, containerWidth]);
 
-  // Estimated columns for current split width
   const estimatedColumns = useMemo(() => {
     if (!containerWidth) return 2;
     if (containerWidth < 480) {
@@ -179,7 +207,6 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
     return Math.max(1, cols);
   }, [containerWidth, minCardWidth, density]);
 
-  // Map item counts currently in cart for visual badge feedback
   const cartCountMap = useMemo(() => {
     const map = new Map<string, number>();
     cart.forEach(ci => {
@@ -188,12 +215,10 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
     return map;
   }, [cart]);
 
-  // Filter items
   const filteredItems = useMemo(() => {
     return items.filter(item => {
       if (!item.isActive) return false;
 
-      // Category filter
       if (selectedCategoryId === 'favorites') {
         if (!item.isFavorite) return false;
       } else if (selectedCategoryId !== 'all') {
@@ -202,7 +227,6 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
         if (itemCat !== cleanSelected) return false;
       }
 
-      // Search query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         return item.name.toLowerCase().includes(query);
@@ -212,7 +236,6 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
     });
   }, [items, selectedCategoryId, searchQuery]);
 
-  // Group items by category when 'all' category is selected
   const categorySections = useMemo(() => {
     if (selectedCategoryId !== 'all') {
       return null;
@@ -222,7 +245,6 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
 
     categories.forEach(cat => {
       const catCleanName = cat.name.trim().toLowerCase();
-
       const catItems = filteredItems.filter(item => {
         const itemCat = (item.categoryId || '').trim().toLowerCase();
         return itemCat === catCleanName;
@@ -253,111 +275,184 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
     return sections;
   }, [categories, filteredItems, selectedCategoryId]);
 
-  // Render individual product card
+  const handleCardPointerDown = (e: React.PointerEvent<HTMLButtonElement>, item: PosItem) => {
+    if (!onToggleSoldOut) return;
+    // Only primary mouse button or touch/pen
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+    cancelLongPress();
+    longPressTriggeredRef.current = false;
+    pointerStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      itemId: item.id,
+    };
+
+    holdVisualTimerRef.current = window.setTimeout(() => {
+      if (pointerStartRef.current?.itemId === item.id) {
+        setHoldingItemId(item.id);
+      }
+    }, LONG_PRESS_VISUAL_DELAY_MS);
+
+    holdTimerRef.current = window.setTimeout(() => {
+      if (pointerStartRef.current?.itemId === item.id) {
+        longPressTriggeredRef.current = true;
+        setHoldingItemId(null);
+        pointerStartRef.current = null;
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try {
+            navigator.vibrate(35);
+          } catch {}
+        }
+        onToggleSoldOut(item);
+      }
+    }, LONG_PRESS_DURATION_MS);
+  };
+
+  const handleCardPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!pointerStartRef.current) return;
+    const dx = e.clientX - pointerStartRef.current.x;
+    const dy = e.clientY - pointerStartRef.current.y;
+    if (Math.hypot(dx, dy) > POINTER_MOVE_THRESHOLD_PX) {
+      cancelLongPress();
+    }
+  };
+
+  const handleCardClick = (item: PosItem) => {
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      return;
+    }
+    onAddToCart(item);
+  };
+
   const renderItemCard = (item: PosItem) => {
     const inCartCount = cartCountMap.get(item.id) || 0;
     const isSoldOut = Boolean(item.isSoldOut);
+    const isHolding = holdingItemId === item.id;
+    const todaySold = todaySoldMap?.[item.id] || 0;
 
     const cardPadding =
       density === 'compact'
-        ? 'p-2 sm:p-2.5 min-h-[76px] sm:min-h-[84px]'
+        ? 'p-2.5 sm:p-3 min-h-[76px] sm:min-h-[84px]'
         : density === 'large'
         ? 'p-4 sm:p-5 min-h-[135px] sm:min-h-[150px]'
-        : 'p-3 sm:p-3.5 min-h-[104px] sm:min-h-[114px]';
+        : 'p-3 sm:p-4 min-h-[102px] sm:min-h-[112px]';
 
     const titleSize =
       density === 'compact'
-        ? 'text-xs sm:text-sm font-extrabold leading-tight'
+        ? 'text-sm sm:text-base font-bold leading-tight tracking-tight'
         : density === 'large'
-        ? 'text-lg sm:text-xl md:text-2xl font-black leading-snug tracking-tight'
-        : 'text-[15px] sm:text-[17px] md:text-lg font-black leading-snug tracking-tight';
+        ? 'text-xl sm:text-2xl font-bold leading-snug tracking-tight'
+        : 'text-base sm:text-lg md:text-[19px] font-bold leading-snug tracking-tight';
 
     const priceSize =
       density === 'compact'
-        ? 'text-xs sm:text-sm font-black'
+        ? 'text-xs sm:text-sm font-bold'
         : density === 'large'
-        ? 'text-base sm:text-xl font-black'
-        : 'text-sm sm:text-base font-black';
+        ? 'text-base sm:text-xl font-bold'
+        : 'text-sm sm:text-base font-bold';
 
     return (
       <motion.button
         key={item.id}
         type="button"
-        whileTap={!isSoldOut ? { scale: 0.97 } : {}}
-        disabled={isSoldOut}
-        onClick={() => onAddToCart(item)}
-        className={`group relative text-left rounded-2xl border transition-all flex flex-col justify-between overflow-hidden cursor-pointer ${cardPadding} ${
-          isSoldOut
-            ? 'bg-[#0f172a]/70 border-rose-500/20 cursor-not-allowed opacity-75'
+        aria-disabled={isSoldOut}
+        whileTap={!isSoldOut ? { scale: 0.98 } : { scale: 0.99 }}
+        onPointerDown={e => handleCardPointerDown(e, item)}
+        onPointerMove={handleCardPointerMove}
+        onPointerUp={cancelLongPress}
+        onPointerLeave={cancelLongPress}
+        onPointerCancel={cancelLongPress}
+        onContextMenu={e => {
+          if (onToggleSoldOut) e.preventDefault();
+        }}
+        onClick={() => handleCardClick(item)}
+        title={isSoldOut ? '길게 눌러 품절 해제' : '터치하여 담기 · 길게 눌러 품절 전환'}
+        className={`group relative text-left rounded-2xl border transition-colors flex flex-col justify-between overflow-hidden cursor-pointer select-none ${cardPadding} ${
+          isHolding
+            ? isSoldOut
+              ? 'bg-emerald-500/15 border-emerald-400/60'
+              : 'bg-rose-500/15 border-rose-400/60'
+            : isSoldOut
+            ? 'bg-[#0a1120]/40 border-rose-500/20 opacity-60 hover:opacity-80'
             : inCartCount > 0
-            ? 'bg-blue-950/45 border-blue-500/70 shadow-md shadow-blue-500/15 ring-1 ring-blue-500/40 hover:border-blue-400'
-            : 'bg-[#111c34]/90 hover:bg-[#162341] border-white/10 hover:border-blue-400/40 active:scale-[0.98] shadow-sm hover:shadow-md'
+            ? 'bg-secondary/15 border-secondary-container/50 hover:border-secondary-container'
+            : 'bg-[#0a1120] hover:bg-white/[0.06] border-white/5 hover:border-white/15'
         }`}
       >
-        {/* Top Area: Left Item Name & Right Stock/Favorite */}
-        <div className="flex items-start justify-between w-full gap-1.5 mb-1.5">
-          {/* Left: Item Name with smooth edge-masked Marquee if overflowing */}
+        {/* Top Area: Item Name & Quiet Unboxed Meta */}
+        <div className="flex items-start justify-between w-full gap-1.5 mb-2">
           <div className="flex-1 min-w-0 pr-1 overflow-hidden">
-            <PosItemNameMarquee name={item.name} className={titleSize} />
+            <PosItemNameMarquee
+              name={item.name}
+              className={`${titleSize} ${isSoldOut ? 'line-through text-surface-dim' : ''}`}
+            />
           </div>
 
-          {/* Right: Sold Out Badge / Sales count & Favorite */}
-          <div className="flex flex-col items-end shrink-0 space-y-1">
+          {/* Unboxed quiet metadata: Today's sold count */}
+          <div className="flex items-center space-x-1 shrink-0 text-[10px] text-surface-dim">
+            {item.isFavorite && (
+              <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
+            )}
             {isSoldOut ? (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/25 text-rose-300 border border-rose-500/40 whitespace-nowrap shadow-xs">
-                품절
-              </span>
-            ) : item.totalSold && item.totalSold > 0 ? (
-              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-white/5 text-slate-300 whitespace-nowrap">
-                판매 {item.totalSold}개
+              <span className="text-rose-400 font-bold leading-none">품절</span>
+            ) : todaySold > 0 && density !== 'compact' ? (
+              <span className="font-mono tabular-nums text-surface-dim/70 leading-none" title={`당일 판매 ${todaySold}개`}>
+                오늘 {todaySold}
               </span>
             ) : null}
-
-            {item.isFavorite && (
-              <span
-                title="즐겨찾기 인기 상품"
-                className="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center space-x-0.5 text-[9px] font-bold"
-              >
-                <Star className="w-2.5 h-2.5 fill-current text-amber-400" />
-                <span className={density === 'compact' ? 'hidden' : 'inline'}>인기</span>
-              </span>
-            )}
           </div>
         </div>
 
-        {/* Bottom: Price & in-cart indicator */}
-        <div className="flex items-baseline justify-between w-full pt-1.5 mt-auto gap-1">
+        {/* Bottom: Price & In-Cart Count */}
+        <div className="flex items-baseline justify-between w-full pt-1.5 mt-auto border-t border-white/[0.04] gap-1">
           <div className="flex items-baseline">
-            <span className={`text-blue-300 font-extrabold tracking-tight font-mono ${priceSize}`}>
+            <span
+              className={`transition-colors font-mono tabular-nums ${priceSize} ${
+                isSoldOut
+                  ? 'text-surface-dim'
+                  : 'text-white group-hover:text-secondary-container'
+              }`}
+            >
               {item.price.toLocaleString()}
             </span>
-            <span className="text-xs font-medium ml-0.5 text-slate-400">원</span>
+            <span className="text-[11px] font-normal ml-0.5 text-surface-dim">원</span>
           </div>
 
-          {inCartCount > 0 && (
-            <span className="px-2 py-0.5 rounded-lg text-xs font-black bg-blue-600 text-white shadow-sm flex items-center space-x-0.5 animate-in zoom-in-50 whitespace-nowrap">
-              <span>담김 {inCartCount}</span>
+          {isHolding ? (
+            <span
+              className={`text-[11px] font-bold whitespace-nowrap ${
+                isSoldOut ? 'text-emerald-300' : 'text-rose-300'
+              }`}
+            >
+              {isSoldOut ? '판매중 전환...' : '품절 전환...'}
             </span>
-          )}
+          ) : inCartCount > 0 ? (
+            <span className="text-xs font-bold font-mono tabular-nums text-secondary-container whitespace-nowrap">
+              {inCartCount}개 선택
+            </span>
+          ) : null}
         </div>
 
-        {/* Sold-out Overlay */}
-        {isSoldOut && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex flex-col items-center justify-center p-2 text-center pointer-events-none">
-            <AlertOctagon className="w-5 h-5 text-red-400 mb-1" />
-            <span className="text-[10px] font-black text-red-400 tracking-wider uppercase">
-              SOLD OUT
-            </span>
-          </div>
+        {/* Visual Hold Progress Bar */}
+        {isHolding && (
+          <motion.div
+            initial={{ width: '0%' }}
+            animate={{ width: '100%' }}
+            transition={{
+              duration: (LONG_PRESS_DURATION_MS - LONG_PRESS_VISUAL_DELAY_MS) / 1000,
+              ease: 'linear',
+            }}
+            className={`absolute bottom-0 left-0 h-1 ${
+              isSoldOut ? 'bg-emerald-400' : 'bg-rose-400'
+            }`}
+          />
         )}
       </motion.button>
     );
   };
 
-  // Grid layout class based on density:
-  // - compact: 3 columns on mobile, fluid auto-fill on larger screens
-  // - large: 1 column on mobile, fluid auto-fill on larger screens
-  // - standard (default): spacious, comfortable 2 columns on mobile, fluid on tablet/desktop
   const gridLayoutClass = useMemo(() => {
     if (density === 'compact') {
       return 'grid grid-cols-3 sm:grid-cols-[repeat(auto-fill,minmax(105px,1fr))] gap-2 sm:gap-2.5';
@@ -365,176 +460,135 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
     if (density === 'large') {
       return 'grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3 sm:gap-4';
     }
-    return 'grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5 sm:gap-3.5';
+    return 'grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5 sm:gap-3';
   }, [density]);
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#080d1a] select-none">
-      {/* Top Bar: Compact Single-Row Categories, Expandable Density & Search */}
-      <div className="px-2.5 py-2 sm:px-3 sm:py-2.5 border-b border-white/10 bg-[#0c1427]/95 backdrop-blur-md flex items-center justify-between gap-1.5 shrink-0 overflow-hidden">
-        {/* Category tabs wrapper with soft fading edge gradients */}
-        <div className="relative flex-1 min-w-0 overflow-hidden">
-          {/* Left edge soft fade */}
-          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-[#0c1427] via-[#0c1427]/80 to-transparent z-10" />
-
-          {/* Scrollable category tabs */}
-          <div 
-            className="flex items-center space-x-1.5 sm:space-x-2 overflow-x-auto scrollbar-hide py-0.5 px-2 [mask-image:linear-gradient(to_right,transparent_0px,#000_12px,#000_calc(100%-12px),transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0px,#000_12px,#000_calc(100%-12px),transparent_100%)]"
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-primary select-none">
+      {/* Top Category & Filter Strip: Clean Underline Tabs (No heavy pill boxes) */}
+      <div className="px-3 sm:px-5 border-b border-white/10 bg-[#0a1120]/60 flex items-center justify-between gap-2 shrink-0 h-12">
+        {/* Scrollable Category Tabs */}
+        <div className="flex items-center space-x-4 sm:space-x-6 overflow-x-auto scrollbar-hide h-full flex-1 min-w-0 pr-2">
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryId('all')}
+            className={`h-full flex items-center text-xs sm:text-sm whitespace-nowrap border-b-2 transition-colors shrink-0 cursor-pointer ${
+              selectedCategoryId === 'all'
+                ? 'border-secondary-container text-white font-bold'
+                : 'border-transparent text-surface-dim hover:text-white font-medium'
+            }`}
           >
-            <button
-              type="button"
-              onClick={() => setSelectedCategoryId('all')}
-              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
-                selectedCategoryId === 'all'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                  : 'bg-white/[0.06] text-slate-300 hover:text-white hover:bg-white/10 border border-white/5'
-              }`}
-            >
-              전체 ({items.filter(i => i.isActive).length})
-            </button>
+            <span>전체</span>
+            <span className="ml-1 text-[11px] font-mono tabular-nums text-surface-dim/70">
+              {items.filter(i => i.isActive).length}
+            </span>
+          </button>
 
-            <button
-              type="button"
-              onClick={() => setSelectedCategoryId('favorites')}
-              className={`flex items-center space-x-1 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
-                selectedCategoryId === 'favorites'
-                  ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
-                  : 'bg-white/[0.06] text-amber-300 hover:text-amber-200 hover:bg-white/10 border border-white/5'
-              }`}
-            >
-              <Star className="w-3.5 h-3.5 fill-current" />
-              <span>인기 ({items.filter(i => i.isActive && i.isFavorite).length})</span>
-            </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryId('favorites')}
+            className={`h-full flex items-center space-x-1 text-xs sm:text-sm whitespace-nowrap border-b-2 transition-colors shrink-0 cursor-pointer ${
+              selectedCategoryId === 'favorites'
+                ? 'border-amber-400 text-white font-bold'
+                : 'border-transparent text-surface-dim hover:text-white font-medium'
+            }`}
+          >
+            <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+            <span>인기</span>
+            <span className="text-[11px] font-mono tabular-nums text-surface-dim/70">
+              {items.filter(i => i.isActive && i.isFavorite).length}
+            </span>
+          </button>
 
-            {categories.map(cat => {
-              const count = items.filter(
-                i => i.isActive && i.categoryId.trim().toLowerCase() === cat.name.trim().toLowerCase()
-              ).length;
-              const isSelected = selectedCategoryId.trim().toLowerCase() === cat.name.trim().toLowerCase();
-              return (
-                <button
-                  key={cat.name}
-                  type="button"
-                  onClick={() => setSelectedCategoryId(cat.name)}
-                  className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
-                    isSelected
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                      : 'bg-white/[0.06] text-slate-300 hover:text-white hover:bg-white/10 border border-white/5'
-                  }`}
-                >
-                  {cat.name} ({count})
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Right edge soft fade */}
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-[#0c1427] via-[#0c1427]/80 to-transparent z-10" />
+          {categories.map(cat => {
+            const count = items.filter(
+              i => i.isActive && i.categoryId.trim().toLowerCase() === cat.name.trim().toLowerCase()
+            ).length;
+            const isSelected = selectedCategoryId.trim().toLowerCase() === cat.name.trim().toLowerCase();
+            return (
+              <button
+                key={cat.name}
+                type="button"
+                onClick={() => setSelectedCategoryId(cat.name)}
+                className={`h-full flex items-center text-xs sm:text-sm whitespace-nowrap border-b-2 transition-colors shrink-0 cursor-pointer ${
+                  isSelected
+                    ? 'border-secondary-container text-white font-bold'
+                    : 'border-transparent text-surface-dim hover:text-white font-medium'
+                }`}
+              >
+                <span>{cat.name}</span>
+                <span className="ml-1 text-[11px] font-mono tabular-nums text-surface-dim/70">
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Right Toolbar: Expandable Density Switcher & Expandable Search */}
-        <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0 justify-end">
-          {/* Expandable Density Switcher (Collapsed to single icon by default) */}
+        {/* Right Toolbar: Density & Search */}
+        <div className="flex items-center space-x-1.5 shrink-0">
           <div className="relative shrink-0" ref={densityRef}>
             <AnimatePresence initial={false} mode="wait">
               {isDensityOpen ? (
                 <motion.div
                   key="density-expanded"
-                  initial={{ scale: 0.88, opacity: 0 }}
+                  initial={{ scale: 0.92, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.88, opacity: 0 }}
-                  transition={{ duration: 0.15, ease: 'easeOut' }}
-                  className="flex items-center bg-[#131d33] border border-secondary/50 rounded-xl p-0.5 text-[11px] font-bold shadow-lg whitespace-nowrap overflow-hidden shrink-0 origin-right"
+                  exit={{ scale: 0.92, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex items-center bg-[#0a1120] border border-white/15 rounded-lg p-0.5 text-[11px] font-medium whitespace-nowrap overflow-hidden shrink-0"
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDensity('compact');
-                      setIsDensityOpen(false);
-                    }}
-                    title={`작게 (${estimatedColumns}열)`}
-                    className={`px-2 py-1 rounded-lg transition-all flex items-center space-x-1 whitespace-nowrap shrink-0 cursor-pointer ${
-                      density === 'compact'
-                        ? 'bg-secondary text-white shadow-sm'
-                        : 'text-surface-dim hover:text-white'
-                    }`}
-                  >
-                    <span className="whitespace-nowrap">작게</span>
-                    {density === 'compact' && <Check className="w-3 h-3 shrink-0" />}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDensity('standard');
-                      setIsDensityOpen(false);
-                    }}
-                    title={`보통 (${estimatedColumns}열)`}
-                    className={`px-2 py-1 rounded-lg transition-all flex items-center space-x-1 whitespace-nowrap shrink-0 cursor-pointer ${
-                      density === 'standard'
-                        ? 'bg-secondary text-white shadow-sm'
-                        : 'text-surface-dim hover:text-white'
-                    }`}
-                  >
-                    <span className="whitespace-nowrap">보통</span>
-                    {density === 'standard' && <Check className="w-3 h-3 shrink-0" />}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDensity('large');
-                      setIsDensityOpen(false);
-                    }}
-                    title={`크게 (${estimatedColumns}열)`}
-                    className={`px-2 py-1 rounded-lg transition-all flex items-center space-x-1 whitespace-nowrap shrink-0 cursor-pointer ${
-                      density === 'large'
-                        ? 'bg-secondary text-white shadow-sm'
-                        : 'text-surface-dim hover:text-white'
-                    }`}
-                  >
-                    <span className="whitespace-nowrap">크게</span>
-                    {density === 'large' && <Check className="w-3 h-3 shrink-0" />}
-                  </button>
+                  {(['compact', 'standard', 'large'] as const).map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => {
+                        setDensity(d);
+                        setIsDensityOpen(false);
+                      }}
+                      className={`px-2 py-1 rounded-md transition-colors flex items-center space-x-1 whitespace-nowrap shrink-0 cursor-pointer ${
+                        density === d
+                          ? 'bg-secondary text-white font-bold'
+                          : 'text-surface-dim hover:text-white'
+                      }`}
+                    >
+                      <span>{d === 'compact' ? '작게' : d === 'large' ? '크게' : '보통'}</span>
+                      {density === d && <Check className="w-3 h-3 shrink-0" />}
+                    </button>
+                  ))}
                   <button
                     type="button"
                     onClick={() => setIsDensityOpen(false)}
-                    title="닫기"
-                    className="p-1 text-surface-dim hover:text-white rounded-lg hover:bg-white/10 transition-colors ml-0.5 shrink-0 cursor-pointer"
+                    className="p-1 text-surface-dim hover:text-white rounded-md ml-0.5 shrink-0 cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                   </button>
                 </motion.div>
               ) : (
-                <motion.button
-                  key="density-collapsed"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.15 }}
+                <button
                   type="button"
                   onClick={() => {
                     setIsDensityOpen(true);
                     setIsSearchOpen(false);
                   }}
-                  title={`메뉴 카드 크기 조절 (현재: ${
-                    density === 'compact' ? '작게' : density === 'large' ? '크게' : '보통'
-                  }, 약 ${estimatedColumns}열)`}
-                  className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white border border-white/10 transition-all flex items-center justify-center cursor-pointer shadow-sm active:scale-95"
+                  title={`카드 크기 조절 (약 ${estimatedColumns}열)`}
+                  className="p-1.5 rounded-lg text-surface-dim hover:text-white hover:bg-white/5 transition-colors flex items-center justify-center cursor-pointer"
                 >
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-secondary" />
-                </motion.button>
+                  <SlidersHorizontal className="w-4 h-4" />
+                </button>
               )}
             </AnimatePresence>
           </div>
 
-          {/* Expandable Search Bar */}
+          {/* Search Input */}
           <AnimatePresence initial={false} mode="wait">
             {isSearchOpen || searchQuery ? (
               <motion.div
                 key="search-input"
                 initial={{ width: 34, opacity: 0 }}
-                animate={{ width: 170, opacity: 1 }}
+                animate={{ width: 175, opacity: 1 }}
                 exit={{ width: 34, opacity: 0 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
+                transition={{ duration: 0.16 }}
                 className="relative flex items-center"
               >
                 <Search className="w-3.5 h-3.5 text-surface-dim absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -551,7 +605,7 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
                   }}
                   placeholder="품목 검색..."
                   autoFocus
-                  className="w-full bg-black/70 border border-secondary/50 rounded-xl pl-7 pr-6 py-1 text-xs text-white placeholder:text-surface-dim/50 focus:border-secondary outline-none shadow-md transition-colors"
+                  className="w-full bg-[#0a1120] border border-white/15 focus:border-secondary-container/50 rounded-lg pl-7 pr-6 py-1 text-xs text-white placeholder:text-surface-dim/50 outline-none transition-colors"
                 />
                 <button
                   type="button"
@@ -559,30 +613,24 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
                     setSearchQuery('');
                     setIsSearchOpen(false);
                   }}
-                  title="검색 닫기"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-surface-dim hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-surface-dim hover:text-white cursor-pointer"
                 >
                   <X className="w-3 h-3" />
                 </button>
               </motion.div>
             ) : (
-              <motion.button
-                key="search-button"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.15 }}
+              <button
                 type="button"
                 onClick={() => {
                   setIsSearchOpen(true);
                   setIsDensityOpen(false);
                   setTimeout(() => searchInputRef.current?.focus(), 50);
                 }}
-                title="품목 빠른 검색"
-                className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white border border-white/10 transition-all flex items-center justify-center cursor-pointer shadow-sm active:scale-95"
+                title="품목 검색"
+                className="p-1.5 rounded-lg text-surface-dim hover:text-white hover:bg-white/5 transition-colors flex items-center justify-center cursor-pointer"
               >
-                <Search className="w-3.5 h-3.5" />
-              </motion.button>
+                <Search className="w-4 h-4" />
+              </button>
             )}
           </AnimatePresence>
 
@@ -590,47 +638,46 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
             <button
               type="button"
               onClick={onOpenProductManager}
-              title="상품 및 재고 관리 패널 열기"
-              className="hidden xl:flex items-center space-x-1 px-2 py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white border border-white/10 transition-colors shrink-0 whitespace-nowrap cursor-pointer"
+              title="상품 관리"
+              className="hidden xl:flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-medium text-surface-dim hover:text-white hover:bg-white/5 transition-colors shrink-0 whitespace-nowrap cursor-pointer"
             >
-              <Settings2 className="w-3 h-3 text-secondary" />
-              <span>품목 관리</span>
+              <Settings2 className="w-3.5 h-3.5" />
+              <span>품목 설정</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Dynamic Fluid Menu Tiles Grid Container */}
-      <div 
+      {/* Menu Grid Body */}
+      <div
         ref={gridContainerRef}
+        onScroll={cancelLongPress}
         className={`flex-1 overflow-y-auto custom-scrollbar ${
-          density === 'compact' ? 'p-2.5 sm:p-3.5 md:p-4 pb-36 sm:pb-28' : 'p-3.5 sm:p-4 md:p-5 pb-36 sm:pb-28'
+          density === 'compact' ? 'p-3 sm:p-4 pb-36 sm:pb-28' : 'p-4 sm:p-6 pb-36 sm:pb-28'
         }`}
       >
         {filteredItems.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-surface-dim py-12">
-            <ShoppingBag className="w-10 h-10 mb-2.5 text-white/20" />
+            <ShoppingBag className="w-9 h-9 mb-2.5 text-white/15" strokeWidth={1.5} />
             <p className="text-sm font-bold text-white/70">해당 조건의 품목이 없습니다.</p>
             <p className="text-xs text-surface-dim mt-1">다른 카테고리를 선택하거나 검색어를 변경해보세요.</p>
           </div>
         ) : categorySections && categorySections.length > 0 ? (
-          /* Grouped by Category in 'All' view */
-          <div className="space-y-6 sm:space-y-8">
+          <div className="space-y-8">
             {categorySections.map(section => (
-              <div key={section.categoryId} className="space-y-2.5">
-                {/* Category Group Header with generous breathing space */}
-                <div className="flex items-center space-x-2 px-0.5 pt-1.5 pb-0.5">
-                  <span className="w-1.5 h-4 rounded-full bg-blue-500 shadow-sm shadow-blue-500/40" />
-                  <h2 className="text-sm sm:text-base font-extrabold text-white tracking-tight">
-                    {section.categoryName}
-                  </h2>
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-white/10 text-slate-300 border border-white/10">
-                    {section.items.length}개
-                  </span>
-                  <div className="flex-1 h-[1px] bg-gradient-to-r from-white/15 via-white/5 to-transparent ml-2" />
+              <div key={section.categoryId} className="space-y-3">
+                {/* Clean Editorial Section Header (No vertical pill bar or rounded-full chip) */}
+                <div className="flex items-baseline justify-between border-b border-white/5 pb-2">
+                  <div className="flex items-baseline space-x-2">
+                    <h2 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                      {section.categoryName}
+                    </h2>
+                    <span className="text-xs font-mono tabular-nums text-surface-dim">
+                      {section.items.length}종
+                    </span>
+                  </div>
                 </div>
 
-                {/* Section Items Grid */}
                 <div className={gridLayoutClass}>
                   {section.items.map(item => renderItemCard(item))}
                 </div>
@@ -638,7 +685,6 @@ export function PosMenuGrid({ categories, items, cart, onAddToCart, onOpenProduc
             ))}
           </div>
         ) : (
-          /* Single Category or Favorites View */
           <div className={gridLayoutClass}>
             {filteredItems.map(item => renderItemCard(item))}
           </div>

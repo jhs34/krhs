@@ -1,103 +1,78 @@
 import { Link } from 'react-router-dom';
-import { Store, ArrowRight, Sparkles, Wrench, ShieldCheck } from 'lucide-react';
+import { Store, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export function ToolHubPage() {
   const tools = [
     {
       id: 'pos',
-      title: '학생회 매점 POS 시스템',
-      subtitle: 'KRHS 학생회 수요매점 결제·재고 관리·정산 시스템',
-      description: '태블릿 터치 기반 상품 결제(현금/계좌이체), 실시간 재고 차감, 품목 관리 및 당일 마감 정산 도구입니다.',
+      title: '매점 POS 터미널',
+      subtitle: '상품 결제 · 재고 관리 · 일일 마감 정산',
+      description: '태블릿 및 데스크톱 터치 기반 상품 결제(현금·계좌이체), 실시간 재고 연동, 기프티콘 할인 및 마감 정산 통합 시스템입니다.',
       icon: Store,
       path: '/tool/pos',
-      badge: '수요매점',
-      badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-      status: '운영 중',
-      category: '학생회 자치 도구',
     },
   ];
 
   return (
-    <div className="min-h-[80vh] flex flex-col justify-start py-10 md:py-16 px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 max-w-7xl mx-auto w-full">
-      {/* Header */}
+    <div className="max-w-7xl w-full mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 flex flex-col space-y-12 sm:space-y-16">
+      {/* Section 1: Editorial Header matching Dashboard.tsx */}
       <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="mb-8 md:mb-12"
+        initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+        transition={{ duration: 0.7 }}
+        className="flex flex-col md:flex-row md:items-end justify-between border-b border-surface/10 pb-10 sm:pb-12 gap-6"
       >
-        <div className="flex items-center space-x-2 text-xs font-bold text-secondary uppercase tracking-widest mb-2">
-          <Wrench className="w-4 h-4" />
-          <span>KRHS Tools & Utilities</span>
+        <div>
+          <h1 className="font-sans font-bold text-2xl sm:text-3xl md:text-5xl text-white tracking-tighter mb-3 leading-[1.2] md:leading-[1.15]">
+            교내 실무의 표준,<br />
+            <span className="text-surface-dim">포털 도구함</span>
+          </h1>
+          <p className="text-surface-dim font-medium text-sm sm:text-base md:text-lg max-w-2xl leading-relaxed break-keep">
+            한국철도고등학교 교내 자치 및 매점 운영을 지원하는 통합 실무 터미널입니다.
+          </p>
         </div>
-        <h1 className="text-2xl md:text-4xl font-bold text-white tracking-tight">
-          포털 도구함 (Tool)
-        </h1>
-        <p className="text-sm md:text-base text-surface-dim mt-2 max-w-2xl leading-relaxed">
-          한국철도고등학교 학생회 및 교내 활동을 지원하는 실무 도구 모음입니다. 사용할 도구를 선택하세요.
-        </p>
       </motion.div>
 
-      {/* Tool Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      {/* Section 2: Tool List (Clean Editorial Surface) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {tools.map((tool, idx) => {
           const Icon = tool.icon;
           return (
             <motion.div
               key={tool.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: idx * 0.1 }}
+              initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={{ duration: 0.5, delay: idx * 0.1 }}
+              className="lg:col-span-8"
             >
               <Link
                 to={tool.path}
-                className="group relative block p-6 rounded-3xl bg-[#0e1628]/80 hover:bg-[#131f38] border border-white/10 hover:border-secondary/50 shadow-xl transition-all duration-300 flex flex-col justify-between h-full overflow-hidden"
+                className="group block p-6 sm:p-8 md:p-10 rounded-3xl bg-[#0a1120] border border-white/5 hover:border-white/15 transition-all duration-300 flex flex-col justify-between h-full"
               >
-                {/* Background ambient glow */}
-                <div className="absolute -top-12 -right-12 w-32 h-32 bg-secondary/10 group-hover:bg-secondary/20 rounded-full blur-2xl transition-all duration-300 pointer-events-none" />
-
                 <div>
-                  {/* Top line badges */}
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-[11px] font-semibold text-surface-dim">
-                      {tool.category}
-                    </span>
-                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${tool.badgeColor}`}>
-                      {tool.badge}
-                    </span>
-                  </div>
-
-                  {/* Icon & Title */}
-                  <div className="flex items-start space-x-3.5 mb-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-secondary/30 to-indigo-500/30 border border-white/10 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
-                      <Icon className="w-6 h-6 text-secondary" />
-                    </div>
-                    <div>
-                      <h2 className="text-base md:text-lg font-bold text-white group-hover:text-secondary-fixed transition-colors">
-                        {tool.title}
-                      </h2>
-                      <p className="text-xs text-surface-dim mt-0.5 line-clamp-1">
-                        {tool.subtitle}
-                      </p>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="w-11 h-11 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center justify-center text-white">
+                      <Icon className="w-5 h-5" strokeWidth={1.5} />
                     </div>
                   </div>
 
-                  {/* Description */}
-                  <p className="text-xs text-surface-dim/80 leading-relaxed mb-6">
+                  <h2 className="font-sans font-bold text-xl sm:text-2xl md:text-3xl text-white tracking-tight group-hover:text-secondary-container transition-colors mb-2">
+                    {tool.title}
+                  </h2>
+                  <p className="text-xs sm:text-sm font-medium text-surface-dim mb-4">
+                    {tool.subtitle}
+                  </p>
+                  <p className="text-xs sm:text-sm text-surface-dim/80 leading-relaxed max-w-xl">
                     {tool.description}
                   </p>
                 </div>
 
-                {/* Footer launch button */}
-                <div className="pt-4 border-t border-white/5 flex items-center justify-between text-xs font-bold text-white">
-                  <span className="flex items-center space-x-1.5 text-secondary">
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>전용 계정 인증 필요</span>
-                  </span>
-                  <div className="flex items-center space-x-1 text-surface-dim group-hover:text-white transition-colors">
-                    <span>실행하기</span>
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                <div className="pt-6 mt-8 border-t border-white/5 flex items-center justify-between text-xs sm:text-sm font-medium text-white">
+                  <span className="text-surface-dim text-xs">담당자 또는 관리자 인증 후 접속</span>
+                  <div className="flex items-center space-x-1.5 text-white group-hover:translate-x-1 transition-transform">
+                    <span className="font-bold">터미널 접속하기</span>
+                    <ArrowRight className="w-4 h-4 text-secondary-container" />
                   </div>
                 </div>
               </Link>
@@ -105,23 +80,20 @@ export function ToolHubPage() {
           );
         })}
 
-        {/* Coming soon placeholder card */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-          className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 flex flex-col justify-between h-full border-dashed"
+          initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
+          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          className="lg:col-span-4 flex flex-col justify-between p-6 sm:p-8 rounded-3xl border border-white/5 bg-white/[0.01]"
         >
           <div>
-            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-surface-dim/40 mb-3">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-surface-dim">새로운 학생회 도구 준비 중</h3>
-            <p className="text-xs text-surface-dim/60 mt-1 leading-relaxed">
-              교내 대여 관리, 분실물 등록 등 추가적인 편의 도구가 업데이트될 예정입니다.
+            <h3 className="text-lg font-bold text-white/80 tracking-tight mb-2">
+              추가 실무 도구 준비 중
+            </h3>
+            <p className="text-xs sm:text-sm text-surface-dim/70 leading-relaxed">
+              교내 물품 대여 및 분실물 통합 안내 모듈이 순차적으로 연결될 예정입니다.
             </p>
           </div>
-          <span className="text-[11px] text-surface-dim/40 font-mono mt-6">COMING SOON</span>
         </motion.div>
       </div>
     </div>

@@ -111,14 +111,6 @@ export function Dashboard({
         className="flex flex-col md:flex-row md:items-end justify-between border-b border-surface/10 pb-12 gap-8"
       >
         <div className="flex-grow">
-          <div className="flex items-center space-x-3 mb-4">
-            <span className="status-chip text-[8px] bg-secondary/20 text-white border border-secondary/30">
-              SYSTEM READY
-            </span>
-            <span className="text-[10px] sm:text-xs font-space text-surface-dim/60 font-medium tracking-widest uppercase">
-              Terminal ID: KRHS-STU-26
-            </span>
-          </div>
           <h2 className="font-sans font-bold text-2xl sm:text-3xl md:text-5xl text-white tracking-tighter mb-3 leading-[1.2] md:leading-[1.15]">
             내 손안의 교무실,<br />
             <span className="text-surface-dim">학생 통합 터미널</span>
@@ -163,9 +155,6 @@ export function Dashboard({
         >
           <div className="flex items-center justify-between border-b border-white/5 pb-4">
             <div className="flex items-center space-x-3">
-              <span className="status-chip text-[8px] bg-secondary/20 text-white border border-secondary/30">
-                SEARCH TERMINAL
-              </span>
               <h3 className="font-sans font-bold text-base md:text-lg text-white">
                 &lsquo;<span className="text-secondary-fixed-dim">{searchQuery}</span>&rsquo; 검색 결과 (총 {filteredEvents.length + filteredNotices.length}건)
               </h3>

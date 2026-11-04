@@ -1,4 +1,4 @@
-import { Trash2, Plus, Minus, CreditCard, Banknote, ShoppingCart, Ticket } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingCart, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CartItem, PosGifticon } from '../../types/pos';
 
@@ -42,160 +42,164 @@ export function PosCart({
   const isEmpty = cart.length === 0;
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#070b16] select-none min-w-[260px] overflow-hidden">
-      {/* Cart Header */}
-      <div className="p-4 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#060a14]">
-        <div className="flex items-center space-x-2">
-          <ShoppingCart className="w-5 h-5 text-secondary" />
-          <h2 className="font-bold text-white text-base md:text-lg">주문 내역</h2>
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-secondary/20 text-secondary-fixed border border-secondary/30">
+    <div className="w-full h-full flex flex-col bg-[#0a1120] border-l border-white/5 select-none min-w-[260px] overflow-hidden">
+      {/* Cart Header: Unboxed quiet count & accessible actions */}
+      <div className="px-5 h-12 border-b border-white/10 flex items-center justify-between shrink-0">
+        <div className="flex items-center space-x-2 leading-none translate-y-[1px]">
+          <h2 className="font-sans font-bold text-white text-sm sm:text-base tracking-tight">주문 내역</h2>
+          <span className="text-xs font-mono tabular-nums text-surface-dim">
             {totalCount}개
           </span>
         </div>
 
-        <button
-          type="button"
-          disabled={isEmpty}
-          onClick={onRequestClear}
-          className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          <span>비우기</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          {onOpenGifticonModal && !isEmpty && (
+            <button
+              type="button"
+              onClick={onOpenGifticonModal}
+              className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white transition-colors cursor-pointer"
+            >
+              <Ticket className="w-3.5 h-3.5 text-secondary-container shrink-0" />
+              <span className="leading-none translate-y-[0.5px]">
+                기프티콘{activeGifticons.length > 0 ? ` (${activeGifticons.length})` : ''}
+              </span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            disabled={isEmpty}
+            onClick={onRequestClear}
+            className="px-2 py-1 rounded-lg text-xs font-medium text-surface-dim hover:text-rose-400 hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer leading-none"
+          >
+            비우기
+          </button>
+        </div>
       </div>
 
-      {/* Cart Items List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar">
+      {/* Cart Items List: Clean hairline-divided rows (No heavy card boxes per item!) */}
+      <div className="flex-1 overflow-y-auto px-5 custom-scrollbar">
         {isEmpty ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 text-surface-dim">
-            <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-3">
-              <ShoppingCart className="w-8 h-8 text-white/20" />
-            </div>
+            <ShoppingCart className="w-8 h-8 text-white/15 mb-3" strokeWidth={1.5} />
             <p className="text-sm font-bold text-white/70">장바구니가 비어 있습니다</p>
             <p className="text-xs text-surface-dim mt-1 max-w-[200px] leading-relaxed">
-              좌측 메뉴 목록에서 품목을 터치하여 주문에 추가하세요.
+              좌측 메뉴에서 상품을 선택하여 주문에 담으세요.
             </p>
           </div>
         ) : (
-          <AnimatePresence initial={false}>
-            {cart.map(cartItem => {
-              const itemTotal = cartItem.item.price * cartItem.count;
+          <div className="divide-y divide-white/5">
+            <AnimatePresence initial={false}>
+              {cart.map(cartItem => {
+                const itemTotal = cartItem.item.price * cartItem.count;
 
-              return (
-                <motion.div
-                  key={cartItem.item.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, x: 20 }}
-                  transition={{ duration: 0.18 }}
-                  className="bg-white/5 border border-white/10 hover:border-white/20 rounded-2xl p-3 flex flex-col space-y-2 shadow-sm"
-                >
-                  {/* Item title & remove */}
-                  <div className="flex items-start justify-between">
-                    <div className="min-w-0 pr-2">
-                      <div className="text-sm font-bold text-white leading-tight truncate">
-                        {cartItem.item.name}
+                return (
+                  <motion.div
+                    key={cartItem.item.id}
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: 16 }}
+                    transition={{ duration: 0.16 }}
+                    className="py-3.5 flex flex-col space-y-2.5 group"
+                  >
+                    {/* Top Row: Item Name, Unit Price & Remove */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-bold text-white leading-snug truncate">
+                          {cartItem.item.name}
+                        </div>
+                        <div className="text-[11px] font-mono tabular-nums text-surface-dim mt-0.5">
+                          단가 {cartItem.item.price.toLocaleString()}원
+                        </div>
                       </div>
-                      <div className="text-xs text-surface-dim mt-0.5">
-                        단가: {cartItem.item.price.toLocaleString()}원
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => onRemoveItem(cartItem.item.id)}
-                      className="text-surface-dim hover:text-red-400 p-1 rounded-lg hover:bg-white/5 transition-colors shrink-0"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Quantity Stepper & Subtotal */}
-                  <div className="flex items-center justify-between pt-1 border-t border-white/5">
-                    {/* Stepper */}
-                    <div className="flex items-center space-x-1.5 bg-black/40 p-1 rounded-xl border border-white/10">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (cartItem.count > 1) {
-                            onUpdateCount(cartItem.item.id, cartItem.count - 1);
-                          } else {
-                            onRemoveItem(cartItem.item.id);
-                          }
-                        }}
-                        className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition-all"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-
-                      {/* Clickable quantity badge: Opens Keypad */}
-                      <button
-                        type="button"
-                        title="수량 터치하여 직접 입력"
-                        onClick={() => onOpenKeypad(cartItem)}
-                        className="px-3 py-0.5 rounded-md hover:bg-secondary/20 text-white font-black text-sm tracking-wider font-mono hover:text-secondary-fixed transition-colors"
-                      >
-                        {cartItem.count}
-                      </button>
 
                       <button
                         type="button"
-                        onClick={() => onUpdateCount(cartItem.item.id, cartItem.count + 1)}
-                        className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer"
+                        onClick={() => onRemoveItem(cartItem.item.id)}
+                        className="text-surface-dim/60 hover:text-red-400 p-1 transition-colors shrink-0 cursor-pointer"
+                        title="품목 삭제"
                       >
-                        <Plus className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    {/* Subtotal */}
-                    <div className="text-right">
-                      <div className="text-base font-black text-secondary-fixed">
-                        {itemTotal.toLocaleString()}
+                    {/* Bottom Row: Clean inline Stepper & Subtotal */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (cartItem.count > 1) {
+                              onUpdateCount(cartItem.item.id, cartItem.count - 1);
+                            } else {
+                              onRemoveItem(cartItem.item.id);
+                            }
+                          }}
+                          className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 text-white flex items-center justify-center transition-colors cursor-pointer"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          title="수량 직접 입력"
+                          onClick={() => onOpenKeypad(cartItem)}
+                          className="min-w-[36px] px-2 py-0.5 rounded-md hover:bg-white/5 text-white font-bold text-sm font-mono tabular-nums text-center transition-colors cursor-pointer"
+                        >
+                          {cartItem.count}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onUpdateCount(cartItem.item.id, cartItem.count + 1)}
+                          className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 text-white flex items-center justify-center transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="text-right font-mono tabular-nums">
+                        <span className="text-sm sm:text-base font-bold text-white">
+                          {itemTotal.toLocaleString()}
+                        </span>
                         <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
         )}
       </div>
 
-      {/* Cart Footer: Total Price Display & Checkout Buttons */}
-      <div className="p-3.5 sm:p-4 bg-[#050812] border-t border-white/10 shrink-0 space-y-2.5 shadow-2xl">
-        {/* Total Price Display */}
-        <div className="bg-black/50 border border-white/10 rounded-2xl p-3 sm:p-3.5 space-y-1">
+      {/* Cart Footer: Open Typographic Summary & Checkout Actions (No nested box inside footer) */}
+      <div className="p-5 bg-primary/60 border-t border-white/10 shrink-0 space-y-4">
+        <div className="space-y-1.5">
           {gifticonDiscountAmount > 0 && (
-            <div className="flex justify-between items-center text-xs text-surface-dim">
-              <span>상품 원래 정가:</span>
-              <span className="font-mono line-through">{totalAmount.toLocaleString()}원</span>
-            </div>
-          )}
-
-          {gifticonDiscountAmount > 0 && (
-            <div className="space-y-1">
-              <div className="flex justify-between items-center text-xs text-amber-400 font-bold">
-                <span className="flex items-center space-x-1">
-                  <Ticket className="w-3.5 h-3.5" />
-                  <span>기프티콘 {activeGifticons.length}장 적용:</span>
-                </span>
-                <span className="font-mono">-{gifticonDiscountAmount.toLocaleString()}원</span>
+            <>
+              <div className="flex justify-between items-center text-xs text-surface-dim">
+                <span>상품 합계</span>
+                <span className="font-mono tabular-nums line-through">{totalAmount.toLocaleString()}원</span>
+              </div>
+              <div className="flex justify-between items-center text-xs text-secondary-container font-medium">
+                <span>기프티콘 할인 ({activeGifticons.length}장)</span>
+                <span className="font-mono tabular-nums">-{gifticonDiscountAmount.toLocaleString()}원</span>
               </div>
               {removeHandler && activeGifticons.length > 0 && (
-                <div className="flex flex-wrap gap-1 pt-0.5">
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
                   {activeGifticons.map(c => (
                     <span
                       key={c.id}
-                      className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-[10px] text-amber-300"
+                      className="inline-flex items-center space-x-1 text-[11px] text-surface-dim font-mono"
                     >
-                      <span className="font-mono">{c.id}</span>
+                      <span>#{c.id}</span>
                       <button
                         type="button"
                         onClick={() => removeHandler(c.id)}
-                        className="hover:text-white text-surface-dim font-bold cursor-pointer ml-0.5"
-                        title="기프티콘 적용 취소"
+                        className="hover:text-white text-surface-dim/70 cursor-pointer"
+                        title="기프티콘 해제"
                       >
                         ×
                       </button>
@@ -203,63 +207,51 @@ export function PosCart({
                   ))}
                 </div>
               )}
-            </div>
+            </>
           )}
 
           {forfeitedExcess > 0 && (
-            <div className="flex justify-between items-center text-[10px] text-rose-300/80">
-              <span>기프티콘 초과분 (소멸):</span>
-              <span className="font-mono">{forfeitedExcess.toLocaleString()}원</span>
+            <div className="flex justify-between items-center text-[11px] text-red-300/80">
+              <span>초과 차액 소멸</span>
+              <span className="font-mono tabular-nums">{forfeitedExcess.toLocaleString()}원</span>
             </div>
           )}
 
-          <div className="flex items-center justify-between pt-1 border-t border-white/5">
-            <div>
-              <span className="text-xs text-surface-dim font-medium">최종 결제 금액</span>
-              <div className="text-[11px] text-white/50">총 {totalCount}개 품목</div>
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-white tracking-tight font-mono">
+          <div className="flex items-baseline justify-between pt-1">
+            <span className="text-xs font-medium text-surface-dim">
+              결제 예정 금액 ({totalCount}개)
+            </span>
+            <div className="text-2xl sm:text-3xl font-bold text-white tracking-tight font-mono tabular-nums">
               {actualPayableAmount.toLocaleString()}
               <span className="text-sm font-normal text-surface-dim ml-1">원</span>
             </div>
           </div>
         </div>
 
-        {/* Offline Warning Banner if disconnected */}
         {!isOnline && (
-          <div className="p-2 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-200 text-xs font-semibold flex items-center justify-center space-x-1.5 animate-pulse">
-            <span>인터넷 연결 끊김: 네트워크를 재연결해주세요</span>
+          <div className="py-2 px-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs font-medium text-center">
+            오프라인 상태: 네트워크 연결을 확인해주세요.
           </div>
         )}
 
-        {/* Dual Payment Buttons */}
+        {/* Dual Payment Actions matching KRHS Brand Palette */}
         <div className="grid grid-cols-2 gap-2.5">
-          {/* Transfer */}
           <button
             type="button"
             disabled={isEmpty || isProcessing || !isOnline}
             onClick={onRequestTransferPayment}
-            className="py-3 px-3 rounded-2xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] disabled:opacity-30 disabled:pointer-events-none transition-all flex flex-col items-center justify-center space-y-1 shadow-lg shadow-indigo-950/40 border border-indigo-500/30 relative cursor-pointer"
+            className="py-3.5 px-4 rounded-xl font-bold text-xs sm:text-sm text-white bg-secondary hover:brightness-110 active:scale-[0.99] disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
           >
-            <div className="flex items-center space-x-1.5">
-              <CreditCard className="w-4 h-4" />
-              <span>{isProcessing ? '처리 중...' : '계좌이체'}</span>
-            </div>
-            <span className="text-[10px] text-indigo-200/70 font-normal">농협 이체 확인</span>
+            <span>{isProcessing ? '처리 중...' : '계좌이체 결제'}</span>
           </button>
 
-          {/* Cash */}
           <button
             type="button"
             disabled={isEmpty || isProcessing || !isOnline}
             onClick={onRequestCashPayment}
-            className="py-3 px-3 rounded-2xl font-bold text-xs md:text-sm text-white bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] disabled:opacity-30 disabled:pointer-events-none transition-all flex flex-col items-center justify-center space-y-1 shadow-lg shadow-emerald-950/40 border border-emerald-500/30 relative cursor-pointer"
+            className="py-3.5 px-4 rounded-xl font-bold text-xs sm:text-sm text-white bg-white/10 hover:bg-white/15 border border-white/10 active:scale-[0.99] disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
           >
-            <div className="flex items-center space-x-1.5">
-              <Banknote className="w-4 h-4" />
-              <span>{isProcessing ? '처리 중...' : '현금 결제'}</span>
-            </div>
-            <span className="text-[10px] text-emerald-200/70 font-normal">거스름돈 계산</span>
+            <span>{isProcessing ? '처리 중...' : '현금 결제'}</span>
           </button>
         </div>
       </div>

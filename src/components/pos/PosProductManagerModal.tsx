@@ -52,6 +52,7 @@ import { PosSheetImportModal } from './PosSheetImportModal';
 interface PosProductManagerModalProps {
   categories: PosCategory[];
   items: PosItem[];
+  todaySoldMap?: Record<string, number>;
   isAdmin?: boolean;
   currentUser?: PosUser | null;
   onUpdateItems: (newItems: PosItem[]) => void;
@@ -73,6 +74,7 @@ const PRESETS_STORAGE_KEY = 'krhs_pos_saved_presets_v2';
 export function PosProductManagerModal({
   categories,
   items,
+  todaySoldMap,
   isAdmin = false,
   currentUser,
   onUpdateItems,
@@ -189,7 +191,7 @@ export function PosProductManagerModal({
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<PosItem | null>(null);
   const [showClearFavoritesConfirm, setShowClearFavoritesConfirm] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
-  const [colDensity, setColDensity] = useState<'auto' | '2' | '3' | '4' | '5'>('auto');
+  const [colDensity, setColDensity] = useState<'auto' | '3' | '4' | '5' | '6'>('auto');
 
   // Category Tab state
   const [newCatName, setNewCatName] = useState('');
@@ -851,150 +853,102 @@ export function PosProductManagerModal({
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-4 lg:p-6 bg-black/80 backdrop-blur-md">
-      <div className="bg-[#0b1329] border border-white/15 w-full max-w-[1500px] h-full sm:h-[95vh] rounded-none sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden text-white animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-primary border border-white/10 w-full max-w-[1440px] h-full sm:h-[92vh] rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white animate-in fade-in duration-150">
         {/* Top Header */}
-        <div className="px-3.5 sm:px-6 py-3 sm:py-4 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 bg-white/[0.02] shrink-0">
-          <div className="flex items-center justify-between sm:justify-start space-x-2.5 sm:space-x-3">
-            <div className="flex items-center space-x-2.5">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center shrink-0">
-                <Boxes className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <div>
-                <div className="flex items-center space-x-1.5 sm:space-x-2">
-                  <h2 className="text-sm sm:text-base md:text-lg font-bold text-white tracking-tight truncate">
-                    매점 메뉴 & 프리셋 관리
-                  </h2>
-                  {effectiveIsAdmin ? (
-                    <span className="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 flex items-center space-x-1 shrink-0">
-                      <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                      <span>관리자</span>
-                    </span>
-                  ) : (
-                    <span className="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/25 flex items-center space-x-1 shrink-0">
-                      <Lock className="w-3 h-3 text-amber-400" />
-                      <span>근무자 모드</span>
-                    </span>
-                  )}
-                </div>
-                <p className="text-[10px] sm:text-xs text-surface-dim truncate">
-                  총 {localItems.length}개 상품 · 품절 {outOfStockCount}개 · 즐겨찾기 {favoritesCount}개
-                  {hasChanges && (
-                    <span className="ml-1.5 text-amber-300 font-bold">
-                      (수정 중 {modifiedItems.length}건)
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            {/* If not admin, show Admin login button in header */}
-            {!effectiveIsAdmin && (
-              <button
-                type="button"
-                onClick={handleGoogleAdminLogin}
-                disabled={isGoogleLoading}
-                className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition-all cursor-pointer shrink-0 disabled:opacity-50"
-              >
-                {isGoogleLoading ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <LogIn className="w-3.5 h-3.5" />
-                )}
-                <span>{isGoogleLoading ? '...' : '관리자 로그인'}</span>
-              </button>
-            )}
-
-            {/* Close Button on mobile top-right */}
-            <button
-              type="button"
-              onClick={handleAttemptClose}
-              className="sm:hidden w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
-            >
-              <X className="w-4 h-4" />
-            </button>
+        <div className="px-4 sm:px-6 py-3.5 border-b border-white/10 flex flex-wrap items-center justify-between gap-3 bg-[#0a1120] shrink-0">
+          <div className="flex items-center gap-3">
+            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+              상품 관리
+            </h2>
+            <span className="text-xs text-surface-dim font-mono tabular-nums">
+              전체 {localItems.length} · 품절 {outOfStockCount}
+              {hasChanges && (
+                <span className="ml-2 text-amber-300 font-sans font-bold">
+                  · 수정 {modifiedItems.length}건
+                </span>
+              )}
+            </span>
           </div>
 
-          <div className="flex items-center justify-between sm:justify-end space-x-2 w-full sm:w-auto overflow-x-auto pb-0.5 sm:pb-0">
-            {/* Header Save & Revert buttons when hasChanges */}
+          <div className="flex items-center gap-2 ml-auto">
             {hasChanges && (
-              <div className="flex items-center space-x-1.5 mr-1">
+              <div className="flex items-center gap-1.5 mr-1">
                 <button
                   type="button"
                   onClick={handleDiscardChanges}
                   disabled={isSavingChanges}
-                  title="수정한 내용을 모두 버리고 원래대로 복원"
-                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-surface-dim hover:text-white transition-all flex items-center space-x-1 cursor-pointer disabled:opacity-50 shrink-0"
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer disabled:opacity-50"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">되돌리기</span>
+                  초기화
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveChanges}
                   disabled={isSavingChanges}
-                  title="수정한 모든 재고 및 상품 정보를 데이터베이스에 일괄 저장"
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 transition-all flex items-center space-x-1.5 shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer disabled:opacity-50 shrink-0"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-secondary hover:bg-secondary/90 text-white transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {isSavingChanges ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-950" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <Save className="w-3.5 h-3.5 text-slate-950" />
+                    <Save className="w-3.5 h-3.5" />
                   )}
-                  <span>저장하기 ({modifiedItems.length})</span>
+                  <span>저장 ({modifiedItems.length})</span>
                 </button>
               </div>
             )}
 
-            {/* Tabs */}
-            <div className="flex items-center gap-1 bg-[#162035] p-1 rounded-xl sm:rounded-2xl border border-white/10 text-xs shrink-0 max-w-full overflow-x-auto">
+            {!effectiveIsAdmin && (
+              <button
+                type="button"
+                onClick={handleGoogleAdminLogin}
+                disabled={isGoogleLoading}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white border border-white/10 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+              >
+                {isGoogleLoading ? '...' : '관리자 전환'}
+              </button>
+            )}
+
+            {/* Segmented Tabs */}
+            <div className="flex items-center gap-1 bg-primary p-1 rounded-lg border border-white/10 text-xs shrink-0">
               <button
                 type="button"
                 onClick={() => setActiveTab('items')}
-                title={`상품/재고 (${localItems.length})`}
-                className={`w-8 h-8 sm:w-auto sm:h-auto sm:px-3.5 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-md font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                   activeTab === 'items'
-                    ? 'bg-secondary text-on-secondary shadow'
+                    ? 'bg-secondary text-white font-bold'
                     : 'text-surface-dim hover:text-white'
                 }`}
               >
-                <Boxes className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">상품/재고 ({localItems.length})</span>
+                상품 ({localItems.length})
               </button>
-
               <button
                 type="button"
                 onClick={() => setActiveTab('categories')}
-                title={`카테고리 (${localCategories.length})`}
-                className={`w-8 h-8 sm:w-auto sm:h-auto sm:px-3.5 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-md font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                   activeTab === 'categories'
-                    ? 'bg-secondary text-on-secondary shadow'
+                    ? 'bg-secondary text-white font-bold'
                     : 'text-surface-dim hover:text-white'
                 }`}
               >
-                <Tag className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">카테고리 ({localCategories.length})</span>
+                카테고리 ({localCategories.length})
               </button>
-
               <button
                 type="button"
                 onClick={() => setActiveTab('presets')}
-                title={`프리셋 (${allPresets.length})`}
-                className={`w-8 h-8 sm:w-auto sm:h-auto sm:px-3.5 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-md font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                   activeTab === 'presets'
-                    ? 'bg-secondary text-on-secondary shadow'
+                    ? 'bg-secondary text-white font-bold'
                     : 'text-surface-dim hover:text-white'
                 }`}
               >
-                <Layers className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">프리셋 ({allPresets.length})</span>
+                프리셋 ({allPresets.length})
               </button>
             </div>
 
-            {/* Desktop Close */}
             <button
               type="button"
               onClick={handleAttemptClose}
-              className="hidden sm:flex w-9 h-9 rounded-2xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white items-center justify-center transition-colors cursor-pointer shrink-0"
+              className="p-2 rounded-lg text-surface-dim hover:text-white hover:bg-white/5 transition-colors cursor-pointer shrink-0"
             >
               <X className="w-5 h-5" />
             </button>
@@ -1004,18 +958,17 @@ export function PosProductManagerModal({
         {/* Tab 1: Items Management */}
         {activeTab === 'items' && (
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-            {/* Control Bar: Search, Category Filters, Clear Favorites, Add Button */}
-            <div className="p-2.5 sm:p-4 border-b border-white/10 bg-white/[0.01] flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-3 shrink-0">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                {/* Search Bar */}
-                <div className="relative w-full sm:w-64 shrink-0">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-dim" />
+            {/* Toolbar */}
+            <div className="px-4 sm:px-6 py-3 border-b border-white/10 bg-[#0a1120]/50 flex flex-col md:flex-row md:items-center justify-between gap-2.5 shrink-0">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 flex-1 min-w-0">
+                <div className="relative w-full sm:w-56 shrink-0">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-surface-dim" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="상품명 검색..."
-                    className="w-full bg-[#162035] border border-white/10 rounded-xl pl-9 pr-8 py-2 text-xs text-white focus:outline-none focus:border-secondary placeholder:text-surface-dim/50"
+                    placeholder="상품 검색"
+                    className="w-full bg-[#0a1120] border border-white/10 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white focus:outline-none focus:border-secondary placeholder:text-surface-dim/40"
                   />
                   {searchQuery && (
                     <button
@@ -1028,624 +981,322 @@ export function PosProductManagerModal({
                   )}
                 </div>
 
-                {/* Category Filter Pills */}
-                <div className="flex items-center space-x-1.5 overflow-x-auto py-0.5 max-w-full scrollbar-hide">
+                {/* Filter Tabs */}
+                <div className="flex items-center gap-1 overflow-x-auto py-0.5 max-w-full scrollbar-hide">
                   <button
                     type="button"
                     onClick={() => setSelectedCategoryFilter('ALL')}
-                    className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors shrink-0 ${
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
                       selectedCategoryFilter === 'ALL'
-                        ? 'bg-white text-black font-bold'
+                        ? 'bg-secondary text-white font-bold'
                         : 'bg-white/5 text-surface-dim hover:text-white'
                     }`}
                   >
-                    전체 ({localItems.length})
+                    전체
                   </button>
-
-                  {/* Favorites Category Filter */}
                   <button
                     type="button"
                     onClick={() => setSelectedCategoryFilter('FAVORITES')}
-                    className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 flex items-center space-x-1.5 ${
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors shrink-0 flex items-center gap-1 cursor-pointer ${
                       selectedCategoryFilter === 'FAVORITES'
-                        ? 'bg-amber-400 text-slate-950 font-bold shadow-md shadow-amber-400/20'
-                        : 'bg-amber-400/10 text-amber-300 hover:bg-amber-400/20 border border-amber-400/25'
+                        ? 'bg-secondary text-white font-bold'
+                        : 'bg-white/5 text-surface-dim hover:text-white'
                     }`}
                   >
-                    <Star
-                      className={`w-3.5 h-3.5 ${
-                        selectedCategoryFilter === 'FAVORITES'
-                          ? 'fill-slate-950 text-slate-950'
-                          : 'fill-amber-400 text-amber-400'
-                      }`}
-                    />
+                    <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                     <span>즐겨찾기 ({favoritesCount})</span>
                   </button>
-
-                  {/* Sold-out Category Filter */}
                   <button
                     type="button"
                     onClick={() => setSelectedCategoryFilter('SOLDOUT')}
-                    className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 flex items-center space-x-1.5 ${
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
                       selectedCategoryFilter === 'SOLDOUT'
-                        ? 'bg-rose-500 text-white font-bold shadow-md shadow-rose-500/20'
-                        : 'bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 border border-rose-500/25'
+                        ? 'bg-rose-600 text-white font-bold'
+                        : 'bg-white/5 text-surface-dim hover:text-white'
                     }`}
                   >
-                    <Ban className="w-3.5 h-3.5" />
-                    <span>품절 ({outOfStockCount})</span>
+                    품절 ({outOfStockCount})
                   </button>
 
                   {localCategories.map(cat => {
                     const catCleanName = cat.name.trim().toLowerCase();
-                    const count = localItems.filter(it => (it.categoryId || '').trim().toLowerCase() === catCleanName).length;
+                    const isSelected = selectedCategoryFilter.trim().toLowerCase() === catCleanName;
                     return (
                       <button
                         key={cat.name}
                         type="button"
                         onClick={() => setSelectedCategoryFilter(cat.name)}
-                        className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors shrink-0 ${
-                          selectedCategoryFilter.trim().toLowerCase() === catCleanName
-                            ? 'bg-secondary text-on-secondary font-bold'
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
+                          isSelected
+                            ? 'bg-secondary text-white font-bold'
                             : 'bg-white/5 text-surface-dim hover:text-white'
                         }`}
                       >
-                        {cat.name} ({count})
+                        {cat.name}
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Actions Right */}
-              <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 shrink-0">
-                {/* View Mode & Column Density Controls */}
-                <div className="flex items-center bg-[#162035] border border-white/10 rounded-xl p-0.5">
+              <div className="flex items-center justify-end gap-2 shrink-0">
+                {selectedCategoryFilter === 'FAVORITES' && favoritesCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowClearFavoritesConfirm(true)}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+                  >
+                    즐겨찾기 초기화
+                  </button>
+                )}
+
+                <div className="flex items-center bg-[#0a1120] border border-white/10 rounded-lg p-0.5">
                   <button
                     type="button"
                     onClick={() => setViewMode('grid')}
-                    title="카드 그리드 뷰"
-                    className={`p-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                      viewMode === 'grid'
-                        ? 'bg-secondary text-on-secondary shadow-sm'
-                        : 'text-surface-dim hover:text-white'
+                    title="그리드"
+                    className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                      viewMode === 'grid' ? 'bg-secondary text-white' : 'text-surface-dim hover:text-white'
                     }`}
                   >
-                    <LayoutGrid className="w-4 h-4" />
+                    <LayoutGrid className="w-3.5 h-3.5" />
                   </button>
                   <button
                     type="button"
                     onClick={() => setViewMode('table')}
-                    title="컴팩트 표(테이블) 뷰"
-                    className={`p-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                      viewMode === 'table'
-                        ? 'bg-secondary text-on-secondary shadow-sm'
-                        : 'text-surface-dim hover:text-white'
+                    title="목록"
+                    className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                      viewMode === 'table' ? 'bg-secondary text-white' : 'text-surface-dim hover:text-white'
                     }`}
                   >
-                    <List className="w-4 h-4" />
+                    <List className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                {/* Column Count Preset Pills (when in grid mode, on medium+ screens) */}
-                {viewMode === 'grid' && (
-                  <div className="hidden sm:flex items-center bg-[#162035] border border-white/10 rounded-xl p-0.5 text-[11px] font-bold">
-                    <button
-                      type="button"
-                      onClick={() => setColDensity('auto')}
-                      title="화면 너비에 맞춰 자동 조정"
-                      className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
-                        colDensity === 'auto'
-                          ? 'bg-white/20 text-white shadow-sm'
-                          : 'text-surface-dim hover:text-white'
-                      }`}
-                    >
-                      자동
-                    </button>
-                    {(['2', '3', '4', '5'] as const).map(col => (
-                      <button
-                        key={col}
-                        type="button"
-                        onClick={() => setColDensity(col)}
-                        title={`${col}열 고정`}
-                        className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
-                          colDensity === col
-                            ? 'bg-white/20 text-white shadow-sm'
-                            : 'text-surface-dim hover:text-white'
-                        }`}
-                      >
-                        {col}열
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Add New Item Button */}
                 <button
                   type="button"
                   onClick={() => {
                     setEditingItem(null);
                     setShowAddModal(true);
                   }}
-                  className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold bg-secondary text-on-secondary hover:brightness-110 transition-all flex items-center space-x-1 sm:space-x-1.5 shadow-md cursor-pointer shrink-0"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-secondary text-white hover:bg-secondary/90 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span className="whitespace-nowrap">상품 등록</span>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>상품 추가</span>
                 </button>
               </div>
             </div>
 
-            {/* Items Grid / Table List */}
-            <div className={`flex-1 overflow-y-auto p-2.5 sm:p-5 min-h-0 custom-scrollbar ${hasChanges ? 'pb-28 sm:pb-24' : ''}`}>
-              {/* Category-level Favorites Management Banner */}
-              {selectedCategoryFilter === 'FAVORITES' && (
-                <div className="mb-3 px-3.5 py-2.5 bg-amber-500/10 border border-amber-500/25 rounded-2xl flex flex-wrap items-center justify-between gap-2.5">
-                  <div className="flex items-center space-x-2 text-xs text-amber-300">
-                    <Star className="w-4 h-4 fill-amber-400 text-amber-400 shrink-0" />
-                    <span>
-                      즐겨찾기 상품 <strong>{favoritesCount}개</strong>를 모아보고 있습니다.
-                    </span>
-                  </div>
-                  {favoritesCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowClearFavoritesConfirm(true)}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 flex items-center space-x-1.5 transition-all cursor-pointer shrink-0 shadow-sm"
-                    >
-                      <StarOff className="w-3.5 h-3.5 text-amber-400" />
-                      <span>즐겨찾기 모두 해제</span>
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Status Strip */}
-              <div className="mb-3 px-3.5 py-2.5 bg-[#111c33] border border-white/10 rounded-2xl flex flex-wrap items-center justify-between gap-2.5 text-xs">
-                <div className="flex items-center gap-3 text-surface-dim flex-wrap">
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                    <span>판매중 <strong className="text-emerald-300 font-bold">{inStockCount}</strong>종</span>
-                  </span>
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                    <span>품절 <strong className="text-rose-400 font-bold">{outOfStockCount}</strong>종</span>
-                  </span>
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <TrendingUp className="w-3.5 h-3.5 text-secondary shrink-0" />
-                    <span>누적 판매 <strong className="text-white font-mono font-bold">{totalSoldCount}</strong>개</span>
-                  </span>
-                </div>
-              </div>
-
+            {/* Items List / Grid */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 min-h-0 custom-scrollbar">
               {filteredItems.length === 0 ? (
-                <div className="h-64 flex flex-col items-center justify-center text-center">
-                  <Boxes className="w-12 h-12 text-surface-dim/40 mb-3" />
-                  <p className="text-surface-dim text-sm font-medium">검색된 상품이 없습니다.</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingItem(null);
-                      setShowAddModal(true);
-                    }}
-                    className="mt-3 text-xs text-secondary font-bold hover:underline cursor-pointer"
-                  >
-                    새 상품 추가하기
-                  </button>
+                <div className="h-56 flex flex-col items-center justify-center text-center">
+                  <p className="text-surface-dim text-sm">표시할 상품이 없습니다.</p>
                 </div>
               ) : viewMode === 'table' ? (
-                /* Compact View: Mobile friendly list rows on small screens, clean table on sm+ */
-                <div>
-                  {/* Mobile Row View (Block/Card rows without horizontal scroll) */}
-                  <div className="block sm:hidden space-y-2">
-                    {filteredItems.map(item => {
-                      const category = findCategoryOfItem(item.categoryId);
-                      const isSoldOut = isItemSoldOut(item);
-                      const isItemModified = modifiedItems.some(m => m.id === item.id);
+                <div className="border-t border-b border-white/10 overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-white/10 text-surface-dim text-[11px]">
+                        <th className="py-2.5 px-3 w-10 text-center">★</th>
+                        <th className="py-2.5 px-3">상품명</th>
+                        <th className="py-2.5 px-3">카테고리</th>
+                        <th className="py-2.5 px-3 text-right">가격</th>
+                        <th className="py-2.5 px-3 text-right">판매량</th>
+                        <th className="py-2.5 px-3 text-center">상태</th>
+                        <th className="py-2.5 px-3 text-center hidden sm:table-cell">노출</th>
+                        <th className="py-2.5 px-3 text-right">관리</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {filteredItems.map(item => {
+                        const category = findCategoryOfItem(item.categoryId);
+                        const isSoldOut = isItemSoldOut(item);
+                        const isItemModified = modifiedItems.some(m => m.id === item.id);
+                        const todaySold = todaySoldMap?.[item.id] || 0;
 
-                      return (
-                        <div
-                          key={item.id}
-                          className={`p-3 rounded-xl border transition-colors bg-[#111c33] ${
-                            !item.isActive
-                              ? 'border-white/5 opacity-60'
-                              : isSoldOut
-                              ? 'border-rose-900/40 bg-rose-950/15'
-                              : isItemModified
-                              ? 'border-amber-500/40'
-                              : 'border-white/10'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                        return (
+                          <tr
+                            key={item.id}
+                            className={`hover:bg-white/[0.02] transition-colors ${!item.isActive ? 'opacity-45' : ''}`}
+                          >
+                            <td className="py-2.5 px-3 text-center">
                               <button
                                 type="button"
                                 onClick={() => handleToggleFavorite(item.id)}
-                                className="p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+                                className="p-1 text-surface-dim hover:text-white cursor-pointer"
                               >
                                 <Star
-                                  className={`w-4 h-4 ${
-                                    item.isFavorite
-                                      ? 'fill-amber-300 text-amber-300'
-                                      : 'text-surface-dim'
+                                  className={`w-3.5 h-3.5 ${
+                                    item.isFavorite ? 'fill-amber-400 text-amber-400' : 'text-surface-dim/40'
                                   }`}
                                 />
                               </button>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-white/5 text-surface-dim">
-                                    {category?.name || '미분류'}
-                                  </span>
-                                </div>
-                                <h4 className="text-sm font-bold text-white truncate mt-0.5">{item.name}</h4>
-                              </div>
-                            </div>
-
-                            <div className="text-right shrink-0">
-                              <div className="text-sm font-mono font-bold text-amber-300">
-                                {item.price.toLocaleString()}원
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleToggleActive(item.id)}
-                                className={`mt-1 px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors cursor-pointer ${
-                                  item.isActive
-                                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
-                                    : 'bg-red-500/15 border-red-500/30 text-red-300'
-                                }`}
-                              >
-                                {item.isActive ? '진열중' : '숨김'}
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Mobile Row Bottom: Sold Out Toggle & Sales Count */}
-                          <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 flex-wrap min-w-0">
-                              {/* Sold Out Toggle Button */}
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-white">
+                              <span>{item.name}</span>
+                              {isItemModified && (
+                                <span className="ml-1.5 text-[10px] text-amber-300 font-normal">· 수정</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-surface-dim">{category?.name || '미분류'}</td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-white tabular-nums">
+                              {item.price.toLocaleString()}원
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono tabular-nums text-surface-dim">
+                              {todaySold > 0 && (
+                                <span className="text-secondary-container font-bold mr-1.5">
+                                  오늘 {todaySold}
+                                </span>
+                              )}
+                              <span>누적 {item.totalSold || 0}</span>
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
                               <button
                                 type="button"
                                 onClick={() => handleToggleSoldOut(item.id)}
-                                title={isSoldOut ? '클릭 시 판매중으로 변경' : '클릭 시 품절로 변경'}
-                                className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all flex items-center space-x-1 cursor-pointer active:scale-95 ${
+                                className={`px-2 py-0.5 rounded text-[11px] font-bold border transition-colors cursor-pointer ${
                                   isSoldOut
-                                    ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 hover:bg-rose-500/30 shadow-xs'
-                                    : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 shadow-xs'
+                                    ? 'bg-rose-500/15 border-rose-500/30 text-rose-300'
+                                    : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
                                 }`}
                               >
-                                {isSoldOut ? (
-                                  <>
-                                    <Ban className="w-3.5 h-3.5 text-rose-400" />
-                                    <span>품절</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                    <span>판매중</span>
-                                  </>
-                                )}
+                                {isSoldOut ? '품절' : '판매중'}
                               </button>
-
-                              {/* Sales Count */}
-                              <div className="flex items-center space-x-1 text-xs text-surface-dim font-mono">
-                                <TrendingUp className="w-3.5 h-3.5 text-secondary shrink-0" />
-                                <span>판매 <strong className="text-white font-bold">{item.totalSold || 0}</strong>개</span>
-                              </div>
-
-                              {isItemModified && (
-                                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold whitespace-nowrap">
-                                  수정됨
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-1.5 shrink-0">
+                            </td>
+                            <td className="py-2.5 px-3 text-center hidden sm:table-cell">
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setEditingItem(item);
-                                  setShowAddModal(true);
-                                }}
-                                title="상품 수정"
-                                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+                                onClick={() => handleToggleActive(item.id)}
+                                className={`text-[11px] font-semibold cursor-pointer ${
+                                  item.isActive ? 'text-surface-dim hover:text-white' : 'text-rose-400'
+                                }`}
                               >
-                                <Edit2 className="w-3.5 h-3.5" />
+                                {item.isActive ? '진열' : '숨김'}
                               </button>
-                              {effectiveIsAdmin && (
+                            </td>
+                            <td className="py-2.5 px-3 text-right">
+                              <div className="flex items-center justify-end gap-1">
                                 <button
                                   type="button"
-                                  onClick={() => setDeleteConfirmItem(item)}
-                                  title="상품 삭제"
-                                  className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 transition-colors cursor-pointer"
+                                  onClick={() => {
+                                    setEditingItem(item);
+                                    setShowAddModal(true);
+                                  }}
+                                  className="p-1.5 rounded text-surface-dim hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <Edit2 className="w-3.5 h-3.5" />
                                 </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Tablet & Desktop Table View */}
-                  <div className="hidden sm:block border border-white/10 rounded-2xl overflow-x-auto bg-[#111c33] max-w-full">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="bg-white/5 border-b border-white/10 text-surface-dim uppercase font-mono text-[11px]">
-                          <th className="py-3 px-3 w-10 text-center">★</th>
-                          <th className="py-3 px-4">상품명</th>
-                          <th className="py-3 px-3">카테고리</th>
-                          <th className="py-3 px-4 text-right">판매가</th>
-                          <th className="py-3 px-3 text-center">품절 여부 (토글)</th>
-                          <th className="py-3 px-3 text-center">누적 판매량</th>
-                          <th className="py-3 px-3 text-center">진열 상태</th>
-                          <th className="py-3 px-4 text-right">관리</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {filteredItems.map(item => {
-                          const category = findCategoryOfItem(item.categoryId);
-                          const isSoldOut = isItemSoldOut(item);
-                          const isItemModified = modifiedItems.some(m => m.id === item.id);
-
-                          return (
-                            <tr
-                              key={item.id}
-                              className={`hover:bg-white/[0.03] transition-colors ${
-                                !item.isActive ? 'opacity-50' : ''
-                              } ${isSoldOut ? 'bg-rose-950/10' : ''}`}
-                            >
-                              <td className="py-3 px-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleFavorite(item.id)}
-                                  className="p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-                                >
-                                  <Star
-                                    className={`w-4 h-4 ${
-                                      item.isFavorite
-                                        ? 'fill-amber-300 text-amber-300'
-                                        : 'text-surface-dim'
-                                    }`}
-                                  />
-                                </button>
-                              </td>
-                              <td className="py-3 px-4 font-bold text-white">
-                                <div className="flex items-center space-x-1.5">
-                                  <span>{item.name}</span>
-                                  {isItemModified && (
-                                    <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold whitespace-nowrap">
-                                      수정됨
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-3 px-3 text-surface-dim">
-                                <span className="px-2 py-0.5 rounded-full bg-white/5 text-[11px]">
-                                  {category?.name || '미분류'}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 text-right font-mono font-bold text-amber-300">
-                                {item.price.toLocaleString()}원
-                              </td>
-                              <td className="py-3 px-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleSoldOut(item.id)}
-                                  title={isSoldOut ? '클릭 시 판매중으로 변경' : '클릭 시 품절로 변경'}
-                                  className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all inline-flex items-center space-x-1.5 cursor-pointer active:scale-95 ${
-                                    isSoldOut
-                                      ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 hover:bg-rose-500/30 shadow-xs'
-                                      : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 shadow-xs'
-                                  }`}
-                                >
-                                  {isSoldOut ? (
-                                    <>
-                                      <Ban className="w-3.5 h-3.5 text-rose-400" />
-                                      <span>품절 (SOLD OUT)</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                      <span>판매중 (정상)</span>
-                                    </>
-                                  )}
-                                </button>
-                              </td>
-                              <td className="py-3 px-3 text-center">
-                                <div className="inline-flex items-center space-x-1 font-mono text-xs text-surface-dim">
-                                  <TrendingUp className="w-3.5 h-3.5 text-secondary shrink-0" />
-                                  <span className="font-bold text-white">{item.totalSold || 0}</span>
-                                  <span>개</span>
-                                </div>
-                              </td>
-                              <td className="py-3 px-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleActive(item.id)}
-                                  className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
-                                    item.isActive
-                                      ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
-                                      : 'bg-red-500/15 border-red-500/30 text-red-300'
-                                  }`}
-                                >
-                                  {item.isActive ? '진열중' : '숨김'}
-                                </button>
-                              </td>
-                              <td className="py-3 px-4 text-right">
-                                <div className="flex items-center justify-end space-x-1.5">
+                                {effectiveIsAdmin && (
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      setEditingItem(item);
-                                      setShowAddModal(true);
-                                    }}
-                                    title="상품 수정"
-                                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+                                    onClick={() => setDeleteConfirmItem(item)}
+                                    className="p-1.5 rounded text-surface-dim hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                                   >
-                                    <Edit2 className="w-3.5 h-3.5" />
+                                    <Trash2 className="w-3.5 h-3.5" />
                                   </button>
-                                  {effectiveIsAdmin && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setDeleteConfirmItem(item)}
-                                      title="상품 삭제"
-                                      className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 transition-colors cursor-pointer"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               ) : (
-                /* Responsive Grid View (2-column layout on mobile, responsive on tablet/desktop) */
-                <div
-                  className={
-                    colDensity === '2'
-                      ? 'grid grid-cols-2 gap-2 sm:gap-3.5'
-                      : colDensity === '3'
-                      ? 'grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3.5'
-                      : colDensity === '4'
-                      ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3.5'
-                      : colDensity === '5'
-                      ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3'
-                      : 'grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 min-[1800px]:grid-cols-7 gap-2 sm:gap-3.5'
-                  }
-                >
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
                   {filteredItems.map(item => {
                     const category = findCategoryOfItem(item.categoryId);
                     const isSoldOut = isItemSoldOut(item);
                     const isItemModified = modifiedItems.some(m => m.id === item.id);
+                    const todaySold = todaySoldMap?.[item.id] || 0;
 
                     return (
                       <div
                         key={item.id}
-                        className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                        className={`p-3 rounded-xl border transition-colors flex flex-col justify-between bg-[#0a1120] ${
                           !item.isActive
-                            ? 'bg-[#0f172a]/60 border-white/5 opacity-60'
+                            ? 'border-white/5 opacity-45'
                             : isSoldOut
-                            ? 'bg-rose-950/20 border-rose-900/40'
+                            ? 'border-rose-500/30'
                             : isItemModified
-                            ? 'bg-[#111c33] border-amber-500/40 shadow-sm'
-                            : 'bg-[#111c33] border-white/10 hover:border-white/20 shadow-sm'
+                            ? 'border-amber-500/40'
+                            : 'border-white/10 hover:border-white/20'
                         }`}
                       >
-                        {/* Item Top Info */}
-                        <div className="flex items-start justify-between gap-2 mb-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-1.5 mb-1">
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-surface-dim">
-                                {category?.name || '미분류'}
-                              </span>
-                              {isItemModified && (
-                                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold whitespace-nowrap">
-                                  수정됨
-                                </span>
-                              )}
-                            </div>
-                            <h3 className="text-sm font-bold text-white truncate">{item.name}</h3>
-                            <div className="text-xs font-mono font-bold text-amber-300 mt-0.5">
+                        <div>
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="text-[11px] text-surface-dim truncate">
+                              {category?.name || '미분류'}
+                              {isItemModified ? ' · 수정' : ''}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleFavorite(item.id)}
+                              className="p-0.5 text-surface-dim hover:text-white transition-colors cursor-pointer shrink-0"
+                            >
+                              <Star
+                                className={`w-3.5 h-3.5 ${item.isFavorite ? 'fill-amber-400 text-amber-400' : ''}`}
+                              />
+                            </button>
+                          </div>
+
+                          <h3 className="text-sm font-bold text-white truncate" title={item.name}>
+                            {item.name}
+                          </h3>
+                          <div className="flex items-baseline justify-between gap-1.5 mt-0.5">
+                            <span className="text-xs font-mono font-bold text-secondary-container tabular-nums">
                               {item.price.toLocaleString()}원
-                            </div>
-                          </div>
-
-                          {/* Star Toggle */}
-                          <button
-                            type="button"
-                            onClick={() => handleToggleFavorite(item.id)}
-                            title={item.isFavorite ? '즐겨찾기 해제' : '즐겨찾기 등록'}
-                            className={`p-1.5 rounded-xl transition-colors cursor-pointer shrink-0 ${
-                              item.isFavorite
-                                ? 'bg-amber-500/20 text-amber-300'
-                                : 'bg-white/5 text-surface-dim hover:text-white'
-                            }`}
-                          >
-                            <Star
-                              className={`w-4 h-4 ${item.isFavorite ? 'fill-amber-300' : ''}`}
-                            />
-                          </button>
-                        </div>
-
-                        {/* Sold Out Toggle & Sales Count */}
-                        <div className="bg-[#0b1324] border border-white/5 rounded-xl p-2 sm:p-2.5 flex flex-col gap-2 mb-2.5">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleSoldOut(item.id)}
-                            title={isSoldOut ? '클릭 시 판매중으로 변경' : '클릭 시 품절로 변경'}
-                            className={`w-full py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95 ${
-                              isSoldOut
-                                ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 hover:bg-rose-500/30 shadow-xs'
-                                : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 shadow-xs'
-                            }`}
-                          >
-                            {isSoldOut ? (
-                              <>
-                                <Ban className="w-4 h-4 text-rose-400" />
-                                <span>품절 (SOLD OUT)</span>
-                              </>
-                            ) : (
-                              <>
-                                <Check className="w-4 h-4 text-emerald-400" />
-                                <span>판매중 (정상)</span>
-                              </>
-                            )}
-                          </button>
-
-                          <div className="flex items-center justify-between text-xs font-mono text-surface-dim pt-0.5 px-0.5">
-                            <span className="flex items-center space-x-1">
-                              <TrendingUp className="w-3.5 h-3.5 text-secondary shrink-0" />
-                              <span>판매: <strong className="text-white font-bold">{item.totalSold || 0}</strong>개</span>
                             </span>
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isSoldOut ? 'bg-rose-500/20 text-rose-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
-                              {isSoldOut ? '품절' : '정상'}
+                            <span className="text-[11px] font-mono tabular-nums text-surface-dim shrink-0">
+                              {todaySold > 0 ? `오늘 ${todaySold} · ` : ''}판매 {item.totalSold || 0}
                             </span>
                           </div>
                         </div>
 
-                        {/* Bottom Actions: Active Toggle, Edit, Delete */}
-                        <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                          {/* Active / Pause */}
-                          <button
-                            type="button"
-                            onClick={() => handleToggleActive(item.id)}
-                            title={item.isActive ? '진열 숨김으로 전환' : '진열 노출로 전환'}
-                            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
-                              item.isActive
-                                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25'
-                                : 'bg-red-500/15 border-red-500/30 text-red-300 hover:bg-red-500/25'
-                            }`}
-                          >
-                            {item.isActive ? '진열중' : '숨김'}
-                          </button>
+                        <div className="flex items-center justify-between gap-1 pt-2.5 mt-2.5 border-t border-white/5">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSoldOut(item.id)}
+                              className={`px-2 py-0.5 rounded text-[11px] font-bold border transition-colors cursor-pointer ${
+                                isSoldOut
+                                  ? 'bg-rose-500/15 border-rose-500/30 text-rose-300'
+                                  : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+                              }`}
+                            >
+                              {isSoldOut ? '품절' : '판매중'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleActive(item.id)}
+                              className={`px-1.5 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                                item.isActive
+                                  ? 'text-surface-dim hover:text-white'
+                                  : 'text-rose-400 bg-rose-500/10'
+                              }`}
+                            >
+                              {item.isActive ? '진열' : '숨김'}
+                            </button>
+                          </div>
 
-                          <div className="flex items-center space-x-1.5">
-                            {/* Edit */}
+                          <div className="flex items-center gap-0.5">
                             <button
                               type="button"
                               onClick={() => {
                                 setEditingItem(item);
                                 setShowAddModal(true);
                               }}
-                              title="상품 수정"
-                              className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                              className="p-1 rounded text-surface-dim hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
-
-                            {/* Delete */}
                             {effectiveIsAdmin && (
                               <button
                                 type="button"
                                 onClick={() => setDeleteConfirmItem(item)}
-                                title="상품 삭제"
-                                className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-300"
+                                className="p-1 rounded text-surface-dim hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1658,88 +1309,31 @@ export function PosProductManagerModal({
                 </div>
               )}
             </div>
-
-            {/* Bottom Floating Batch Save Bar when changes exist */}
-            {hasChanges && (
-              <div className="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4 z-30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 bg-[#0d162b]/95 backdrop-blur-md border border-emerald-500/40 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-3 duration-200">
-                <div className="flex items-center space-x-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center shrink-0">
-                    <Save className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="text-xs sm:text-sm font-bold text-white flex items-center space-x-1.5">
-                      <span>수정된 품목이 <strong className="text-emerald-300 font-extrabold underline decoration-emerald-400">{modifiedItems.length}건</strong> 있습니다.</span>
-                    </div>
-                    <p className="text-[11px] text-surface-dim hidden sm:block">
-                      재고 증감 및 정보 변경을 모두 마친 후 [변경사항 일괄 저장]을 누르면 즉시 동기화되고 단 1개의 활동 로그만 기록됩니다.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2 shrink-0 self-end sm:self-auto">
-                  <button
-                    type="button"
-                    onClick={handleDiscardChanges}
-                    disabled={isSavingChanges}
-                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-surface-dim hover:text-white transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>되돌리기</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveChanges}
-                    disabled={isSavingChanges}
-                    className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 transition-all flex items-center space-x-1.5 shadow-lg shadow-emerald-500/25 active:scale-95 cursor-pointer disabled:opacity-50"
-                  >
-                    {isSavingChanges ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
-                    ) : (
-                      <Check className="w-4 h-4 text-slate-950" />
-                    )}
-                    <span>변경사항 일괄 저장 ({modifiedItems.length})</span>
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
         {/* Tab 2: Category Management */}
         {activeTab === 'categories' && (
-          <div className="flex-1 flex flex-col p-3.5 sm:p-6 min-h-0 overflow-y-auto custom-scrollbar relative">
-            {/* Add New Category Box */}
-            <form
-              onSubmit={handleAddCategory}
-              className="bg-[#111c33] border border-white/10 p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 mb-4 sm:mb-6 shrink-0"
-            >
-              <div className="flex items-center space-x-2.5 flex-1 min-w-0">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-secondary/15 text-secondary flex items-center justify-center shrink-0">
-                  <Tag className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  value={newCatName}
-                  onChange={e => setNewCatName(e.target.value)}
-                  placeholder="새 카테고리 이름 입력 (예: 제과류, 핫도그, 음료)"
-                  className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-secondary placeholder:text-surface-dim/50"
-                />
-              </div>
+          <div className="flex-1 flex flex-col p-4 sm:p-6 min-h-0 overflow-y-auto custom-scrollbar max-w-3xl w-full mx-auto">
+            <form onSubmit={handleAddCategory} className="flex items-center gap-2 mb-5 shrink-0">
+              <input
+                type="text"
+                value={newCatName}
+                onChange={e => setNewCatName(e.target.value)}
+                placeholder="새 카테고리 이름"
+                className="flex-1 bg-[#0a1120] border border-white/10 rounded-lg px-3.5 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-secondary placeholder:text-surface-dim/40"
+              />
               <button
                 type="submit"
                 disabled={!newCatName.trim()}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-secondary text-on-secondary disabled:opacity-40 hover:brightness-110 transition-all flex items-center justify-center space-x-1 shrink-0 cursor-pointer h-9 sm:h-auto"
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-secondary text-white disabled:opacity-40 hover:bg-secondary/90 transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>카테고리 추가</span>
+                <span>추가</span>
               </button>
             </form>
 
-            {/* Category List */}
-            <div className="space-y-2.5">
-              <h3 className="text-xs font-bold text-surface-dim uppercase tracking-wider mb-2">
-                등록된 카테고리 목록 (순서 및 품목 수)
-              </h3>
+            <div className="border-t border-b border-white/10 divide-y divide-white/5">
               {localCategories.map((cat, idx) => {
                 const assignedItemsCount = localItems.filter(
                   it => it.categoryId.trim().toLowerCase() === cat.name.trim().toLowerCase()
@@ -1749,73 +1343,64 @@ export function PosProductManagerModal({
                 return (
                   <div
                     key={cat.name}
-                    className="p-3.5 rounded-2xl bg-[#111c33] border border-white/10 flex items-center justify-between gap-3"
+                    className="py-3 px-2 flex items-center justify-between gap-3 hover:bg-white/[0.02] transition-colors"
                   >
-                    {/* Index & Name */}
-                    <div className="flex items-center space-x-3 min-w-0 flex-1">
-                      <span className="w-6 h-6 rounded-lg bg-white/5 text-surface-dim font-mono text-xs font-bold flex items-center justify-center">
-                        {idx + 1}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className="w-6 text-surface-dim font-mono text-xs tabular-nums">
+                        {String(idx + 1).padStart(2, '0')}
                       </span>
 
                       {isEditing ? (
-                        <div className="flex items-center space-x-2 flex-1 max-w-sm">
+                        <div className="flex items-center gap-1.5 flex-1 max-w-xs">
                           <input
                             type="text"
                             value={editingCatName}
                             onChange={e => setEditingCatName(e.target.value)}
-                            className="bg-[#1e293b] border border-secondary rounded-lg px-2.5 py-1 text-sm text-white focus:outline-none flex-1"
+                            className="bg-[#0a1120] border border-secondary rounded-md px-2.5 py-1 text-xs sm:text-sm text-white focus:outline-none flex-1"
                             autoFocus
                           />
                           <button
                             type="button"
                             onClick={() => handleSaveCategoryName(cat.name)}
-                            className="p-1.5 rounded-lg bg-secondary text-on-secondary hover:brightness-110 cursor-pointer"
+                            className="p-1.5 rounded-md bg-secondary text-white cursor-pointer"
                           >
-                            <Check className="w-4 h-4" />
+                            <Check className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditingCatOldName(null)}
-                            className="p-1.5 rounded-lg bg-white/5 text-surface-dim hover:text-white cursor-pointer"
+                            className="p-1.5 rounded-md bg-white/5 text-surface-dim hover:text-white cursor-pointer"
                           >
-                            <X className="w-4 h-4" />
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-bold text-white">{cat.name}</span>
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 text-surface-dim font-medium">
-                            {assignedItemsCount}개 상품 배정됨
+                        <div className="flex items-baseline gap-2 min-w-0">
+                          <span className="text-sm font-bold text-white truncate">{cat.name}</span>
+                          <span className="text-xs font-mono tabular-nums text-surface-dim">
+                            {assignedItemsCount}개
                           </span>
                         </div>
                       )}
                     </div>
 
-                    {/* Actions: Reorder & Rename & Delete */}
-                    <div className="flex items-center space-x-1 shrink-0">
-                      {/* Move Up */}
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleMoveCategory(idx, 'up')}
                         disabled={idx === 0}
-                        title="위로 이동"
-                        className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-20 text-surface-dim hover:text-white flex items-center justify-center cursor-pointer"
+                        className="p-1.5 rounded-md hover:bg-white/10 disabled:opacity-20 text-surface-dim hover:text-white transition-colors cursor-pointer"
                       >
-                        <ArrowUp className="w-4 h-4" />
+                        <ArrowUp className="w-3.5 h-3.5" />
                       </button>
-
-                      {/* Move Down */}
                       <button
                         type="button"
                         onClick={() => handleMoveCategory(idx, 'down')}
                         disabled={idx === localCategories.length - 1}
-                        title="아래로 이동"
-                        className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-20 text-surface-dim hover:text-white flex items-center justify-center cursor-pointer"
+                        className="p-1.5 rounded-md hover:bg-white/10 disabled:opacity-20 text-surface-dim hover:text-white transition-colors cursor-pointer"
                       >
-                        <ArrowDown className="w-4 h-4" />
+                        <ArrowDown className="w-3.5 h-3.5" />
                       </button>
-
-                      {/* Rename */}
                       {!isEditing && (
                         <button
                           type="button"
@@ -1823,20 +1408,16 @@ export function PosProductManagerModal({
                             setEditingCatOldName(cat.name);
                             setEditingCatName(cat.name);
                           }}
-                          title="이름 수정"
-                          className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white flex items-center justify-center ml-1 cursor-pointer"
+                          className="p-1.5 rounded-md hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                       )}
-
-                      {/* Delete */}
                       {effectiveIsAdmin && (
                         <button
                           type="button"
                           onClick={() => setDeleteConfirmCat(cat)}
-                          title="카테고리 삭제"
-                          className="w-8 h-8 rounded-lg flex items-center justify-center ml-1 cursor-pointer transition-colors bg-red-500/10 hover:bg-red-500/20 text-red-300"
+                          className="p-1.5 rounded-md hover:bg-rose-500/10 text-surface-dim hover:text-rose-400 transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1849,123 +1430,45 @@ export function PosProductManagerModal({
           </div>
         )}
 
-        {/* Tab 3: Presets & Tools Management */}
+        {/* Tab 3: Presets (Minimal & Clean) */}
         {activeTab === 'presets' && (
-          <div className="flex-1 p-3.5 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6 custom-scrollbar">
-            {/* Admin Permission Status Banner */}
-            {effectiveIsAdmin && (
-              <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-between gap-3 shadow-sm">
-                <div className="flex items-center space-x-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <div className="text-xs">
-                    <div className="font-bold text-emerald-300">관리자 권한 활성화됨</div>
-                    <p className="text-emerald-200/80 text-[11px] sm:text-xs">
-                      새 프리셋 생성, 기존 프리셋 적용, 수정, 갱신, 삭제 및 시트 연동이 모두 가능합니다.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Section 0 & 1: Admin Only - Sheet Import & Save Current As Preset */}
-            {effectiveIsAdmin && (
-              <>
-                {/* Section 0: Google Sheets / Excel Import Card */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#0c223a] via-[#0f1d3d] to-[#0a172e] border-2 border-secondary/40 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                  <div className="flex items-start space-x-3.5">
-                    <div className="w-11 h-11 rounded-2xl bg-secondary text-on-secondary flex items-center justify-center shrink-0 shadow-lg shadow-secondary/30">
-                      <FileSpreadsheet className="w-6 h-6" />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
-                          구글 시트 / 엑셀로 새 프리셋 만들기
-                        </h3>
-                      </div>
-                      <p className="text-xs text-surface-dim leading-relaxed">
-                        시트의 [<strong>상품명, 카테고리, 판매가, 즐겨찾기</strong>] 4열 데이터를 복사-붙여넣기하거나 파일을 올려 한 번에 새 프리셋을 생성하고 포스기에 즉시 세팅합니다.
-                      </p>
-                    </div>
-                  </div>
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            {/* Compact Top Action Bar */}
+            <div className="px-4 sm:px-6 py-3 border-b border-white/10 bg-[#0a1120]/50 flex flex-col lg:flex-row lg:items-center justify-between gap-3 shrink-0">
+              {effectiveIsAdmin ? (
+                <form
+                  onSubmit={handleCreatePresetFromCurrent}
+                  className="flex items-center gap-2 flex-1 max-w-xl"
+                >
+                  <input
+                    type="text"
+                    value={newPresetName}
+                    onChange={e => setNewPresetName(e.target.value)}
+                    placeholder="현재 메뉴를 새 프리셋으로 저장 (이름 입력)"
+                    className="flex-1 bg-[#0a1120] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-secondary placeholder:text-surface-dim/40"
+                  />
                   <button
-                    type="button"
-                    onClick={() => setShowSheetImportModal(true)}
-                    className="w-full md:w-auto px-4.5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center space-x-2 shrink-0 shadow-lg active:scale-[0.98] cursor-pointer bg-secondary hover:brightness-110 text-on-secondary shadow-secondary/25"
+                    type="submit"
+                    disabled={!newPresetName.trim() || isSavingPreset}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-secondary text-white disabled:opacity-40 hover:bg-secondary/90 transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
                   >
-                    <FileSpreadsheet className="w-4 h-4" />
-                    <span>시트/엑셀 메뉴 가져오기</span>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{isSavingPreset ? '저장 중' : '현재 메뉴 저장'}</span>
                   </button>
+                </form>
+              ) : (
+                <div className="text-xs text-surface-dim">
+                  프리셋 생성 및 적용은 관리자 권한이 필요합니다.
                 </div>
+              )}
 
-                {/* Section 1: Save Current Menu as New Preset */}
-                <div className="p-3.5 sm:p-5 rounded-2xl bg-[#111c33] border border-white/10 space-y-3 sm:space-y-4">
-                  <div className="flex items-center space-x-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-secondary/15 text-secondary flex items-center justify-center shrink-0">
-                      <BookmarkPlus className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h3 className="text-xs sm:text-sm font-bold text-white">
-                        현재 메뉴 구성을 새 프리셋으로 저장
-                      </h3>
-                      <p className="text-[11px] sm:text-xs text-surface-dim">
-                        현재 활성화된 카테고리({categories.length}개) 및 상품({items.length}종)을 스냅샷으로 저장합니다.
-                      </p>
-                    </div>
-                  </div>
-
-                  <form onSubmit={handleCreatePresetFromCurrent} className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 pt-1">
-                    <div className="sm:col-span-4">
-                      <input
-                        type="text"
-                        value={newPresetName}
-                        onChange={e => setNewPresetName(e.target.value)}
-                        placeholder="프리셋 이름 (예: 축제 매점 특별메뉴)"
-                        className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-secondary placeholder:text-surface-dim/50"
-                      />
-                    </div>
-                    <div className="sm:col-span-5 md:col-span-6">
-                      <input
-                        type="text"
-                        value={newPresetDesc}
-                        onChange={e => setNewPresetDesc(e.target.value)}
-                        placeholder="프리셋 설명 (선택 사항)"
-                        className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-secondary placeholder:text-surface-dim/50"
-                      />
-                    </div>
-                    <div className="sm:col-span-3 md:col-span-2">
-                      <button
-                        type="submit"
-                        disabled={!newPresetName.trim() || isSavingPreset}
-                        className="w-full h-full py-2.5 px-3 rounded-xl text-xs font-bold bg-secondary text-on-secondary disabled:opacity-40 hover:brightness-110 transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow min-h-[38px]"
-                      >
-                        <Save className="w-3.5 h-3.5" />
-                        <span>{isSavingPreset ? '저장 중...' : '프리셋 저장'}</span>
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </>
-            )}
-
-            {/* Section 2: Preset List */}
-            <div className="space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <h3 className="text-xs font-bold text-surface-dim uppercase tracking-wider flex items-center space-x-1.5">
-                  <Layers className="w-3.5 h-3.5 text-secondary" />
-                  <span>사용 가능한 메뉴 프리셋 ({allPresets.length}개)</span>
-                </h3>
-
-                {/* Preset Filter Tabs (All / Custom / BuiltIn) */}
-                <div className="flex items-center space-x-1 bg-[#162035] border border-white/10 rounded-xl p-1 text-xs">
+              <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+                <div className="flex items-center gap-1 bg-[#0a1120] border border-white/10 rounded-lg p-0.5 text-xs">
                   <button
                     type="button"
                     onClick={() => setPresetTypeFilter('ALL')}
-                    className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                      presetTypeFilter === 'ALL'
-                        ? 'bg-secondary text-on-secondary shadow-sm'
-                        : 'text-surface-dim hover:text-white'
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                      presetTypeFilter === 'ALL' ? 'bg-secondary text-white' : 'text-surface-dim hover:text-white'
                     }`}
                   >
                     전체 ({allPresets.length})
@@ -1973,172 +1476,78 @@ export function PosProductManagerModal({
                   <button
                     type="button"
                     onClick={() => setPresetTypeFilter('CUSTOM')}
-                    className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                      presetTypeFilter === 'CUSTOM'
-                        ? 'bg-secondary text-on-secondary shadow-sm'
-                        : 'text-surface-dim hover:text-white'
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                      presetTypeFilter === 'CUSTOM' ? 'bg-secondary text-white' : 'text-surface-dim hover:text-white'
                     }`}
                   >
-                    사용자 정의 ({customPresets.length})
+                    저장됨 ({customPresets.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => setPresetTypeFilter('BUILTIN')}
-                    className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                      presetTypeFilter === 'BUILTIN'
-                        ? 'bg-secondary text-on-secondary shadow-sm'
-                        : 'text-surface-dim hover:text-white'
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                      presetTypeFilter === 'BUILTIN' ? 'bg-secondary text-white' : 'text-surface-dim hover:text-white'
                     }`}
                   >
-                    기본 프리셋 ({builtInPresets.length})
+                    기본 ({builtInPresets.length})
                   </button>
                 </div>
-              </div>
 
-              {/* Preset Cards Responsive Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4">
+                {effectiveIsAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSheetImportModal(true)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white/5 hover:bg-white/10 text-white border border-white/10 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-secondary-container" />
+                    <span>시트 불러오기</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Preset Cards Grid */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {filteredPresets.map(preset => {
                   const isExpanded = expandedPresetId === preset.id;
 
                   return (
                     <div
                       key={preset.id}
-                      className={`rounded-2xl border transition-all flex flex-col justify-between overflow-hidden ${
-                        preset.isBuiltIn
-                          ? 'bg-[#101b38] border-indigo-500/20 hover:border-indigo-500/40 shadow-sm'
-                          : 'bg-[#111c33] border-white/10 hover:border-white/20 shadow-sm'
-                      }`}
+                      className="rounded-xl border border-white/10 hover:border-white/20 bg-[#0a1120] p-4 flex flex-col justify-between transition-colors"
                     >
-                      {/* Preset Content */}
-                      <div className="p-4 sm:p-5 flex-1 flex flex-col">
-                        {/* Type & Meta Header */}
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {preset.isBuiltIn ? (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                                기본 프리셋
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm sm:text-base font-bold text-white truncate">
+                                {preset.name}
+                              </h4>
+                              <span className="text-[11px] text-surface-dim shrink-0">
+                                {preset.isBuiltIn ? '기본' : '저장됨'}
                               </span>
-                            ) : (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                사용자 정의
-                              </span>
-                            )}
-                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-surface-dim border border-white/10" title={`프리셋 고유 ID: ${preset.id}`}>
-                              ID: {preset.id}
-                            </span>
-                          </div>
-                          {preset.createdAt && (
-                            <span className="text-[10px] text-surface-dim/70">
-                              {preset.isBuiltIn ? preset.createdAt : new Date(preset.createdAt).toLocaleDateString()}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Title & Description */}
-                        <h4 className="text-base font-bold text-white tracking-tight">{preset.name}</h4>
-                        <p className="text-xs text-surface-dim mt-1 line-clamp-2 leading-relaxed">
-                          {preset.description || '별도 설명 없음'}
-                        </p>
-
-                        {/* Quick Metrics Chips */}
-                        <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-white/5 text-[11px] text-center">
-                          <div className="bg-white/5 p-1.5 rounded-lg">
-                            <span className="text-surface-dim block text-[10px]">상품</span>
-                            <strong className="text-white font-mono">{preset.items.length}종</strong>
-                          </div>
-                          <div className="bg-white/5 p-1.5 rounded-lg">
-                            <span className="text-surface-dim block text-[10px]">카테고리</span>
-                            <strong className="text-white font-mono">{preset.categories.length}개</strong>
-                          </div>
-                        </div>
-
-                        {/* Preview Expand Area */}
-                        {isExpanded && (
-                          <div className="mt-3 pt-3 border-t border-white/10 space-y-2.5 text-xs animate-in fade-in">
-                            <div>
-                              <span className="text-[11px] font-bold text-surface-dim block mb-1">포함된 카테고리:</span>
-                              <div className="flex flex-wrap gap-1">
-                                {preset.categories.length === 0 ? (
-                                  <span className="text-surface-dim text-xs italic">카테고리 없음</span>
-                                ) : (
-                                  preset.categories.map((c, cIdx) => (
-                                    <span key={c.name || cIdx} className="px-2 py-0.5 rounded-md bg-white/10 text-white text-[10px]">
-                                      {c.name}
-                                    </span>
-                                  ))
-                                )}
-                              </div>
                             </div>
-
-                            <div>
-                              <span className="text-[11px] font-bold text-surface-dim block mb-1">
-                                포함된 상품 목록 ({preset.items.length}종):
-                              </span>
-                              <div className="max-h-36 overflow-y-auto pr-1 space-y-1 custom-scrollbar">
-                                {preset.items.length === 0 ? (
-                                  <span className="text-surface-dim text-xs italic">등록된 상품 없음</span>
-                                ) : (
-                                  preset.items.map(it => (
-                                    <div key={it.id} className="flex items-center justify-between text-[11px] p-1.5 rounded bg-black/20 border border-white/5">
-                                      <span className="text-white truncate pr-2">{it.name}</span>
-                                      <div className="flex items-center space-x-2 shrink-0 font-mono text-[10px]">
-                                        <span className="text-amber-300 font-semibold">{it.price.toLocaleString()}원</span>
-                                        {it.isSoldOut ? (
-                                          <span className="text-rose-400 font-bold px-1.5 py-0.5 rounded bg-rose-500/10">품절</span>
-                                        ) : (
-                                          <span className="text-emerald-400 font-bold px-1.5 py-0.5 rounded bg-emerald-500/10">판매중</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
-                            </div>
+                            <p className="text-xs font-mono tabular-nums text-surface-dim mt-1">
+                              카테고리 {preset.categories.length} · 상품 {preset.items.length}
+                            </p>
                           </div>
-                        )}
-                      </div>
 
-                      {/* Preset Action Bar (Mobile-first 2-Row Layout) */}
-                      <div className="p-3 bg-[#0a1022] border-t border-white/10 space-y-2">
-                        {/* Row 1: Preview Toggle & Secondary Controls */}
-                        <div className="flex items-center justify-between gap-1.5">
-                          {/* Preview Toggle */}
-                          <button
-                            type="button"
-                            onClick={() => setExpandedPresetId(isExpanded ? null : preset.id)}
-                            className="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors flex items-center space-x-1 cursor-pointer"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>{isExpanded ? '상세 접기' : '미리보기'}</span>
-                          </button>
-
-                          {/* Custom Preset Controls */}
-                          {!preset.isBuiltIn && (
-                            <div className="flex items-center space-x-1">
+                          {!preset.isBuiltIn && effectiveIsAdmin && (
+                            <div className="flex items-center gap-0.5 shrink-0">
                               <button
                                 type="button"
                                 onClick={() => handleOpenEditPreset(preset)}
-                                title="이름 및 설명 수정"
-                                className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white flex items-center justify-center cursor-pointer"
+                                title="이름 수정"
+                                className="p-1.5 rounded-md text-surface-dim hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleOverwritePresetWithCurrent(preset)}
-                                title="현재 POS 메뉴 상태로 프리셋 덮어쓰기 저장"
-                                className="px-2 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 text-[10px] font-bold border border-blue-500/30 flex items-center space-x-1 cursor-pointer"
-                              >
-                                <Save className="w-3 h-3" />
-                                <span>현재메뉴로 갱신</span>
-                              </button>
-
                               <button
                                 type="button"
                                 onClick={() => setDeleteTargetPreset(preset)}
-                                title="프리셋 삭제"
-                                className="w-7 h-7 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 flex items-center justify-center cursor-pointer"
+                                title="삭제"
+                                className="p-1.5 rounded-md text-surface-dim hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -2146,17 +1555,63 @@ export function PosProductManagerModal({
                           )}
                         </div>
 
-                        {/* Row 2: Full-width Primary Apply CTA Button */}
+                        {preset.description &&
+                          preset.description !== '별도 설명 없음' &&
+                          !preset.description.startsWith('품목 ') && (
+                            <p className="text-xs text-surface-dim/80 mt-2 line-clamp-1">
+                              {preset.description}
+                            </p>
+                          )}
+
+                        {/* Expandable Preview */}
+                        {isExpanded && (
+                          <div className="mt-3 pt-3 border-t border-white/10 space-y-2 text-xs">
+                            <div className="text-[11px] text-surface-dim truncate">
+                              분류: {preset.categories.map(c => c.name).join(', ') || '없음'}
+                            </div>
+                            <div className="max-h-36 overflow-y-auto pr-1 divide-y divide-white/5 border-t border-white/5 custom-scrollbar">
+                              {preset.items.map(it => (
+                                <div key={it.id} className="py-1.5 flex items-center justify-between text-[11px]">
+                                  <span className="text-white truncate pr-2">{it.name}</span>
+                                  <span className="font-mono tabular-nums text-surface-dim shrink-0">
+                                    {it.price.toLocaleString()}원
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-3 mt-3 border-t border-white/5">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedPresetId(isExpanded ? null : preset.id)}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+                          >
+                            {isExpanded ? '접기' : '미리보기'}
+                          </button>
+
+                          {!preset.isBuiltIn && effectiveIsAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => handleOverwritePresetWithCurrent(preset)}
+                              title="현재 메뉴 상태로 이 프리셋 덮어쓰기"
+                              className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+                            >
+                              덮어쓰기
+                            </button>
+                          )}
+                        </div>
+
                         {effectiveIsAdmin && (
                           <button
                             type="button"
-                            onClick={() => {
-                              setApplyTargetPreset(preset);
-                            }}
-                            className="w-full py-2 px-3 rounded-xl text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer active:scale-[0.99] bg-secondary hover:brightness-110 text-on-secondary"
+                            onClick={() => setApplyTargetPreset(preset)}
+                            className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-secondary hover:bg-secondary/90 text-white transition-colors cursor-pointer"
                           >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>이 프리셋으로 설정하기</span>
+                            적용
                           </button>
                         )}
                       </div>
@@ -2184,30 +1639,27 @@ export function PosProductManagerModal({
         {/* Modal: Delete Item Confirm */}
         {deleteConfirmItem && (
           <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#0f172a] border border-red-500/30 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-red-500/15 text-red-400 flex items-center justify-center mx-auto">
-                <Trash2 className="w-6 h-6" />
-              </div>
+            <div className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4">
               <div>
-                <h4 className="text-base font-bold text-white">상품 삭제 확인</h4>
+                <h4 className="text-sm font-bold text-white">상품 삭제</h4>
                 <p className="text-xs text-surface-dim mt-1">
-                  <span className="font-bold text-white">'{deleteConfirmItem.name}'</span> 상품을 완전히 삭제하시겠습니까?
+                  '{deleteConfirmItem.name}' 상품을 삭제하시겠습니까?
                 </p>
               </div>
-              <div className="flex items-center justify-center space-x-2 pt-2">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setDeleteConfirmItem(null)}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-white/10 text-surface-dim hover:text-white cursor-pointer"
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
                 >
                   취소
                 </button>
                 <button
                   type="button"
                   onClick={handleDeleteItem}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-500 text-white shadow-lg cursor-pointer"
+                  className="flex-1 py-2 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white cursor-pointer"
                 >
-                  삭제하기
+                  삭제
                 </button>
               </div>
             </div>
@@ -2217,30 +1669,27 @@ export function PosProductManagerModal({
         {/* Modal: Delete Category Confirm */}
         {deleteConfirmCat && (
           <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#0f172a] border border-red-500/30 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-red-500/15 text-red-400 flex items-center justify-center mx-auto">
-                <Trash2 className="w-6 h-6" />
-              </div>
+            <div className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4">
               <div>
-                <h4 className="text-base font-bold text-white">카테고리 삭제 확인</h4>
+                <h4 className="text-sm font-bold text-white">카테고리 삭제</h4>
                 <p className="text-xs text-surface-dim mt-1">
-                  <span className="font-bold text-white">'{deleteConfirmCat.name}'</span> 카테고리를 삭제하시겠습니까?
+                  '{deleteConfirmCat.name}' 카테고리를 삭제하시겠습니까?
                 </p>
               </div>
-              <div className="flex items-center justify-center space-x-2 pt-2">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setDeleteConfirmCat(null)}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-white/10 text-surface-dim hover:text-white cursor-pointer"
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
                 >
                   취소
                 </button>
                 <button
                   type="button"
                   onClick={handleDeleteCategory}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-500 text-white shadow-lg cursor-pointer"
+                  className="flex-1 py-2 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white cursor-pointer"
                 >
-                  삭제하기
+                  삭제
                 </button>
               </div>
             </div>
@@ -2250,31 +1699,27 @@ export function PosProductManagerModal({
         {/* Modal: Clear All Favorites Confirm */}
         {showClearFavoritesConfirm && (
           <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#0f172a] border border-amber-500/30 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-amber-500/15 text-amber-300 flex items-center justify-center mx-auto">
-                <StarOff className="w-6 h-6" />
-              </div>
+            <div className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4">
               <div>
-                <h4 className="text-base font-bold text-white">즐겨찾기 전체 해제</h4>
-                <p className="text-xs text-surface-dim mt-1 leading-relaxed">
-                  현재 등록된 <strong className="text-amber-300 font-bold">{favoritesCount}개</strong> 상품의 즐겨찾기를 모두 해제하시겠습니까?<br/>
-                  (상품 자체는 삭제되지 않고 일반 상품으로 유지됩니다.)
+                <h4 className="text-sm font-bold text-white">즐겨찾기 초기화</h4>
+                <p className="text-xs text-surface-dim mt-1">
+                  즐겨찾기 {favoritesCount}개를 모두 해제하시겠습니까?
                 </p>
               </div>
-              <div className="flex items-center justify-center space-x-2 pt-2">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowClearFavoritesConfirm(false)}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-white/10 text-surface-dim hover:text-white cursor-pointer"
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
                 >
                   취소
                 </button>
                 <button
                   type="button"
                   onClick={handleExecuteClearAllFavorites}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-lg cursor-pointer"
+                  className="flex-1 py-2 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white cursor-pointer"
                 >
-                  전체 해제 실행
+                  해제
                 </button>
               </div>
             </div>
@@ -2284,41 +1729,27 @@ export function PosProductManagerModal({
         {/* Modal: Apply Preset Confirm */}
         {applyTargetPreset && (
           <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#0f172a] border border-secondary/40 w-full max-w-md rounded-3xl p-6 shadow-2xl text-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-secondary/15 text-secondary flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
+            <div className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4">
               <div>
-                <h4 className="text-base font-bold text-white">프리셋 메뉴 설정 (적용)</h4>
-                <p className="text-xs text-surface-dim mt-2 leading-relaxed">
-                  현재 POS 메뉴 구성을 <strong className="text-white">'{applyTargetPreset.name}'</strong> 프리셋으로 변경하시겠습니까?
+                <h4 className="text-sm font-bold text-white">프리셋 적용</h4>
+                <p className="text-xs text-surface-dim mt-1">
+                  '{applyTargetPreset.name}' ({applyTargetPreset.items.length}개 상품) 구성을 현재 메뉴에 적용하시겠습니까?
                 </p>
-                <div className="mt-3 p-3 rounded-xl bg-white/5 border border-white/10 text-left text-xs space-y-1">
-                  <div className="text-surface-dim">
-                    • 적용될 카테고리: <strong className="text-white">{applyTargetPreset.categories.length}개</strong>
-                  </div>
-                  <div className="text-surface-dim">
-                    • 적용될 상품 품목: <strong className="text-white">{applyTargetPreset.items.length}종</strong>
-                  </div>
-                  <div className="text-[11px] text-amber-300/80 pt-1">
-                    * 기존 카테고리 및 상품 목록이 이 프리셋 내용으로 교체 동기화됩니다.
-                  </div>
-                </div>
               </div>
-              <div className="flex items-center justify-center space-x-2 pt-2">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setApplyTargetPreset(null)}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-white/10 text-surface-dim hover:text-white cursor-pointer"
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
                 >
                   취소
                 </button>
                 <button
                   type="button"
                   onClick={handleApplyPresetConfirm}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-secondary hover:brightness-110 text-on-secondary shadow-lg cursor-pointer"
+                  className="flex-1 py-2 rounded-lg text-xs font-bold bg-secondary hover:bg-secondary/90 text-white cursor-pointer"
                 >
-                  프리셋 적용하기
+                  적용
                 </button>
               </div>
             </div>
@@ -2328,13 +1759,13 @@ export function PosProductManagerModal({
         {/* Modal: Edit Preset Info */}
         {editingPreset && (
           <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#0f172a] border border-white/20 w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                <h4 className="text-base font-bold text-white">프리셋 정보 수정</h4>
+            <div className="bg-[#0a1120] border border-white/10 w-full max-w-sm rounded-2xl p-5 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-white">프리셋 수정</h4>
                 <button
                   type="button"
                   onClick={() => setEditingPreset(null)}
-                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white"
+                  className="p-1 rounded-lg text-surface-dim hover:text-white cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2342,30 +1773,30 @@ export function PosProductManagerModal({
 
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs font-bold text-surface-dim block mb-1">프리셋 이름</label>
+                  <label className="text-xs text-surface-dim block mb-1">이름</label>
                   <input
                     type="text"
                     value={editPresetName}
                     onChange={e => setEditPresetName(e.target.value)}
-                    className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-secondary"
+                    className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-secondary"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-surface-dim block mb-1">프리셋 설명</label>
-                  <textarea
-                    rows={3}
+                  <label className="text-xs text-surface-dim block mb-1">메모 (선택)</label>
+                  <input
+                    type="text"
                     value={editPresetDesc}
                     onChange={e => setEditPresetDesc(e.target.value)}
-                    className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-secondary resize-none"
+                    className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-secondary"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-2 pt-2">
+              <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setEditingPreset(null)}
-                  className="py-2 px-4 rounded-xl text-xs font-bold bg-white/10 text-surface-dim hover:text-white cursor-pointer"
+                  className="py-2 px-3.5 rounded-lg text-xs font-semibold bg-white/5 text-surface-dim hover:text-white cursor-pointer"
                 >
                   취소
                 </button>
@@ -2373,9 +1804,9 @@ export function PosProductManagerModal({
                   type="button"
                   disabled={!editPresetName.trim()}
                   onClick={handleSaveEditPreset}
-                  className="py-2 px-4 rounded-xl text-xs font-bold bg-secondary hover:brightness-110 text-on-secondary disabled:opacity-40 shadow cursor-pointer"
+                  className="py-2 px-4 rounded-lg text-xs font-bold bg-secondary text-white disabled:opacity-40 cursor-pointer"
                 >
-                  수정 저장
+                  저장
                 </button>
               </div>
             </div>
@@ -2385,30 +1816,27 @@ export function PosProductManagerModal({
         {/* Modal: Delete Preset Confirm */}
         {deleteTargetPreset && (
           <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#0f172a] border border-red-500/30 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-red-500/15 text-red-400 flex items-center justify-center mx-auto">
-                <Trash2 className="w-6 h-6" />
-              </div>
+            <div className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4">
               <div>
-                <h4 className="text-base font-bold text-white">프리셋 삭제 확인</h4>
-                <p className="text-xs text-surface-dim mt-1 leading-relaxed">
-                  <strong className="text-white">'{deleteTargetPreset.name}'</strong> 프리셋을 완전히 삭제하시겠습니까?
+                <h4 className="text-sm font-bold text-white">프리셋 삭제</h4>
+                <p className="text-xs text-surface-dim mt-1">
+                  '{deleteTargetPreset.name}' 프리셋을 삭제하시겠습니까?
                 </p>
               </div>
-              <div className="flex items-center justify-center space-x-2 pt-2">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setDeleteTargetPreset(null)}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-white/10 text-surface-dim hover:text-white cursor-pointer"
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
                 >
                   취소
                 </button>
                 <button
                   type="button"
                   onClick={handleDeletePresetConfirm}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-500 text-white shadow-lg cursor-pointer"
+                  className="flex-1 py-2 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white cursor-pointer"
                 >
-                  삭제하기
+                  삭제
                 </button>
               </div>
             </div>
@@ -2427,42 +1855,31 @@ export function PosProductManagerModal({
           />
         )}
 
-        {/* Modal: Admin Required Notification */}
+        {/* Modal: Admin Required */}
         {showAdminRequiredModal.isOpen && (
-          <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-[#0f172a] border border-amber-500/40 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center justify-center mx-auto shadow-lg">
-                <Lock className="w-6 h-6" />
-              </div>
+          <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4">
               <div>
-                <h4 className="text-base font-bold text-white">관리자 권한이 필요합니다</h4>
-                <p className="text-xs text-surface-dim mt-1.5 leading-relaxed">
-                  <strong className="text-amber-300">'{showAdminRequiredModal.featureName}'</strong> 기능은 매점 관리자 전용 작업입니다.
+                <h4 className="text-sm font-bold text-white">관리자 권한 필요</h4>
+                <p className="text-xs text-surface-dim mt-1">
+                  '{showAdminRequiredModal.featureName}' 기능은 관리자 전용입니다.
                 </p>
-                <div className="mt-2.5 p-2 rounded-xl bg-white/5 border border-white/10 text-[11px] text-surface-dim">
-                  관리자 계정으로 로그인하시면 즉시 실행하실 수 있습니다.
-                </div>
               </div>
-              <div className="space-y-2 pt-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAdminRequiredModal({ isOpen: false, featureName: '' })}
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 text-surface-dim hover:text-white cursor-pointer"
+                >
+                  닫기
+                </button>
                 <button
                   type="button"
                   onClick={handleGoogleAdminLogin}
                   disabled={isGoogleLoading}
-                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center space-x-1.5 transition-all cursor-pointer shadow-lg active:scale-95 disabled:opacity-50"
+                  className="flex-1 py-2 rounded-lg text-xs font-bold bg-secondary text-white cursor-pointer disabled:opacity-50"
                 >
-                  {isGoogleLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <LogIn className="w-4 h-4" />
-                  )}
-                  <span>관리자 로그인</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAdminRequiredModal({ isOpen: false, featureName: '' })}
-                  className="w-full py-2.5 rounded-xl text-xs font-bold bg-white/10 text-surface-dim hover:text-white cursor-pointer transition-colors"
-                >
-                  닫기
+                  {isGoogleLoading ? '...' : '로그인'}
                 </button>
               </div>
             </div>
@@ -2471,19 +1888,15 @@ export function PosProductManagerModal({
 
         {/* Modal: Unsaved Changes Confirm on Close */}
         {showUnsavedConfirmModal && (
-          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-            <div className="bg-[#0f172a] border border-amber-500/40 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center mx-auto shadow-lg">
-                <Save className="w-6 h-6" />
-              </div>
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+            <div className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4">
               <div>
-                <h4 className="text-base font-bold text-white">저장되지 않은 변경사항이 있습니다</h4>
-                <p className="text-xs text-surface-dim mt-2 leading-relaxed">
-                  재고 또는 상품 정보가 <strong className="text-amber-300 font-bold">{modifiedItems.length}건</strong> 수정되었습니다.<br/>
-                  저장하지 않고 닫으시면 수정한 내용이 모두 취소됩니다.
+                <h4 className="text-sm font-bold text-white">변경사항 저장</h4>
+                <p className="text-xs text-surface-dim mt-1">
+                  수정된 {modifiedItems.length}건을 저장하시겠습니까?
                 </p>
               </div>
-              <div className="space-y-2 pt-2">
+              <div className="flex flex-col gap-2">
                 <button
                   type="button"
                   onClick={async () => {
@@ -2492,14 +1905,9 @@ export function PosProductManagerModal({
                     onClose();
                   }}
                   disabled={isSavingChanges}
-                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 flex items-center justify-center space-x-1.5 transition-all cursor-pointer shadow-lg active:scale-95 disabled:opacity-50"
+                  className="w-full py-2 rounded-lg text-xs font-bold bg-secondary text-white cursor-pointer disabled:opacity-50"
                 >
-                  {isSavingChanges ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Check className="w-4 h-4" />
-                  )}
-                  <span>저장하고 닫기</span>
+                  저장하고 닫기
                 </button>
                 <button
                   type="button"
@@ -2508,16 +1916,16 @@ export function PosProductManagerModal({
                     setShowUnsavedConfirmModal(false);
                     onClose();
                   }}
-                  className="w-full py-2.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-red-500/20 text-surface-dim hover:text-red-300 border border-transparent hover:border-red-500/30 cursor-pointer transition-colors"
+                  className="w-full py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-rose-500/15 text-surface-dim hover:text-rose-300 cursor-pointer"
                 >
-                  저장 안 하고 닫기 (변경 취소)
+                  저장 안 함
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowUnsavedConfirmModal(false)}
-                  className="w-full py-2 rounded-xl text-xs font-medium text-surface-dim hover:text-white cursor-pointer"
+                  className="w-full py-1.5 text-xs text-surface-dim hover:text-white cursor-pointer"
                 >
-                  계속 수정하기
+                  취소
                 </button>
               </div>
             </div>

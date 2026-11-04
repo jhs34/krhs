@@ -469,123 +469,73 @@ export function PosSheetImportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-      <div className="bg-[#0b1326] border border-white/15 rounded-3xl w-full max-w-4xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-[240] flex items-center justify-center p-2.5 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+      <div className="bg-[#0a1120] border border-white/10 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-white">
         {/* Header */}
-        <div className="px-3.5 sm:px-6 py-3.5 sm:py-4 border-b border-white/10 bg-[#0e172e] flex items-center justify-between shrink-0">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl bg-secondary/20 text-secondary flex items-center justify-center shrink-0 border border-secondary/30">
-              <FileSpreadsheet className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h2 className="text-sm sm:text-base md:text-lg font-bold text-white tracking-tight">
-                  구글 시트 / 엑셀 메뉴 불러오기
-                </h2>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary/20 text-secondary border border-secondary/30">
-                  4열 표준
-                </span>
-              </div>
-              <p className="text-xs text-surface-dim mt-0.5 hidden sm:block">
-                [상품명 | 카테고리 | 판매가 | 즐겨찾기] 4개 열 데이터를 복사해 넣으면 즉시 프리셋으로 등록하고 세팅합니다.
-              </p>
-            </div>
+        <div className="px-4 sm:px-5 py-3.5 border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-3">
+            <h2 className="text-sm sm:text-base font-bold text-white tracking-tight">
+              시트/엑셀 불러오기
+            </h2>
+            <span className="text-[11px] text-surface-dim hidden sm:inline">
+              상품명 · 카테고리 · 판매가 · 즐겨찾기(O/X)
+            </span>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Action / Helper Bar (Templates & Export) */}
-        <div className="px-3.5 sm:px-6 py-2.5 bg-[#09101f] border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs">
-          {/* 4 Column Guide Pills */}
-          <div className="flex items-center space-x-1.5 text-surface-dim font-medium overflow-x-auto scrollbar-hide py-0.5 whitespace-nowrap">
-            <HelpCircle className="w-3.5 h-3.5 text-secondary shrink-0" />
-            <span className="text-[11px] text-surface-dim shrink-0">4열 순서:</span>
-            <span className="bg-white/5 px-1.5 py-0.5 rounded text-white font-mono text-[11px]">1.상품명</span>
-            <span className="text-white/30">·</span>
-            <span className="bg-white/5 px-1.5 py-0.5 rounded text-white font-mono text-[11px]">2.카테고리</span>
-            <span className="text-white/30">·</span>
-            <span className="bg-white/5 px-1.5 py-0.5 rounded text-white font-mono text-[11px]">3.판매가</span>
-            <span className="text-white/30">·</span>
-            <span className="bg-white/5 px-1.5 py-0.5 rounded text-white font-mono text-[11px]">4.즐겨찾기(O/X)</span>
-          </div>
-
-          {/* Quick Action Buttons */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-0.5 shrink-0">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={handleCopyTemplate}
-              className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors flex items-center space-x-1 font-semibold text-[11px] sm:text-xs whitespace-nowrap cursor-pointer shrink-0"
-              title="구글 시트나 엑셀에 붙여넣을 4열 샘플 복사"
+              className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-medium transition-colors cursor-pointer"
             >
-              {copiedTemplate ? (
-                <ClipboardCheck className="w-3.5 h-3.5 text-emerald-400" />
-              ) : (
-                <Clipboard className="w-3.5 h-3.5" />
-              )}
-              <span>{copiedTemplate ? '복사완료!' : '4열 양식 샘플'}</span>
+              {copiedTemplate ? '복사됨' : '양식 복사'}
             </button>
-
             <button
               type="button"
               onClick={handleDownloadExcelSample}
-              className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors flex items-center space-x-1 font-semibold text-[11px] sm:text-xs whitespace-nowrap cursor-pointer shrink-0"
-              title="엑셀 템플릿 파일(.xlsx) 다운로드"
+              className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-medium transition-colors cursor-pointer hidden sm:inline-flex"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>엑셀 서식 받기</span>
+              엑셀 양식
             </button>
-
             <button
               type="button"
               onClick={handleExportCurrentToClipboard}
-              className="px-2.5 py-1 rounded-lg bg-secondary/15 hover:bg-secondary/25 text-secondary transition-colors flex items-center space-x-1 font-semibold text-[11px] sm:text-xs whitespace-nowrap border border-secondary/30 cursor-pointer shrink-0"
-              title="현재 포스기 메뉴 목록을 4열 시트 양식으로 복사"
+              className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-medium transition-colors cursor-pointer"
             >
-              {copiedCurrent ? (
-                <ClipboardCheck className="w-3.5 h-3.5 text-emerald-400" />
-              ) : (
-                <Sparkles className="w-3.5 h-3.5" />
-              )}
-              <span>현재 메뉴 4열 복사</span>
+              {copiedCurrent ? '복사됨' : '현재 메뉴 복사'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-surface-dim hover:text-white hover:bg-white/5 transition-colors cursor-pointer ml-1"
+            >
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Main Body */}
-        <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-3.5 sm:space-y-4 custom-scrollbar">
-          {/* Input Method Switcher */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="grid grid-cols-2 gap-1.5 bg-[#121c33] p-1 rounded-xl border border-white/10 text-xs w-full sm:w-auto">
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 custom-scrollbar">
+          {/* Input Switcher */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1 bg-primary p-1 rounded-lg border border-white/10 text-xs">
               <button
                 type="button"
                 onClick={() => setInputTab('paste')}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
-                  inputTab === 'paste'
-                    ? 'bg-secondary text-on-secondary shadow'
-                    : 'text-surface-dim hover:text-white'
+                className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
+                  inputTab === 'paste' ? 'bg-secondary text-white' : 'text-surface-dim hover:text-white'
                 }`}
               >
-                <Clipboard className="w-3.5 h-3.5" />
-                <span>시트 복사-붙여넣기</span>
+                붙여넣기
               </button>
               <button
                 type="button"
                 onClick={() => setInputTab('file')}
-                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
-                  inputTab === 'file'
-                    ? 'bg-secondary text-on-secondary shadow'
-                    : 'text-surface-dim hover:text-white'
+                className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
+                  inputTab === 'file' ? 'bg-secondary text-white' : 'text-surface-dim hover:text-white'
                 }`}
               >
-                <Upload className="w-3.5 h-3.5" />
-                <span>엑셀/CSV 파일 올리기</span>
+                파일 선택
               </button>
             </div>
 
@@ -596,56 +546,29 @@ export function PosSheetImportModal({
                   setRawText('');
                   setParsedRows([]);
                 }}
-                className="text-xs text-surface-dim hover:text-red-300 transition-colors flex items-center space-x-1 self-end sm:self-auto cursor-pointer"
+                className="text-xs text-surface-dim hover:text-rose-400 transition-colors cursor-pointer"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>내용 비우기</span>
+                초기화
               </button>
             )}
           </div>
 
-          {/* Mode 1: Paste Input */}
           {inputTab === 'paste' ? (
-            <div className="space-y-2">
-              <div className="relative">
-                <textarea
-                  rows={5}
-                  value={rawText}
-                  onChange={handleTextChange}
-                  placeholder={`구글 시트 또는 엑셀에서 표 영역을 복사(Ctrl+C)한 후 여기에 붙여넣기(Ctrl+V)하세요.
-
-예시:
-상품명\t카테고리\t판매가\t즐겨찾기
-포카칩 오리지널\t스낵류\t1500\tO
-초코에몽\t음료/유제품\t1200\tO
-신라면 컵\t라면류\t1300\tO`}
-                  className="w-full bg-[#121c33] border border-white/10 rounded-2xl p-3.5 text-xs text-white font-mono focus:outline-none focus:border-secondary placeholder:text-surface-dim/40 custom-scrollbar leading-relaxed"
-                />
-              </div>
-              <p className="text-[11px] text-surface-dim flex items-center justify-between">
-                <span>* 첫 줄에 '상품명', '카테고리' 등 제목(헤더)이 있어도 시스템이 자동으로 인식하여 건너뜁니다.</span>
-                <span>입력된 줄: {rawText.split('\n').filter(Boolean).length}줄</span>
-              </p>
-            </div>
+            <textarea
+              rows={4}
+              value={rawText}
+              onChange={handleTextChange}
+              placeholder={`포카칩 오리지널\t스낵류\t1500\tO\n초코에몽\t음료/유제품\t1200\tO`}
+              className="w-full bg-primary border border-white/10 rounded-xl p-3 text-xs text-white font-mono focus:outline-none focus:border-secondary placeholder:text-surface-dim/35 custom-scrollbar leading-relaxed"
+            />
           ) : (
-            /* Mode 2: File Upload */
-            <div className="space-y-2">
+            <div>
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-white/15 hover:border-secondary/50 rounded-2xl p-6 sm:p-8 text-center bg-[#121c33]/50 hover:bg-[#121c33] transition-all cursor-pointer flex flex-col items-center justify-center space-y-2.5"
+                className="border border-dashed border-white/15 hover:border-secondary/50 rounded-xl p-6 text-center bg-primary/50 hover:bg-primary transition-colors cursor-pointer"
               >
-                <div className="w-12 h-12 rounded-2xl bg-secondary/15 text-secondary flex items-center justify-center border border-secondary/20">
-                  <Upload className="w-6 h-6" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-white">엑셀(.xlsx, .xls) 또는 CSV 파일 선택</p>
-                  <p className="text-xs text-surface-dim mt-1">
-                    클릭하여 파일을 선택하거나 이곳으로 드래그 앤 드롭하세요.
-                  </p>
-                </div>
-                <span className="text-[10px] text-secondary bg-secondary/10 px-2.5 py-1 rounded-full border border-secondary/20">
-                  첫 번째 시트의 [상품명, 카테고리, 판매가, 즐겨찾기] 4열을 자동으로 읽습니다.
-                </span>
+                <Upload className="w-5 h-5 text-surface-dim mx-auto mb-1.5" />
+                <p className="text-xs font-semibold text-white">엑셀(.xlsx) 또는 CSV 파일 선택</p>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -655,244 +578,137 @@ export function PosSheetImportModal({
                 />
               </div>
               {fileError && (
-                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-300 flex items-center space-x-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0 text-red-400" />
-                  <span>{fileError}</span>
-                </div>
+                <p className="mt-2 text-xs text-rose-400">{fileError}</p>
               )}
             </div>
           )}
 
-          {/* Parsed Preview Section */}
+          {/* Parsed Preview */}
           {parsedRows.length > 0 && (
-            <div className="space-y-3 pt-2">
-              {/* Summary Stats Chips */}
-              <div className="bg-[#0e172e] border border-white/10 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-lg bg-white/5 font-bold text-white">
-                    선택 품목: <strong className="text-secondary font-mono">{stats.totalItems}종</strong> / {parsedRows.length}종
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-white/5 font-bold text-white">
-                    카테고리: <strong className="text-white font-mono">{stats.uniqueCategories.length}개</strong>
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold flex items-center space-x-1">
-                    <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                    <span>즐겨찾기 {stats.favoriteCount}개</span>
-                  </span>
-                  {stats.existingCount > 0 && (
-                    <span className="px-2.5 py-1 rounded-lg bg-blue-500/15 text-blue-300 border border-blue-500/30 font-bold">
-                      기존 품목 갱신 {stats.existingCount}개
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center space-x-2 text-[11px]">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-surface-dim font-mono tabular-nums">
+                  선택 {stats.totalItems}개 · 카테고리 {stats.uniqueCategories.length}개 · 즐겨찾기 {stats.favoriteCount}개
+                </span>
+                <div className="flex items-center gap-2 text-[11px]">
                   <button
                     type="button"
                     onClick={() => toggleSelectAll(true)}
-                    className="text-surface-dim hover:text-white underline cursor-pointer"
+                    className="text-surface-dim hover:text-white cursor-pointer"
                   >
                     전체 선택
                   </button>
-                  <span className="text-white/20">|</span>
+                  <span className="text-white/20">·</span>
                   <button
                     type="button"
                     onClick={() => toggleSelectAll(false)}
-                    className="text-surface-dim hover:text-white underline cursor-pointer"
+                    className="text-surface-dim hover:text-white cursor-pointer"
                   >
-                    선택 해제
+                    전체 해제
                   </button>
                 </div>
               </div>
 
-              {/* Table Preview */}
-              <div className="border border-white/10 rounded-2xl overflow-hidden bg-[#101b33]">
-                <div className="max-h-60 overflow-y-auto overflow-x-auto custom-scrollbar">
-                  <table className="w-full text-left text-xs min-w-[500px]">
-                    <thead className="bg-[#09101f] text-surface-dim sticky top-0 z-10 border-b border-white/10">
-                      <tr>
-                        <th className="py-2.5 px-3 w-8 text-center">선택</th>
-                        <th className="py-2.5 px-2 w-8 text-center">★</th>
-                        <th className="py-2.5 px-3 font-bold text-white">상품명</th>
-                        <th className="py-2.5 px-3">카테고리</th>
-                        <th className="py-2.5 px-3 text-right">판매가</th>
-                        <th className="py-2.5 px-3 text-center">구분</th>
-                        <th className="py-2.5 px-2 w-8 text-center"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {parsedRows.map(row => (
-                        <tr
-                          key={row.tempId}
-                          className={`hover:bg-white/5 transition-colors ${
-                            !row.selected ? 'opacity-40 bg-black/20' : ''
-                          }`}
-                        >
-                          {/* Checkbox */}
-                          <td className="py-2 px-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={row.selected}
-                              onChange={() => toggleRowSelect(row.tempId)}
-                              className="rounded border-white/20 bg-white/5 text-secondary focus:ring-secondary cursor-pointer"
+              <div className="border-t border-b border-white/10 max-h-52 overflow-y-auto custom-scrollbar">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#0a1120] text-surface-dim sticky top-0 border-b border-white/10 text-[11px]">
+                    <tr>
+                      <th className="py-2 px-2 w-8 text-center">선택</th>
+                      <th className="py-2 px-2 w-8 text-center">★</th>
+                      <th className="py-2 px-3">상품명</th>
+                      <th className="py-2 px-3">카테고리</th>
+                      <th className="py-2 px-3 text-right">가격</th>
+                      <th className="py-2 px-2 w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {parsedRows.map(row => (
+                      <tr
+                        key={row.tempId}
+                        className={`hover:bg-white/[0.02] ${!row.selected ? 'opacity-40' : ''}`}
+                      >
+                        <td className="py-1.5 px-2 text-center">
+                          <input
+                            type="checkbox"
+                            checked={row.selected}
+                            onChange={() => toggleRowSelect(row.tempId)}
+                            className="rounded border-white/20 bg-white/5 text-secondary cursor-pointer"
+                          />
+                        </td>
+                        <td className="py-1.5 px-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => toggleFavoriteRow(row.tempId)}
+                            className="cursor-pointer"
+                          >
+                            <Star
+                              className={`w-3.5 h-3.5 ${
+                                row.isFavorite ? 'fill-amber-400 text-amber-400' : 'text-surface-dim/40'
+                              }`}
                             />
-                          </td>
-
-                          {/* Favorite Star */}
-                          <td className="py-2 px-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => toggleFavoriteRow(row.tempId)}
-                              className="cursor-pointer"
-                              title="즐겨찾기 토글"
-                            >
-                              <Star
-                                className={`w-3.5 h-3.5 transition-colors ${
-                                  row.isFavorite
-                                    ? 'fill-amber-400 text-amber-400'
-                                    : 'text-surface-dim/40 hover:text-amber-400'
-                                }`}
-                              />
-                            </button>
-                          </td>
-
-                          {/* Name */}
-                          <td className="py-2 px-3 font-bold text-white">
-                            <div className="flex items-center space-x-1.5">
-                              <span>{row.name}</span>
-                              {row.error && (
-                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-red-500/20 text-red-300">
-                                  {row.error}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* Category */}
-                          <td className="py-2 px-3">
-                            <span className="px-2 py-0.5 rounded bg-white/5 text-surface-dim text-[11px]">
-                              {row.categoryName}
-                            </span>
-                          </td>
-
-                          {/* Price */}
-                          <td className="py-2 px-3 text-right font-mono font-bold text-secondary">
-                            {row.price.toLocaleString()}원
-                          </td>
-
-                          {/* Existing Badge */}
-                          <td className="py-2 px-3 text-center">
-                            {row.isExisting ? (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                                기존 갱신
-                              </span>
-                            ) : (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                신규 품목
-                              </span>
-                            )}
-                          </td>
-
-                          {/* Delete */}
-                          <td className="py-2 px-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => removeRow(row.tempId)}
-                              className="text-surface-dim hover:text-red-400 p-1 cursor-pointer"
-                              title="이 행 제외"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          </button>
+                        </td>
+                        <td className="py-1.5 px-3 font-bold text-white">{row.name}</td>
+                        <td className="py-1.5 px-3 text-surface-dim">{row.categoryName}</td>
+                        <td className="py-1.5 px-3 text-right font-mono tabular-nums text-white">
+                          {row.price.toLocaleString()}원
+                        </td>
+                        <td className="py-1.5 px-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => removeRow(row.tempId)}
+                            className="text-surface-dim hover:text-rose-400 p-1 cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
-              {/* Options Box */}
-              <div className="bg-[#0e172e] border border-white/10 rounded-2xl p-4 space-y-4">
-                {/* Apply Mode Radio */}
-                <div>
-                  <label className="block text-xs font-bold text-white mb-2">포스기 반영 방식 선택</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setApplyMode('replace')}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                        applyMode === 'replace'
-                          ? 'bg-secondary/15 border-secondary text-white shadow-sm'
-                          : 'bg-white/5 border-white/10 text-surface-dim hover:text-white'
-                      }`}
-                    >
-                      <div className="font-bold flex items-center space-x-1.5 text-secondary">
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        <span>전체 덮어쓰기 (추천 - 새 영업일 세팅)</span>
-                      </div>
-                      <p className="text-[11px] text-surface-dim mt-1">
-                        현재 등록된 모든 품목을 비우고, 위 시트 데이터로 깨끗하게 새로 세팅합니다.
-                      </p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setApplyMode('merge')}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                        applyMode === 'merge'
-                          ? 'bg-secondary/15 border-secondary text-white shadow-sm'
-                          : 'bg-white/5 border-white/10 text-surface-dim hover:text-white'
-                      }`}
-                    >
-                      <div className="font-bold flex items-center space-x-1.5 text-secondary">
-                        <Layers className="w-3.5 h-3.5" />
-                        <span>기존 품목 유지 + 정보 갱신</span>
-                      </div>
-                      <p className="text-[11px] text-surface-dim mt-1">
-                        기존 메뉴를 유지하면서 시트에 있는 품목은 가격/즐겨찾기 정보를 갱신하고 새 품목을 추가합니다.
-                      </p>
-                    </button>
-                  </div>
+              {/* Compact Options */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                <div className="flex items-center gap-1 bg-primary p-1 rounded-lg border border-white/10 text-xs shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setApplyMode('replace')}
+                    className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
+                      applyMode === 'replace' ? 'bg-secondary text-white' : 'text-surface-dim hover:text-white'
+                    }`}
+                  >
+                    전체 덮어쓰기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setApplyMode('merge')}
+                    className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
+                      applyMode === 'merge' ? 'bg-secondary text-white' : 'text-surface-dim hover:text-white'
+                    }`}
+                  >
+                    기존 메뉴에 병합
+                  </button>
                 </div>
 
-                {/* Preset Info */}
-                <div className="pt-2 border-t border-white/5 space-y-3">
-                  <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-2 flex-1 max-w-sm">
+                  <label className="flex items-center gap-1.5 text-xs text-surface-dim shrink-0 cursor-pointer">
                     <input
                       type="checkbox"
-                      id="save-as-preset-check"
                       checked={saveAsPreset}
                       onChange={e => setSaveAsPreset(e.target.checked)}
-                      className="rounded border-white/20 bg-white/5 text-secondary focus:ring-secondary cursor-pointer"
+                      className="rounded border-white/20 bg-white/5 text-secondary cursor-pointer"
                     />
-                    <label htmlFor="save-as-preset-check" className="text-xs font-bold text-white cursor-pointer">
-                      이 구성을 '메뉴 프리셋' 보관함에 저장하여 다음에도 불러오기
-                    </label>
-                  </div>
-
+                    <span>프리셋 저장</span>
+                  </label>
                   {saveAsPreset && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                      <div>
-                        <label className="block text-[11px] text-surface-dim mb-1 font-semibold">프리셋 이름</label>
-                        <input
-                          type="text"
-                          value={presetName}
-                          onChange={e => setPresetName(e.target.value)}
-                          placeholder="예: 2026-1학기 수요매점 1회차"
-                          className="w-full bg-[#162035] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-secondary font-medium"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] text-surface-dim mb-1 font-semibold">설명 (선택)</label>
-                        <input
-                          type="text"
-                          value={presetDesc}
-                          onChange={e => setPresetDesc(e.target.value)}
-                          placeholder="예: 과자 10종, 음료 5종"
-                          className="w-full bg-[#162035] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-secondary"
-                        />
-                      </div>
-                    </div>
+                    <input
+                      type="text"
+                      value={presetName}
+                      onChange={e => setPresetName(e.target.value)}
+                      placeholder="프리셋 이름"
+                      className="flex-1 bg-primary border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-secondary"
+                    />
                   )}
                 </div>
               </div>
@@ -900,51 +716,36 @@ export function PosSheetImportModal({
           )}
         </div>
 
-        {/* Footer / Execution Actions */}
-        <div className="px-3.5 sm:px-6 py-3 sm:py-3.5 bg-[#0e172e] border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0">
-          <div className="text-[11px] sm:text-xs text-surface-dim">
-            {parsedRows.length > 0 ? (
-              <span>
-                선택된 <strong className="text-white font-bold">{validSelectedRows.length}개</strong> 품목 준비 완료
-              </span>
-            ) : (
-              <span>구글 시트 4열 데이터를 붙여넣거나 엑셀 파일을 올려주세요.</span>
-            )}
-          </div>
+        {/* Footer */}
+        <div className="px-4 sm:px-5 py-3 border-t border-white/10 flex items-center justify-end gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+          >
+            닫기
+          </button>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer shrink-0"
-            >
-              닫기
-            </button>
-
-            {parsedRows.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  disabled={validSelectedRows.length === 0 || isProcessing}
-                  onClick={() => handleExecute('save_only')}
-                  className="flex-1 sm:flex-initial px-3 py-2.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 text-white transition-colors disabled:opacity-40 cursor-pointer flex items-center justify-center space-x-1 whitespace-nowrap"
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>프리셋만 저장</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={validSelectedRows.length === 0 || isProcessing}
-                  onClick={() => handleExecute('apply_and_save')}
-                  className="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl text-xs font-bold bg-secondary hover:brightness-110 text-on-secondary transition-all disabled:opacity-40 cursor-pointer flex items-center justify-center space-x-1.5 shadow-lg shadow-secondary/20 active:scale-[0.99] whitespace-nowrap"
-                >
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>{isProcessing ? '처리 중...' : '포스기에 적용 & 저장'}</span>
-                </button>
-              </>
-            )}
-          </div>
+          {parsedRows.length > 0 && (
+            <>
+              <button
+                type="button"
+                disabled={validSelectedRows.length === 0 || isProcessing}
+                onClick={() => handleExecute('save_only')}
+                className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/15 text-white transition-colors disabled:opacity-40 cursor-pointer"
+              >
+                프리셋만 저장
+              </button>
+              <button
+                type="button"
+                disabled={validSelectedRows.length === 0 || isProcessing}
+                onClick={() => handleExecute('apply_and_save')}
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-secondary hover:bg-secondary/90 text-white transition-colors disabled:opacity-40 cursor-pointer"
+              >
+                {isProcessing ? '처리 중...' : '포스기에 적용'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

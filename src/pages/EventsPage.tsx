@@ -80,11 +80,6 @@ export function EventsPage({
         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
         transition={{ duration: 0.8 }}
       >
-        <div className="flex items-center space-x-3 mb-4">
-          <span className="status-chip bg-secondary/20 text-white border border-secondary/30">
-            ACADEMIC CALENDAR
-          </span>
-        </div>
         <h2 className="font-sans font-bold text-4xl md:text-5xl text-white tracking-tighter mb-4">
           학사일정
         </h2>
