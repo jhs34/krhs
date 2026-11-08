@@ -264,97 +264,101 @@ export function Dashboard({
       )}
 
       {/* Dashboard Grid - Editorial Layout */}
-      <div id="dashboard-grid" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-8">
+      <div id="dashboard-grid" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-6 sm:gap-8">
         
-        {/* Massive Card: Schedule */}
+        {/* Schedule Card: Balanced 2-Column Grid inside 12-col container */}
         <motion.div 
           id="upcoming-schedule"
           initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
           whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           viewport={{ once: true, amount: 0.15 }}
           transition={{ duration: 0.8 }}
-          className="sm:col-span-2 xl:col-span-12 bg-[#0a1120] rounded-2xl sm:rounded-3xl border border-white/5 overflow-hidden group hover:border-white/10 transition-colors p-3.5 sm:p-6 md:p-8 lg:p-10"
+          className="sm:col-span-2 xl:col-span-12 bg-[#0a1120] rounded-2xl sm:rounded-3xl border border-white/5 overflow-hidden group hover:border-white/10 transition-colors p-5 sm:p-6 md:p-8"
         >
-          <div className="flex items-center justify-between mb-3 sm:mb-6">
-            <div className="flex items-center space-x-2.5 sm:space-x-3">
-              <div className="w-7 h-7 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-lg sm:rounded-xl bg-secondary/10 border border-secondary/20 flex items-center justify-center text-secondary-fixed-dim shrink-0">
-                <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-white" strokeWidth={1.5} />
+          <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/5">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-lg bg-secondary/15 border border-secondary/25 flex items-center justify-center text-secondary-fixed-dim shrink-0">
+                <CalendarIcon className="w-4 h-4 text-secondary-fixed-dim" strokeWidth={1.75} />
               </div>
-              <div>
-                <h3 className="font-sans font-bold text-sm sm:text-xl md:text-2xl text-white tracking-tight leading-tight">다가오는 학사 일정</h3>
-                <p className="text-surface-dim text-[11px] sm:text-xs hidden xs:block">중요한 순간을 놓치지 않도록.</p>
+              <div className="flex items-baseline gap-2.5 flex-wrap">
+                <h3 className="font-sans font-bold text-base sm:text-lg md:text-xl text-white tracking-tight">다가오는 학사 일정</h3>
+                <span className="text-surface-dim text-xs hidden sm:inline">중요한 학교 일정을 확인하세요</span>
               </div>
             </div>
-            <Link to="/events" className="border border-white/10 hover:border-white/30 text-white rounded-full px-2.5 py-1 sm:px-3 sm:py-1.5 bg-white/5 hover:bg-white/10 transition-colors text-[11px] sm:text-xs font-medium shrink-0">
+            <Link to="/events" className="border border-white/10 hover:border-white/30 text-white/80 hover:text-white rounded-full px-3 py-1 bg-white/5 hover:bg-white/10 transition-colors text-xs font-medium shrink-0">
               더보기
             </Link>
           </div>
           
-          <ul className="space-y-2 sm:space-y-3">
-            {upcomingEvents.length > 0 ? upcomingEvents.map((event, idx) => {
-              const dday = getDDayInfo(event.date);
-              return (
-                <motion.li 
-                  key={event.id} 
-                  initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }}
-                  whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: idx * 0.05 }}
-                  className="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-white/[0.04] hover:bg-white/10 transition-colors group/item border border-white/5 cursor-pointer relative flex items-center justify-between gap-2.5 sm:gap-4"
-                  onClick={() => onItemClick(event, 'event')}
-                >
-                  {/* Left: Compact Date Badge + Title/Desc */}
-                  <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-                    {/* Date Block */}
-                    <div className="flex flex-col items-center justify-center bg-white/5 border border-white/10 rounded-lg sm:rounded-xl px-2.5 pt-2 pb-1.5 sm:px-3 sm:pt-2.5 sm:pb-2 shrink-0 min-w-[46px] sm:min-w-[56px] text-center">
-                      <span className="text-[9px] sm:text-[10px] font-space font-bold text-surface-dim tracking-wider uppercase leading-none">{format(event.date, 'MMM')}</span>
-                      <span className="text-sm sm:text-lg font-space font-bold text-white leading-none mt-1">{format(event.date, 'dd')}</span>
-                      {event.endDate && event.date.getTime() !== event.endDate.getTime() && (
-                        <span className="text-[8px] sm:text-[9px] font-space text-surface-dim font-medium leading-none mt-0.5">~{format(event.endDate, 'dd')}</span>
-                      )}
-                    </div>
-
-                    {/* Content Column */}
-                    <div className="min-w-0 flex-1 space-y-0.5 sm:space-y-1">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        {event.color && (
-                          <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: event.color }} />
+          {upcomingEvents.length > 0 ? (
+            <ul className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {upcomingEvents.map((event, idx) => {
+                const dday = getDDayInfo(event.date);
+                return (
+                  <motion.li 
+                    key={event.id} 
+                    initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }}
+                    whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4, delay: idx * 0.05 }}
+                    className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] transition-colors group/item border border-white/5 cursor-pointer relative flex items-center justify-between gap-3"
+                    onClick={() => onItemClick(event, 'event')}
+                  >
+                    {/* Left: Compact Date Badge + Title/Desc */}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {/* Date Block */}
+                      <div className="flex flex-col items-center justify-center bg-white/5 border border-white/10 rounded-xl px-2.5 py-2 shrink-0 min-w-[48px] sm:min-w-[54px] text-center">
+                        <span className="text-[9px] sm:text-[10px] font-space font-bold text-surface-dim tracking-wider uppercase leading-none">{format(event.date, 'MMM')}</span>
+                        <span className="text-sm sm:text-base font-space font-bold text-white leading-none mt-1">{format(event.date, 'dd')}</span>
+                        {event.endDate && event.date.getTime() !== event.endDate.getTime() && (
+                          <span className="text-[8px] sm:text-[9px] font-space text-surface-dim font-medium leading-none mt-0.5">~{format(event.endDate, 'dd')}</span>
                         )}
-                        <h4 className="text-xs sm:text-base font-bold text-white group-hover/item:text-secondary-fixed-dim transition-colors truncate">
-                          {event.title}
-                        </h4>
-                        <span className={`px-1.5 py-0.5 rounded-md text-[9px] sm:text-[11px] font-space font-bold border shrink-0 transition-colors ml-1 ${dday.className}`}>
-                          {dday.text}
-                        </span>
                       </div>
 
-                      {event.description && (
-                        <p className="text-[10px] sm:text-xs text-surface-dim truncate leading-relaxed">
-                          {event.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                      {/* Content Column */}
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {event.color && (
+                            <div className="w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: event.color }} />
+                          )}
+                          <h4 className="text-xs sm:text-sm md:text-base font-bold text-white group-hover/item:text-secondary-fixed-dim transition-colors truncate">
+                            {event.title}
+                          </h4>
+                          <span className={`px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-space font-bold border shrink-0 transition-colors ml-auto ${dday.className}`}>
+                            {dday.text}
+                          </span>
+                        </div>
 
-                  {/* Edit Button (if Admin) */}
-                  {isAdmin && (
-                    <button 
-                      className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-white/5 border border-white/10 hover:bg-white/20 text-white transition-colors shrink-0 cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEditItem('events', event);
-                      }}
-                      title="일정 수정"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </motion.li>
-              );
-            }) : (
-              <li className="p-3 sm:p-5 text-center text-xs sm:text-sm text-surface-dim bg-white/5 rounded-xl sm:rounded-2xl">예정된 학사 일정이 없습니다.</li>
-            )}
-          </ul>
+                        {event.description && (
+                          <p className="text-[11px] sm:text-xs text-surface-dim truncate leading-relaxed">
+                            {event.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Edit Button (if Admin) */}
+                    {isAdmin && (
+                      <button 
+                        className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/20 text-white transition-colors shrink-0 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditItem('events', event);
+                        }}
+                        title="일정 수정"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </motion.li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="p-4 sm:p-5 text-center text-xs sm:text-sm text-surface-dim bg-white/[0.03] rounded-xl sm:rounded-2xl">
+              예정된 학사 일정이 없습니다.
+            </div>
+          )}
         </motion.div>
 
         {/* Notices */}
@@ -364,131 +368,136 @@ export function Dashboard({
           whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           viewport={{ once: true, amount: 0.2 }}
           transition={{ duration: 0.8, delay: 0.1 }}
-          className="sm:col-span-1 xl:col-span-6 bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-6 md:p-8 flex-grow flex flex-col justify-between"
+          className="sm:col-span-1 xl:col-span-6 bg-[#0a1120] rounded-2xl sm:rounded-3xl border border-white/5 overflow-hidden p-5 sm:p-6 md:p-8 flex flex-col"
         >
-            <div className="flex items-start justify-between mb-4 md:mb-6">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-tertiary-fixed-dim/10 border border-tertiary-fixed-dim/20 flex items-center justify-center text-tertiary-fixed-dim">
-                <Bell className="w-5 h-5 md:w-6 md:h-6" strokeWidth={1.5} />
+          <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/5">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-lg bg-tertiary-fixed-dim/10 border border-tertiary-fixed-dim/20 flex items-center justify-center text-tertiary-fixed-dim shrink-0">
+                <Bell className="w-4 h-4" strokeWidth={1.75} />
               </div>
-              <Link to="/notices" className="text-[10px] md:text-xs font-bold text-white/50 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1 md:py-1.5 rounded-full transition-colors border border-white/5">더보기</Link>
+              <h3 className="font-sans font-bold text-base sm:text-lg md:text-xl text-white tracking-tight">공지사항</h3>
             </div>
-            <h3 className="font-sans font-bold text-xl md:text-2xl text-white tracking-tight mb-1 md:mb-2">공지사항</h3>
-            <p className="text-surface-dim text-xs md:text-sm mb-4 md:mb-6">학교의 주요 소식을 확인하세요.</p>
-            
-            <ul className="space-y-3 md:space-y-4 max-h-[300px] md:max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-              {notices.length > 0 ? notices.slice(0, 5).map((notice, idx) => (
-                <motion.li 
-                  key={notice.id} 
-                  initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
-                  whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: idx * 0.06 }}
-                  className="group cursor-pointer border-b border-white/5 pb-4 last:border-0 last:pb-0 relative"
-                  onClick={() => onItemClick(notice, 'notice')}
-                >
-                  <div className="flex items-start justify-between pr-8">
-                    <div>
-                      <span className="block text-xs font-space text-surface-dim mb-1 tracking-widest uppercase">{format(new Date(notice.date), 'MMM dd, yyyy')}</span>
-                      <span className="block text-white font-medium group-hover:text-tertiary-fixed-dim transition-colors line-clamp-2 leading-snug">{notice.title}</span>
-                    </div>
-                  </div>
-                  {isAdmin && (
-                    <button 
-                      className="absolute right-0 top-0 p-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/20 text-white transition-colors opacity-0 group-hover:opacity-100"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEditItem('notices', notice);
-                      }}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </motion.li>
-              )) : (
-                <motion.li 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="text-sm text-surface-dim text-center py-4 list-none"
-                >
-                  등록된 공지사항이 없습니다.
-                </motion.li>
-              )}
-            </ul>
-          </motion.div>
+            <Link to="/notices" className="border border-white/10 hover:border-white/30 text-white/80 hover:text-white rounded-full px-3 py-1 bg-white/5 hover:bg-white/10 transition-colors text-xs font-medium shrink-0">
+              더보기
+            </Link>
+          </div>
           
-          {/* Documents */}
-          <motion.div 
-            id="documents-section"
-            initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
-            whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            viewport={{ once: true, amount: 0.2 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="sm:col-span-1 xl:col-span-6 bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-6 md:p-8 flex flex-col justify-between"
-          >
-            <div className="flex items-start justify-between mb-4 md:mb-6">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white">
-                <FileText className="w-5 h-5 md:w-6 md:h-6" strokeWidth={1.5} />
+          <ul className="divide-y divide-white/5 flex-1">
+            {notices.length > 0 ? notices.slice(0, 5).map((notice, idx) => (
+              <motion.li 
+                key={notice.id} 
+                initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+                whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: idx * 0.05 }}
+                className="group cursor-pointer py-3 first:pt-0 last:pb-0 relative flex items-center justify-between gap-3"
+                onClick={() => onItemClick(notice, 'notice')}
+              >
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[11px] font-space text-surface-dim/80 mb-0.5 tracking-wider uppercase">
+                    {format(new Date(notice.date), 'yyyy.MM.dd')}
+                  </span>
+                  <span className="block text-sm sm:text-base text-white font-medium group-hover:text-tertiary-fixed-dim transition-colors line-clamp-1 leading-snug">
+                    {notice.title}
+                  </span>
+                </div>
+                {isAdmin && (
+                  <button 
+                    className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/20 text-white transition-colors shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditItem('notices', notice);
+                    }}
+                    title="공지 수정"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </motion.li>
+            )) : (
+              <li className="text-xs sm:text-sm text-surface-dim text-center py-6 list-none">
+                등록된 공지사항이 없습니다.
+              </li>
+            )}
+          </ul>
+        </motion.div>
+          
+        {/* Documents */}
+        <motion.div 
+          id="documents-section"
+          initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
+          whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+          className="sm:col-span-1 xl:col-span-6 bg-[#0a1120] rounded-2xl sm:rounded-3xl border border-white/5 overflow-hidden p-5 sm:p-6 md:p-8 flex flex-col"
+        >
+          <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/5">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white shrink-0">
+                <FileText className="w-4 h-4" strokeWidth={1.75} />
               </div>
-              <Link to="/documents" className="text-[10px] md:text-xs font-bold text-white/50 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1 md:py-1.5 rounded-full transition-colors border border-white/5">더보기</Link>
+              <h3 className="font-sans font-bold text-base sm:text-lg md:text-xl text-white tracking-tight">문서 자료실</h3>
             </div>
-            <h3 className="font-sans font-bold text-xl md:text-2xl text-white tracking-tight mb-4 md:mb-6">문서 자료실</h3>
-            
-            <div className="space-y-3">
-              {documents.length > 0 ? documents.slice(0, 5).map((doc, idx) => (
-                <motion.div 
-                  key={doc.id} 
-                  initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
-                  whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: idx * 0.06 }}
-                  className="flex flex-col p-4 rounded-xl border border-white/5 bg-white/5 group/doc cursor-pointer relative"
-                  onClick={() => onItemClick(doc, 'document')}
-                >
-                  <div className="flex items-center mb-2 pr-8">
-                    <FileText className="w-5 h-5 text-surface-dim group-hover/doc:text-white mr-4 shrink-0 transition-colors" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-white group-hover/doc:text-secondary-fixed-dim transition-colors truncate">{doc.title}</p>
-                      <p className="text-xs text-surface-dim mt-0.5 truncate whitespace-pre-wrap">{doc.description}</p>
+            <Link to="/documents" className="border border-white/10 hover:border-white/30 text-white/80 hover:text-white rounded-full px-3 py-1 bg-white/5 hover:bg-white/10 transition-colors text-xs font-medium shrink-0">
+              더보기
+            </Link>
+          </div>
+          
+          <div className="space-y-2.5 flex-1">
+            {documents.length > 0 ? documents.slice(0, 4).map((doc, idx) => (
+              <motion.div 
+                key={doc.id} 
+                initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+                whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: idx * 0.05 }}
+                className="flex flex-col p-3.5 rounded-xl border border-white/5 bg-white/[0.03] hover:bg-white/[0.07] group/doc cursor-pointer relative transition-colors"
+                onClick={() => onItemClick(doc, 'document')}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center min-w-0 flex-1">
+                    <FileText className="w-4 h-4 text-surface-dim group-hover/doc:text-white mr-2.5 shrink-0 transition-colors" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm font-semibold text-white group-hover/doc:text-secondary-fixed-dim transition-colors truncate">{doc.title}</p>
+                      {doc.description && (
+                        <p className="text-[11px] text-surface-dim mt-0.5 truncate">{doc.description}</p>
+                      )}
                     </div>
-                  </div>
-                  <div className="flex flex-col space-y-1.5 ml-9 mt-2">
-                    {doc.files?.length ? doc.files.map((file, idx) => (
-                      <a key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center text-xs text-surface-dim hover:text-white transition-colors" onClick={(e) => e.stopPropagation()}>
-                        <span className="w-1.5 h-1.5 rounded-full bg-white/20 mr-2 shrink-0"></span>
-                        <span className="truncate font-space">{file.name}</span>
-                      </a>
-                    )) : doc.fileUrl && (
-                      <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center text-xs text-surface-dim hover:text-white transition-colors" onClick={(e) => e.stopPropagation()}>
-                        <span className="w-1.5 h-1.5 rounded-full bg-white/20 mr-2 shrink-0"></span>
-                        <span className="truncate font-space">{doc.fileName}</span>
-                      </a>
-                    )}
                   </div>
                   {isAdmin && (
                     <button 
-                      className="absolute right-3 top-4 p-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/20 text-white transition-colors opacity-0 group-hover/doc:opacity-100"
+                      className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/20 text-white transition-colors opacity-100 md:opacity-0 md:group-hover/doc:opacity-100 shrink-0 cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
                         onEditItem('documents', doc);
                       }}
+                      title="문서 수정"
                     >
-                      <Edit2 className="w-4 h-4" />
+                      <Edit2 className="w-3.5 h-3.5" />
                     </button>
                   )}
-                </motion.div>
-              )) : (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="text-sm text-surface-dim text-center py-4"
-                >
-                  등록된 문서가 없습니다.
-                </motion.div>
-              )}
-            </div>
-          </motion.div>
+                </div>
+                {(doc.files?.length || doc.fileUrl) && (
+                  <div className="flex flex-wrap gap-1.5 ml-6.5 mt-2">
+                    {doc.files?.length ? doc.files.map((file, fIdx) => (
+                      <a key={fIdx} href={file.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-[11px] text-surface-dim hover:text-white bg-white/5 px-2 py-0.5 rounded transition-colors max-w-full" onClick={(e) => e.stopPropagation()}>
+                        <span className="truncate font-space">{file.name}</span>
+                      </a>
+                    )) : doc.fileUrl && (
+                      <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-[11px] text-surface-dim hover:text-white bg-white/5 px-2 py-0.5 rounded transition-colors max-w-full" onClick={(e) => e.stopPropagation()}>
+                        <span className="truncate font-space">{doc.fileName}</span>
+                      </a>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            )) : (
+              <div className="text-xs sm:text-sm text-surface-dim text-center py-6">
+                등록된 문서가 없습니다.
+              </div>
+            )}
+          </div>
+        </motion.div>
 
       </div>
       

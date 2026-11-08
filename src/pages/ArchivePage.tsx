@@ -299,22 +299,24 @@ export function ArchivePage({
                   <div
                     key={doc.id}
                     onClick={() => onItemClick(doc, 'document')}
-                    className="flex flex-col p-6 rounded-3xl border border-white/5 bg-[#0a1120] hover:bg-white/5 hover:border-white/10 group cursor-pointer relative transition-all"
+                    className="flex flex-col p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/5 bg-[#0a1120] hover:bg-white/[0.04] hover:border-white/10 group cursor-pointer relative transition-all"
                   >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white group-hover:bg-white/10 transition-colors">
-                        <FileText className="w-6 h-6" strokeWidth={1.5} />
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white group-hover:bg-white/10 transition-colors shrink-0">
+                          <FileText className="w-4 h-4" strokeWidth={1.75} />
+                        </div>
+                        <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-secondary-fixed-dim transition-colors line-clamp-1">
+                          {doc.title}
+                        </h3>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-space font-bold border transition-colors ${dday.className}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-space font-bold border transition-colors shrink-0 ${dday.className}`}>
                         {dday.text}
                       </span>
                     </div>
 
                     <div className="flex-1 min-w-0 pr-8">
-                      <h3 className="text-lg font-bold text-white group-hover:text-secondary-fixed-dim transition-colors line-clamp-1 mb-2">
-                        {doc.title}
-                      </h3>
-                      <p className="text-sm text-surface-dim line-clamp-2 mb-4 h-10 whitespace-pre-wrap">
+                      <p className="text-xs sm:text-sm text-surface-dim line-clamp-2 mb-4 min-h-[2.5rem] whitespace-pre-wrap">
                         {doc.description}
                       </p>
                     </div>

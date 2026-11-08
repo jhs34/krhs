@@ -101,7 +101,7 @@ export function PosLoginModal({
               alt="KRHS"
               className="w-5 h-auto brightness-0 invert opacity-90"
             />
-            <span className="text-xs font-bold text-white/90 tracking-tight leading-none translate-y-[1px]">
+            <span className="text-xs font-bold text-white/90 tracking-tight">
               KRHS POS
             </span>
           </div>

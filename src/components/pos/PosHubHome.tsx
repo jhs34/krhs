@@ -18,16 +18,15 @@ interface PosHubHomeProps {
   user: PosUser;
   items: PosItem[];
   categories: PosCategory[];
-  gifticons?: PosGifticon[];
   totalSalesToday: number;
   cashSalesToday: number;
   transferSalesToday: number;
+  todayDiscountTotal?: number;
   todayOrdersCount: number;
   todayTotalSoldCount?: number;
   hasActiveCart: boolean;
   onStartSales: () => void;
   onOpenProductManager: () => void;
-  onOpenGifticonManager?: () => void;
   onOpenSalesHistory: () => void;
   onOpenSettlement: () => void;
   onOpenAuditLog?: () => void;
@@ -38,16 +37,15 @@ interface PosHubHomeProps {
 export function PosHubHome({
   user,
   items,
-  gifticons,
   totalSalesToday,
   cashSalesToday,
   transferSalesToday,
+  todayDiscountTotal = 0,
   todayOrdersCount,
   todayTotalSoldCount = 0,
   hasActiveCart,
   onStartSales,
   onOpenProductManager,
-  onOpenGifticonManager,
   onOpenSalesHistory,
   onOpenSettlement,
   onOpenAuditLog,
@@ -65,13 +63,12 @@ export function PosHubHome({
   const outOfStockCount = items.filter(isItemSoldOut).length;
   const inStockCount = items.length - outOfStockCount;
   const totalSoldCount = items.reduce((sum, it) => sum + (it.totalSold || 0), 0);
-  const activeGifticonsCount = gifticons ? gifticons.filter(g => g.status === 'ACTIVE').length : 0;
 
   return (
     <div className="flex-1 flex flex-col bg-primary text-white overflow-y-auto select-none">
       {/* Top Navigation Bar matching KRHS Portal Navigation.tsx */}
       <header className="glass-panel-dark sticky top-0 z-30 border-b border-white/5 shrink-0">
-        <div className="max-w-7xl w-full mx-auto px-4 sm:px-8 lg:px-12 h-14 sm:h-16 flex items-center justify-between gap-4 pt-[2px]">
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-8 lg:px-12 h-14 sm:h-16 flex items-center justify-between gap-4">
           {/* Zone 1: Brand Lockup matching Navigation.tsx */}
           <div className="flex items-center space-x-2.5 shrink-0">
             <img
@@ -79,13 +76,13 @@ export function PosHubHome({
               className="w-[22px] sm:w-[26px] h-auto brightness-0 invert opacity-90 block shrink-0"
               alt="KRHS"
             />
-            <span className="font-sans font-bold tracking-tight text-white/95 text-base sm:text-lg leading-none translate-y-[1.5px] whitespace-nowrap">
+            <span className="font-sans font-bold tracking-tight text-white/95 text-base sm:text-lg whitespace-nowrap">
               KRHS POS
             </span>
           </div>
 
           {/* Zone 2: Quiet inline status & operator info (unboxed) */}
-          <div className="hidden md:flex items-center space-x-3 text-xs text-surface-dim whitespace-nowrap leading-none translate-y-[1.5px]">
+          <div className="hidden md:flex items-center space-x-3 text-xs text-surface-dim whitespace-nowrap">
             <span>담당: <strong className="text-white font-semibold">{user.name}</strong>{user.role === 'admin' ? ' (관리자)' : ''}</span>
             <span aria-hidden="true">·</span>
             <span className="font-mono tabular-nums text-white/80">{format(currentTime, 'yyyy.MM.dd HH:mm:ss')}</span>
@@ -93,7 +90,7 @@ export function PosHubHome({
 
           {/* Zone 3: Actions */}
           <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
-            <span className="md:hidden inline-flex items-center text-xs text-surface-dim truncate max-w-[100px] leading-none translate-y-[1.5px]">
+            <span className="md:hidden inline-flex items-center text-xs text-surface-dim truncate max-w-[100px]">
               <strong className="text-white">{user.name}</strong>
             </span>
 
@@ -101,20 +98,20 @@ export function PosHubHome({
               <button
                 type="button"
                 onClick={onOpenAuditLog}
-                className="h-8 text-xs font-medium text-surface-dim hover:text-white px-2.5 transition-colors cursor-pointer whitespace-nowrap inline-flex items-center justify-center space-x-1.5"
+                className="h-8 text-xs font-medium text-surface-dim hover:text-white px-2.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer whitespace-nowrap inline-flex items-center justify-center space-x-1.5"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-secondary-container shrink-0" />
-                <span className="hidden sm:inline leading-none translate-y-[1.5px]">감사 로그</span>
+                <span className="hidden sm:inline">감사 로그</span>
               </button>
             )}
 
             <button
               type="button"
               onClick={onExitToPortal}
-              className="h-8 text-xs font-medium text-surface-dim hover:text-white px-2.5 transition-colors cursor-pointer whitespace-nowrap inline-flex items-center justify-center space-x-1.5"
+              className="h-8 text-xs font-medium text-surface-dim hover:text-white px-2.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer whitespace-nowrap inline-flex items-center justify-center space-x-1.5"
             >
               <Home className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden sm:inline leading-none translate-y-[1.5px]">학교 포털</span>
+              <span className="hidden sm:inline">학교 포털</span>
             </button>
 
             <button
@@ -123,7 +120,7 @@ export function PosHubHome({
               className="h-8 text-xs font-medium text-surface-dim hover:text-red-300 bg-white/5 hover:bg-red-500/15 border border-white/10 hover:border-red-500/30 px-3 rounded-lg transition-colors cursor-pointer whitespace-nowrap inline-flex items-center justify-center space-x-1.5"
             >
               <LogOut className="w-3.5 h-3.5 shrink-0" />
-              <span className="leading-none translate-y-[1.5px]">로그아웃</span>
+              <span>로그아웃</span>
             </button>
           </div>
         </div>
@@ -176,7 +173,7 @@ export function PosHubHome({
                 포스기 판매 화면 시작
               </h2>
               <p className="text-xs sm:text-sm text-surface-dim leading-relaxed max-w-lg break-keep">
-                매점 상품 터치 주문, 현금 거스름돈 자동 계산, 계좌이체 확인 및 기프티콘 코드 차감을 즉시 처리합니다.
+                매점 상품 터치 주문, 현금 거스름돈 자동 계산, 계좌이체 확인 및 직접 할인 적용을 즉시 처리합니다.
               </p>
             </div>
 
@@ -219,7 +216,7 @@ export function PosHubHome({
                         상품 및 재고 관리
                       </div>
                       <p className="text-xs text-surface-dim mt-0.5 truncate">
-                        등록 상품 {items.length}종 · 품절 {outOfStockCount}종 · 프리셋 설정
+                        등록 상품 {items.length}종 · 품절 {outOfStockCount}종 · 메뉴별 판매량
                       </p>
                     </div>
                   </div>
@@ -250,7 +247,7 @@ export function PosHubHome({
                 <button
                   type="button"
                   onClick={onOpenSettlement}
-                  className="w-full py-4 flex items-center justify-between text-left group cursor-pointer transition-colors"
+                  className="w-full pt-4 pb-1 flex items-center justify-between text-left group cursor-pointer transition-colors"
                 >
                   <div className="flex items-start space-x-3.5 min-w-0 pr-3">
                     <Calculator className="w-5 h-5 text-surface-dim group-hover:text-white mt-0.5 shrink-0 transition-colors" strokeWidth={1.5} />
@@ -265,28 +262,6 @@ export function PosHubHome({
                   </div>
                   <ArrowRight className="w-4 h-4 text-surface-dim group-hover:text-white group-hover:translate-x-1 transition-all shrink-0" />
                 </button>
-
-                {/* Item 4: Gifticon Manager */}
-                {onOpenGifticonManager && (
-                  <button
-                    type="button"
-                    onClick={onOpenGifticonManager}
-                    className="w-full pt-4 pb-1 flex items-center justify-between text-left group cursor-pointer transition-colors"
-                  >
-                    <div className="flex items-start space-x-3.5 min-w-0 pr-3">
-                      <Ticket className="w-5 h-5 text-surface-dim group-hover:text-white mt-0.5 shrink-0 transition-colors" strokeWidth={1.5} />
-                      <div className="min-w-0">
-                        <div className="text-sm sm:text-base font-bold text-white group-hover:text-secondary-container transition-colors">
-                          기프티콘 관리
-                        </div>
-                        <p className="text-xs text-surface-dim mt-0.5 truncate">
-                          사용 가능 {activeGifticonsCount}장 · 코드 등록 및 사용 내역 확인
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-surface-dim group-hover:text-white group-hover:translate-x-1 transition-all shrink-0" />
-                  </button>
-                )}
               </div>
             </div>
           </motion.div>
@@ -333,13 +308,13 @@ export function PosHubHome({
           </div>
 
           <div className="space-y-1 sm:border-l sm:border-white/10 sm:pl-6">
-            <span className="text-[11px] text-surface-dim block">사용 가능 기프티콘</span>
+            <span className="text-[11px] text-surface-dim block">당일 할인 적용</span>
             <div className="text-lg sm:text-2xl font-bold text-white font-mono tabular-nums tracking-tight">
-              {activeGifticonsCount}
-              <span className="text-xs font-normal text-surface-dim ml-0.5">장</span>
+              {todayDiscountTotal.toLocaleString()}
+              <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
             </div>
             <div className="text-[11px] text-surface-dim/70">
-              즉시 할인 적용 가능
+              기프티콘 · 직접 할인 합계
             </div>
           </div>
         </motion.div>

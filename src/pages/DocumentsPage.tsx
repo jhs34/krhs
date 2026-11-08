@@ -40,22 +40,39 @@ export function DocumentsPage({ documents, isAdmin, onItemClick, onEditItem }: D
             transition={{ duration: 0.5, delay: 0.2 + idx * 0.05 }}
             key={doc.id}
             onClick={() => onItemClick(doc, 'document')}
-            className="flex flex-col p-6 rounded-3xl border border-white/5 bg-[#0a1120] hover:bg-white/5 hover:border-white/10 group cursor-pointer relative transition-all"
+            className="flex flex-col p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/5 bg-[#0a1120] hover:bg-white/[0.04] hover:border-white/10 group cursor-pointer relative transition-all"
           >
-            <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-6 text-white group-hover:bg-white/10 transition-colors">
-              <FileText className="w-6 h-6" strokeWidth={1.5} />
+            <div className="flex items-start justify-between gap-2.5 mb-3">
+              <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white group-hover:bg-white/10 transition-colors shrink-0">
+                  <FileText className="w-4 h-4" strokeWidth={1.75} />
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-secondary-fixed-dim transition-colors line-clamp-1">
+                  {doc.title}
+                </h3>
+              </div>
+
+              {isAdmin && (
+                <button 
+                  className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/20 text-white transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100 shrink-0 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditItem('documents', doc);
+                  }}
+                  title="문서 수정"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
             
-            <div className="flex-1 min-w-0 pr-8">
-              <h3 className="text-lg font-bold text-white group-hover:text-secondary-fixed-dim transition-colors line-clamp-1 mb-2">
-                {doc.title}
-              </h3>
-              <p className="text-sm text-surface-dim line-clamp-2 mb-4 h-10 whitespace-pre-wrap">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm text-surface-dim line-clamp-2 mb-4 min-h-[2.5rem] whitespace-pre-wrap">
                 {doc.description}
               </p>
             </div>
             
-            <div className="mt-auto pt-4 border-t border-white/5">
+            <div className="mt-auto pt-3.5 border-t border-white/5">
               <div className="flex flex-col space-y-2">
                 {doc.files?.length ? doc.files.map((file, fIdx) => (
                   <a 
@@ -89,18 +106,6 @@ export function DocumentsPage({ documents, isAdmin, onItemClick, onEditItem }: D
                 )}
               </div>
             </div>
-
-            {isAdmin && (
-              <button 
-                className="absolute right-4 top-4 p-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/20 text-white transition-colors opacity-0 group-hover:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEditItem('documents', doc);
-                }}
-              >
-                <Edit2 className="w-4 h-4" />
-              </button>
-            )}
           </motion.div>
         )) : (
           <motion.div 

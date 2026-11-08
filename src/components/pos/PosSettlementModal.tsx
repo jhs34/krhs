@@ -992,8 +992,8 @@ export function PosSettlementModal({
         {activeTab === 'history' && (
           <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-5 custom-scrollbar">
             
-            {/* Top Toolbar: Search & Filter Controls */}
-            <div className="bg-[#0a1120] border border-white/15 rounded-xl p-3 space-y-2.5">
+            {/* Top Toolbar: Unboxed Search & Filter Controls */}
+            <div className="pb-3.5 border-b border-white/10 space-y-2.5">
               <div className="flex items-center gap-2">
                 {/* Specific Date Picker */}
                 <div className="relative w-38 sm:w-44 shrink-0">
@@ -1003,7 +1003,7 @@ export function PosSettlementModal({
                     type="date"
                     value={searchDate}
                     onChange={e => setSearchDate(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-primary border border-white/15 rounded-lg text-xs text-white outline-none focus:border-secondary-container font-mono [color-scheme:dark]"
+                    className="w-full px-3 py-1.5 bg-[#0a1120] border border-white/10 rounded-lg text-xs text-white outline-none focus:border-secondary font-mono [color-scheme:dark]"
                   />
                 </div>
 
@@ -1019,7 +1019,7 @@ export function PosSettlementModal({
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder="담당자, 메모 검색..."
-                    className="w-full pl-8 pr-3 py-1.5 bg-primary border border-white/15 rounded-lg text-xs text-white outline-none focus:border-secondary-container placeholder:text-surface-dim/50 truncate"
+                    className="w-full pl-8 pr-3 py-1.5 bg-[#0a1120] border border-white/10 rounded-lg text-xs text-white outline-none focus:border-secondary placeholder:text-surface-dim/50 truncate"
                   />
                 </div>
 
@@ -1041,7 +1041,7 @@ export function PosSettlementModal({
               </div>
 
               {/* Status Filter Tabs */}
-              <div className="flex flex-wrap items-center gap-1.5 text-xs pt-1 border-t border-white/10">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
                 {[
                   { id: 'ALL', label: '전체' },
                   { id: 'THIS_MONTH', label: '이번 달' },
@@ -1052,10 +1052,10 @@ export function PosSettlementModal({
                     key={tab.id}
                     type="button"
                     onClick={() => setFilterStatus(tab.id as any)}
-                    className={`px-3 py-1 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors cursor-pointer ${
                       filterStatus === tab.id
                         ? 'bg-secondary text-white'
-                        : 'text-surface-dim hover:text-white hover:bg-white/5'
+                        : 'bg-white/5 text-surface-dim hover:text-white'
                     }`}
                   >
                     {tab.label}
@@ -1129,7 +1129,7 @@ export function PosSettlementModal({
                 </div>
 
                 {/* Printable Terminal Style Report Card */}
-                <div className="bg-[#0a1120] border border-white/15 rounded-xl p-5 sm:p-6 max-w-2xl mx-auto font-mono text-xs space-y-4">
+                <div className="bg-[#0a1120] border border-white/10 rounded-xl p-5 sm:p-6 max-w-2xl mx-auto font-mono text-xs space-y-4">
                   <div className="text-center border-b border-white/10 pb-4">
                     <div className="text-base font-black text-white font-sans tracking-wide">
                       한국철도고등학교 매점
@@ -1163,16 +1163,16 @@ export function PosSettlementModal({
                     </div>
                   </div>
 
-                  <div className="border-t border-dashed border-white/15 pt-3 space-y-2">
+                  <div className="border-t border-white/10 pt-3 space-y-2">
                     <div className="text-xs font-bold text-secondary-container font-sans">
-                      [매출 실적]
+                      매출 실적
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-surface-dim">· 계좌이체 매출</span>
+                      <span className="text-surface-dim">계좌이체 매출</span>
                       <span className="text-white tabular-nums">{(selectedHistoryItem.transferSales || 0).toLocaleString()}원</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-surface-dim">· 현금 매출</span>
+                      <span className="text-surface-dim">현금 매출</span>
                       <span className="text-white tabular-nums">{(selectedHistoryItem.cashSales || 0).toLocaleString()}원</span>
                     </div>
                     <div className="flex justify-between font-bold text-sm text-white pt-1 border-t border-white/10">
@@ -1181,20 +1181,20 @@ export function PosSettlementModal({
                     </div>
                   </div>
 
-                  <div className="border-t border-dashed border-white/15 pt-3 space-y-2">
+                  <div className="border-t border-white/10 pt-3 space-y-2">
                     <div className="text-xs font-bold text-emerald-400 font-sans">
-                      [금고 시재금 정산]
+                      금고 시재금 정산
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-surface-dim">· 시작 준비금</span>
+                      <span className="text-surface-dim">시작 준비금</span>
                       <span className="tabular-nums">{(selectedHistoryItem.initialCash || 0).toLocaleString()}원</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-surface-dim">· 장부상 현금 (준비금+현금매출)</span>
+                      <span className="text-surface-dim">장부상 현금 (준비금+현금매출)</span>
                       <span className="tabular-nums">{((selectedHistoryItem.initialCash || 0) + (selectedHistoryItem.cashSales || 0)).toLocaleString()}원</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-surface-dim">· 실측된 금고 현금</span>
+                      <span className="text-surface-dim">실측된 금고 현금</span>
                       <span className="text-emerald-400 font-bold tabular-nums">{(selectedHistoryItem.actualCashInput || 0).toLocaleString()}원</span>
                     </div>
                     <div className="flex justify-between font-bold text-sm pt-1 border-t border-white/10">
@@ -1214,7 +1214,7 @@ export function PosSettlementModal({
                   </div>
 
                   {selectedHistoryItem.note && (
-                    <div className="border-t border-dashed border-white/15 pt-3">
+                    <div className="border-t border-white/10 pt-3">
                       <div className="text-[11px] text-surface-dim mb-1">특이사항 메모</div>
                       <div className="text-white/90 text-xs">
                         {selectedHistoryItem.note}
@@ -1225,8 +1225,8 @@ export function PosSettlementModal({
               </div>
             ) : (
               /* History List Overview */
-              <div className="space-y-5">
-                {/* Aggregate KPI Strip (Crisp 1px Grid Table so 2x2 mobile & 1x4 desktop borders are always aligned) */}
+              <div className="space-y-4">
+                {/* Aggregate KPI Strip (Crisp 1px Grid Table) */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/15 border border-white/15 rounded-xl overflow-hidden">
                   <div className="bg-[#0a1120] p-3.5">
                     <span className="text-[11px] text-surface-dim block mb-1">누적 마감 일수</span>
@@ -1258,112 +1258,99 @@ export function PosSettlementModal({
                   </div>
                 </div>
 
-                {/* Settlements List */}
+                {/* Settlements Hairline List */}
                 {filteredHistoryList.length === 0 ? (
-                  <div className="py-12 text-center space-y-2 bg-[#0a1120] border border-white/10 rounded-xl">
-                    <History className="w-10 h-10 text-surface-dim mx-auto opacity-30" />
-                    <h4 className="text-sm font-bold text-white">일치하는 마감 정산 내역이 없습니다.</h4>
-                    <p className="text-xs text-surface-dim max-w-sm mx-auto">
-                      {historyList.length === 0
-                        ? "영업 종료 후 [당일 마감 정산] 탭에서 '마감 정산 저장'을 누르면 일자별로 영구 저장됩니다."
-                        : "검색 조건이나 일자 필터를 변경해 보세요."}
-                    </p>
+                  <div className="py-14 text-center space-y-1.5 text-surface-dim">
+                    <History className="w-8 h-8 text-surface-dim/30 mx-auto mb-2" />
+                    <h4 className="text-sm font-bold text-white">일치하는 마감 정산 내역이 없습니다</h4>
                   </div>
                 ) : (
-                  <div className="space-y-2.5">
-                    <div className="text-xs font-bold text-surface-dim flex items-center justify-between px-1">
-                      <span>역대 마감 정산 일지 ({filteredHistoryList.length}건)</span>
-                      <span className="text-[11px] font-normal">항목을 클릭하면 상세 보고서를 확인합니다</span>
-                    </div>
+                  <div className="border-t border-b border-white/10 divide-y divide-white/5">
+                    {filteredHistoryList.map(item => {
+                      const expected = (item.initialCash || 0) + (item.cashSales || 0);
+                      const discrepancyVal = typeof item.discrepancy === 'number' 
+                        ? item.discrepancy 
+                        : ((item.actualCashInput || 0) - expected);
 
-                    <div className="space-y-2.5">
-                      {filteredHistoryList.map(item => {
-                        const expected = (item.initialCash || 0) + (item.cashSales || 0);
-                        const discrepancyVal = typeof item.discrepancy === 'number' 
-                          ? item.discrepancy 
-                          : ((item.actualCashInput || 0) - expected);
-
-                        return (
-                          <div
-                            key={item.id}
-                            onClick={() => setSelectedHistoryItem(item)}
-                            className="bg-[#0a1120] hover:bg-[#101b33] border border-white/15 hover:border-secondary/60 rounded-xl p-3.5 sm:p-4 transition-all cursor-pointer flex items-center justify-between gap-3 group"
-                          >
-                            <div className="min-w-0 flex-1 space-y-1">
-                              <div className="flex items-center gap-2 flex-wrap text-xs">
-                                <span className="text-sm sm:text-base font-black text-white font-mono tabular-nums group-hover:text-secondary-container transition-colors">
-                                  {item.id}
-                                </span>
-                                <span className="text-white/25">·</span>
-                                <span className="text-surface-dim font-medium">
-                                  담당 {item.closedBy || item.openedBy || '담당자'}
-                                </span>
-                                <span className="text-white/25">·</span>
-                                <span className={`font-bold font-mono tabular-nums ${
-                                  discrepancyVal === 0
-                                    ? 'text-emerald-400'
-                                    : discrepancyVal > 0
-                                    ? 'text-secondary-container'
-                                    : 'text-rose-400'
-                                }`}>
-                                  {discrepancyVal === 0 ? '시재 일치' : discrepancyVal > 0 ? `+${discrepancyVal.toLocaleString()}원 과잉` : `${discrepancyVal.toLocaleString()}원 부족`}
-                                </span>
-                              </div>
-                              <div className="text-[11px] sm:text-xs text-surface-dim flex flex-wrap gap-x-3 gap-y-0.5 font-mono tabular-nums">
-                                <span>준비금 {(item.initialCash || 0).toLocaleString()}원</span>
-                                <span className="text-white/20">|</span>
-                                <span>실측현금 {(item.actualCashInput || 0).toLocaleString()}원</span>
-                                {item.note && (
-                                  <>
-                                    <span className="text-white/20">|</span>
-                                    <span className="font-sans text-white/80 truncate max-w-[200px]">메모: {item.note}</span>
-                                  </>
-                                )}
-                              </div>
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => setSelectedHistoryItem(item)}
+                          className="hover:bg-white/[0.02] py-3.5 px-2 sm:px-3 transition-colors cursor-pointer flex items-center justify-between gap-3 group"
+                        >
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap text-xs">
+                              <span className="text-sm font-black text-white font-mono tabular-nums group-hover:text-secondary-container transition-colors">
+                                {item.id}
+                              </span>
+                              <span className="text-white/25">·</span>
+                              <span className="text-surface-dim font-medium">
+                                담당 {item.closedBy || item.openedBy || '담당자'}
+                              </span>
+                              <span className="text-white/25">·</span>
+                              <span className={`font-bold font-mono tabular-nums ${
+                                discrepancyVal === 0
+                                  ? 'text-emerald-400'
+                                  : discrepancyVal > 0
+                                  ? 'text-secondary-container'
+                                  : 'text-rose-400'
+                              }`}>
+                                {discrepancyVal === 0 ? '시재 일치' : discrepancyVal > 0 ? `+${discrepancyVal.toLocaleString()}원 과잉` : `${discrepancyVal.toLocaleString()}원 부족`}
+                              </span>
                             </div>
-
-                            {/* Right Side: Total & Inline Actions aligned cleanly on the same horizontal row */}
-                            <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 pl-2 border-l border-white/10">
-                              <div className="text-right">
-                                <div className="text-[10px] sm:text-[11px] text-surface-dim">정산 총 매출</div>
-                                <div className="text-sm sm:text-base font-black text-white font-mono tabular-nums">
-                                  {(item.totalSales || 0).toLocaleString()}원
-                                </div>
-                              </div>
-
-                              {isAuthorizedAdmin && (
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      handleStartEdit(item);
-                                    }}
-                                    title="마감 정산 수정"
-                                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-surface-dim hover:text-white transition-all cursor-pointer"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      setSettlementToDelete(item);
-                                    }}
-                                    title="마감 정산 삭제"
-                                    className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all cursor-pointer"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
+                            <div className="text-[11px] text-surface-dim flex flex-wrap gap-x-2.5 gap-y-0.5 font-mono tabular-nums">
+                              <span>준비금 {(item.initialCash || 0).toLocaleString()}원</span>
+                              <span className="text-white/20">·</span>
+                              <span>실측 {(item.actualCashInput || 0).toLocaleString()}원</span>
+                              {item.note && (
+                                <>
+                                  <span className="text-white/20">·</span>
+                                  <span className="font-sans text-white/80 truncate max-w-[180px] sm:max-w-[260px]">{item.note}</span>
+                                </>
                               )}
-
-                              <ChevronRight className="w-4 h-4 text-surface-dim group-hover:text-white group-hover:translate-x-0.5 transition-all shrink-0" />
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
+
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            <div className="text-right">
+                              <div className="text-[10px] text-surface-dim">총 매출</div>
+                              <div className="text-sm font-black text-white font-mono tabular-nums">
+                                {(item.totalSales || 0).toLocaleString()}원
+                              </div>
+                            </div>
+
+                            {isAuthorizedAdmin && (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    handleStartEdit(item);
+                                  }}
+                                  title="수정"
+                                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-surface-dim hover:text-white transition-colors cursor-pointer"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setSettlementToDelete(item);
+                                  }}
+                                  title="삭제"
+                                  className="p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/20 text-surface-dim hover:text-rose-400 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+
+                            <ChevronRight className="w-4 h-4 text-surface-dim group-hover:text-white transition-colors shrink-0" />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1376,35 +1363,24 @@ export function PosSettlementModal({
         {/* ========================================================================= */}
         {editingSettlement && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-            <div className="bg-[#0e172e] border border-blue-500/40 rounded-3xl w-full max-w-lg p-5 sm:p-6 space-y-4 shadow-2xl">
+            <div className="bg-[#0a1120] border border-white/10 rounded-2xl w-full max-w-md p-5 sm:p-6 space-y-4 shadow-2xl">
               <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-300 flex items-center justify-center">
-                    <Edit2 className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm sm:text-base font-black text-white">
-                      마감 정산 내역 수정 ({editingSettlement.id})
-                    </h3>
-                    <p className="text-[11px] text-surface-dim">
-                      관리자 권한으로 준비금, 실측 시재, 메모를 직접 정정합니다.
-                    </p>
-                  </div>
-                </div>
+                <h3 className="text-base font-bold text-white">
+                  마감 정산 수정 ({editingSettlement.id})
+                </h3>
                 <button
                   type="button"
                   onClick={() => setEditingSettlement(null)}
-                  className="p-1.5 rounded-lg bg-white/5 text-surface-dim hover:text-white"
+                  className="p-1.5 rounded-lg hover:bg-white/5 text-surface-dim hover:text-white cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               <div className="space-y-3 text-xs">
-                {/* Initial Cash */}
                 <div>
-                  <label className="block text-surface-dim font-bold mb-1">
-                    시작 준비금 (원):
+                  <label className="block text-surface-dim font-medium mb-1">
+                    시작 준비금 (원)
                   </label>
                   <input
                     type="number"
@@ -1412,14 +1388,13 @@ export function PosSettlementModal({
                     step="1000"
                     value={editInitialCash}
                     onChange={e => setEditInitialCash(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                    className="w-full bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-white font-mono outline-none focus:border-blue-400"
+                    className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-white font-mono outline-none focus:border-secondary"
                   />
                 </div>
 
-                {/* Actual Counted Cash */}
                 <div>
-                  <label className="block text-surface-dim font-bold mb-1">
-                    실측된 금고 현금 (원):
+                  <label className="block text-surface-dim font-medium mb-1">
+                    실측 금고 현금 (원)
                   </label>
                   <input
                     type="number"
@@ -1427,25 +1402,24 @@ export function PosSettlementModal({
                     step="1000"
                     value={editActualCash}
                     onChange={e => setEditActualCash(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                    className="w-full bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-emerald-400 font-mono font-bold outline-none focus:border-blue-400"
+                    className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-emerald-400 font-mono font-bold outline-none focus:border-secondary"
                   />
                 </div>
 
-                {/* Real-time Recalculated Discrepancy Preview */}
-                <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
+                <div className="py-2.5 border-t border-b border-white/10 space-y-1">
                   <div className="flex justify-between text-surface-dim">
-                    <span>장부상 현금: (준비금 {editInitialCash.toLocaleString()}원 + 현금매출 {(editingSettlement.cashSales || 0).toLocaleString()}원)</span>
-                    <span className="font-mono text-white">{(editInitialCash + (editingSettlement.cashSales || 0)).toLocaleString()}원</span>
+                    <span>장부상 현금</span>
+                    <span className="font-mono text-white tabular-nums">{(editInitialCash + (editingSettlement.cashSales || 0)).toLocaleString()}원</span>
                   </div>
                   <div className="flex justify-between font-bold">
-                    <span>재계산된 시재 과부족:</span>
-                    <span className={
+                    <span>시재 과부족</span>
+                    <span className={`font-mono tabular-nums ${
                       (editActualCash - (editInitialCash + (editingSettlement.cashSales || 0))) === 0
                         ? 'text-emerald-400'
                         : (editActualCash - (editInitialCash + (editingSettlement.cashSales || 0))) > 0
-                        ? 'text-blue-400'
-                        : 'text-red-400'
-                    }>
+                        ? 'text-secondary-container'
+                        : 'text-rose-400'
+                    }`}>
                       {(editActualCash - (editInitialCash + (editingSettlement.cashSales || 0))) === 0
                         ? '0원 (일치)'
                         : `${(editActualCash - (editInitialCash + (editingSettlement.cashSales || 0))) > 0 ? '+' : ''}${(editActualCash - (editInitialCash + (editingSettlement.cashSales || 0))).toLocaleString()}원`}
@@ -1453,27 +1427,26 @@ export function PosSettlementModal({
                   </div>
                 </div>
 
-                {/* Closed By & Status */}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-surface-dim font-bold mb-1">
-                      마감 담당자:
+                    <label className="block text-surface-dim font-medium mb-1">
+                      마감 담당자
                     </label>
                     <input
                       type="text"
                       value={editClosedBy}
                       onChange={e => setEditClosedBy(e.target.value)}
-                      className="w-full bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-white outline-none focus:border-blue-400"
+                      className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-secondary"
                     />
                   </div>
                   <div>
-                    <label className="block text-surface-dim font-bold mb-1">
-                      마감 상태:
+                    <label className="block text-surface-dim font-medium mb-1">
+                      마감 상태
                     </label>
                     <select
                       value={editStatus}
                       onChange={e => setEditStatus(e.target.value as any)}
-                      className="w-full bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-white outline-none focus:border-blue-400"
+                      className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-secondary"
                     >
                       <option value="CLOSED">CLOSED (마감 완료)</option>
                       <option value="OPEN">OPEN (영업 중)</option>
@@ -1481,35 +1454,33 @@ export function PosSettlementModal({
                   </div>
                 </div>
 
-                {/* Note */}
                 <div>
-                  <label className="block text-surface-dim font-bold mb-1">
-                    특이사항 메모:
+                  <label className="block text-surface-dim font-medium mb-1">
+                    메모
                   </label>
                   <textarea
                     value={editNote}
                     onChange={e => setEditNote(e.target.value)}
                     rows={2}
-                    className="w-full bg-black/50 border border-white/15 rounded-xl p-2.5 text-white outline-none focus:border-blue-400 resize-none"
+                    className="w-full bg-primary border border-white/10 rounded-lg p-2.5 text-white outline-none focus:border-secondary resize-none"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-2 pt-2 border-t border-white/10">
+              <div className="flex gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setEditingSettlement(null)}
-                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-bold transition-all cursor-pointer"
+                  className="flex-1 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-semibold transition-colors cursor-pointer"
                 >
                   취소
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveEdit}
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all cursor-pointer shadow-lg shadow-blue-600/20 flex items-center space-x-1.5"
+                  className="flex-1 py-2.5 rounded-lg bg-secondary hover:bg-secondary/90 text-white text-xs font-bold transition-colors cursor-pointer"
                 >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>수정 사항 저장</span>
+                  저장
                 </button>
               </div>
             </div>
@@ -1521,33 +1492,30 @@ export function PosSettlementModal({
         {/* ========================================================================= */}
         {settlementToDelete && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-            <div className="bg-[#0e172e] border border-red-500/40 rounded-3xl w-full max-w-md p-5 sm:p-6 space-y-4 shadow-2xl">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-5 h-5" />
+            <div className="bg-[#0a1120] border border-white/10 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
+              <div>
+                <h3 className="text-base font-bold text-white mb-1">마감 정산 삭제 ({settlementToDelete.id})</h3>
+                <p className="text-xs text-surface-dim leading-relaxed">
+                  해당 일자의 마감 정산 보고서를 영구 삭제합니다.
+                </p>
+              </div>
+
+              <div className="py-2.5 border-t border-b border-white/10 text-xs font-mono text-surface-dim space-y-1">
+                <div className="flex justify-between">
+                  <span>총 매출</span>
+                  <span className="text-white tabular-nums">{(settlementToDelete.totalSales || 0).toLocaleString()}원</span>
                 </div>
-                <div>
-                  <h3 className="text-base font-black text-white">마감 정산 내역 삭제 확인</h3>
-                  <p className="text-xs text-red-300/80">경고: 이 작업은 되돌릴 수 없습니다.</p>
+                <div className="flex justify-between">
+                  <span>담당자</span>
+                  <span className="text-white font-sans">{settlementToDelete.closedBy || settlementToDelete.openedBy || '-'}</span>
                 </div>
               </div>
 
-              <p className="text-xs text-surface-dim leading-relaxed">
-                정말로 <span className="font-mono font-bold text-white">[{settlementToDelete.id}]</span> 일자의 
-                마감 정산 보고서를 완전히 삭제하시겠습니까? 삭제 내역은 POS 감사 로그에 영구 기록됩니다.
-              </p>
-
-              <div className="p-3 rounded-xl bg-white/5 text-xs font-mono text-white/80 space-y-0.5">
-                <div>· 일자: {settlementToDelete.id}</div>
-                <div>· 총 매출: {(settlementToDelete.totalSales || 0).toLocaleString()}원</div>
-                <div>· 담당자: {settlementToDelete.closedBy || settlementToDelete.openedBy || '-'}</div>
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2 border-t border-white/10">
+              <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setSettlementToDelete(null)}
-                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-bold transition-all cursor-pointer"
+                  className="flex-1 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-semibold transition-colors cursor-pointer"
                 >
                   취소
                 </button>
@@ -1555,10 +1523,9 @@ export function PosSettlementModal({
                   type="button"
                   onClick={handleConfirmDelete}
                   disabled={isDeleting}
-                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all cursor-pointer shadow-lg shadow-red-600/20 flex items-center space-x-1.5"
+                  className="flex-1 py-2.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-40"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>{isDeleting ? '삭제 중...' : '영구 삭제'}</span>
+                  {isDeleting ? '삭제 중...' : '삭제'}
                 </button>
               </div>
             </div>

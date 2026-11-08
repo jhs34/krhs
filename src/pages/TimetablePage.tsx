@@ -663,7 +663,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
 
                         {/* Hover Overlay Action Controls for Admin */}
                         {isAdmin && (
-                          <div className="absolute right-1 bottom-1 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1 bg-primary-dark/95 border border-white/5 rounded-lg p-0.5 shadow-lg">
+                          <div className="absolute right-1 bottom-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex space-x-1 bg-primary-dark/95 border border-white/5 rounded-lg p-0.5 shadow-lg">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -696,18 +696,17 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
         initial={{ opacity: 0, y: 20, filter: 'blur(6px)' }}
         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
         transition={{ duration: 0.6, delay: 0.4, ease: 'easeOut' }}
-        className="mt-6 p-4 rounded-xl border border-white/5 bg-white/[0.01] flex items-start space-x-3 text-surface-dim"
+        className="mt-5 p-3.5 sm:p-4 rounded-xl border border-white/5 bg-white/[0.01] flex items-start space-x-3 text-surface-dim"
       >
-        <Info className="w-5 h-5 text-secondary-fixed shrink-0 mt-0.5" />
+        <Info className="w-4 h-4 text-secondary-fixed shrink-0 mt-0.5" />
         <div className="text-xs space-y-1 font-sans leading-relaxed">
           <p className="font-bold text-white">수행평가 및 주간 변동사항 안내</p>
           <p>
-            각 교시별 주간 특이사항(수행평가, 시간대체 수업, 외부강사 강연 등)은 해당 교시 하단에 주황색 카드 형태로 표기됩니다.
-            이 일정은 학사 관리를 위해 주차별로 개별 관리되므로, 올바른 날짜를 선택하여 확인해주시기 바랍니다.
+            수행평가 및 변동사항이 등록된 교시는 과목명 옆에 <span className="text-amber-400 font-bold">!</span> 배지로 표시되며, 해당 교시를 누르면 상세 내용을 확인할 수 있습니다.
           </p>
           {isAdmin && (
-            <p className="text-[#00e5ff] font-medium pt-1">
-              * 관리자는 마우스를 시간표 슬롯 위에 올렸을 때 나타나는 연필 아이콘을 클릭하여 주간 수행평가 일정을 등록 및 수정할 수 있습니다.
+            <p className="text-secondary-fixed font-medium pt-0.5">
+              * 관리자는 각 교시 우측 하단의 수정(연필) 버튼을 눌러 주차별 수행평가 및 메모를 등록할 수 있습니다.
             </p>
           )}
         </div>

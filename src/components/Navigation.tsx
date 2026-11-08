@@ -41,11 +41,11 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
   return (
     <div id="dashboard" className="glass-panel-dark text-white sticky top-0 z-50 border-white/5 transition-all duration-300">
       <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-14 sm:h-16 pt-[2px]">
+        <div className="flex justify-between items-center h-14 sm:h-16">
           {/* Logo & Portal Title */}
           <Link to="/" className="flex items-center space-x-2.5 shrink-0 mr-3 lg:mr-6">
             <img src={`${import.meta.env.BASE_URL}logo.png`} className="w-[22px] sm:w-[26px] md:w-[28px] h-auto brightness-0 invert opacity-90 block shrink-0" alt="KRHS" />
-            <span className="font-sans font-bold tracking-tight text-white/95 text-base sm:text-lg md:text-xl leading-none translate-y-[1.5px]">KRHS Portal</span>
+            <span className="font-sans font-bold tracking-tight text-white/95 text-base sm:text-lg md:text-xl">KRHS Portal</span>
           </Link>
 
           {/* Center/Right Nav Area */}
@@ -58,9 +58,12 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
                   <Link 
                     key={item.path} 
                     to={item.path} 
-                    className={`flex shrink-0 items-center text-xs lg:text-sm font-medium transition-colors duration-200 py-1 leading-none translate-y-[1.5px] ${isActive ? 'text-white font-bold' : 'text-surface-dim hover:text-white'}`}
+                    className={`relative flex shrink-0 items-center text-xs lg:text-sm font-medium transition-colors duration-200 py-1.5 ${isActive ? 'text-white font-bold' : 'text-surface-dim hover:text-white'}`}
                   >
                     <span>{item.name}</span>
+                    {isActive && (
+                      <span className="absolute -bottom-1 left-0 right-0 h-[2px] rounded-full bg-secondary-fixed-dim" />
+                    )}
                   </Link>
                 );
               })}
@@ -72,14 +75,14 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
                 <button
                   type="button"
                   onClick={() => setIsToolMenuOpen(prev => !prev)}
-                  className={`h-8 flex items-center space-x-1 sm:space-x-1.5 text-xs lg:text-sm font-medium px-2.5 sm:px-3 rounded-full transition-all duration-200 border cursor-pointer ${
+                  className={`h-8 inline-flex items-center justify-center space-x-1 sm:space-x-1.5 text-xs lg:text-sm font-medium px-2.5 sm:px-3 rounded-full transition-all duration-200 border cursor-pointer ${
                     isToolMenuOpen || location.pathname.startsWith('/tool')
                       ? 'bg-white/15 text-white border-white/25 shadow-sm'
                       : 'text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 border-white/10'
                   }`}
                 >
                   <Wrench className="w-3.5 h-3.5 text-secondary shrink-0" />
-                  <span className="leading-none translate-y-[1.5px]">도구</span>
+                  <span>도구</span>
                   <ChevronDown className={`w-3 h-3 text-surface-dim transition-transform duration-200 ${isToolMenuOpen ? 'rotate-180 text-white' : ''}`} />
                 </button>
 
@@ -160,15 +163,15 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
                       <button 
                         onClick={() => setIsAdminModalOpen(true)} 
                         title={`접속 계정: ${getDisplayUserEmail(auth.currentUser?.email || auth.currentUser?.providerData?.[0]?.email) || '관리자'}`}
-                        className="h-8 flex items-center space-x-1.5 text-xs lg:text-sm font-bold text-secondary-fixed-dim bg-secondary/10 hover:bg-secondary/20 px-2.5 sm:px-3 rounded-full transition-colors duration-200 border border-secondary/20 cursor-pointer whitespace-nowrap"
+                        className="h-8 inline-flex items-center justify-center space-x-1.5 text-xs lg:text-sm font-bold text-secondary-fixed-dim bg-secondary/10 hover:bg-secondary/20 px-2.5 sm:px-3 rounded-full transition-colors duration-200 border border-secondary/20 cursor-pointer whitespace-nowrap"
                       >
                         <Settings className="w-3.5 h-3.5 text-secondary shrink-0" />
-                        <span className="leading-none translate-y-[1.5px]">관리자</span>
+                        <span>관리자</span>
                       </button>
                     ) : (
                       <span 
                         title={getDisplayUserEmail(auth.currentUser?.email) || ''} 
-                        className="hidden sm:inline-flex items-center h-7 text-[11px] text-surface-dim font-mono max-w-[120px] truncate px-2 bg-white/5 rounded-full border border-white/5 leading-none translate-y-[1px]"
+                        className="hidden sm:inline-flex items-center h-7 text-[11px] text-surface-dim font-mono max-w-[120px] truncate px-2.5 bg-white/5 rounded-full border border-white/5"
                       >
                         {getDisplayUserEmail(auth.currentUser?.email) || '로그인됨'}
                       </span>
@@ -178,15 +181,15 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
                       type="button"
                       onClick={() => logout()}
                       title={`로그아웃 (${getDisplayUserEmail(auth.currentUser?.email) || ''})`}
-                      className="h-8 flex items-center space-x-1 text-xs font-medium text-surface-dim hover:text-white bg-white/5 hover:bg-red-500/20 hover:border-red-500/30 px-2 sm:px-2.5 rounded-full transition-colors duration-200 border border-white/10 cursor-pointer"
+                      className="h-8 inline-flex items-center justify-center space-x-1 text-xs font-medium text-surface-dim hover:text-white bg-white/5 hover:bg-red-500/20 hover:border-red-500/30 px-2 sm:px-2.5 rounded-full transition-colors duration-200 border border-white/10 cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5 shrink-0" />
-                      <span className="hidden sm:inline text-[11px] leading-none translate-y-[1.5px]">로그아웃</span>
+                      <span className="hidden sm:inline text-[11px]">로그아웃</span>
                     </button>
                   </div>
                 ) : (
-                  <button onClick={loginWithGoogle} className="h-8 flex items-center space-x-1.5 text-xs lg:text-sm font-medium text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 px-2.5 sm:px-3 rounded-full transition-colors duration-200 cursor-pointer whitespace-nowrap">
-                    <span className="leading-none translate-y-[1.5px]">로그인</span>
+                  <button onClick={loginWithGoogle} className="h-8 inline-flex items-center justify-center space-x-1.5 text-xs lg:text-sm font-medium text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 px-2.5 sm:px-3 rounded-full transition-colors duration-200 cursor-pointer whitespace-nowrap">
+                    <span>로그인</span>
                   </button>
                 )
               )}
@@ -211,7 +214,7 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
             animate={{ opacity: 1, height: 'auto', filter: 'blur(0px)' }}
             exit={{ opacity: 0, height: 0, filter: 'blur(8px)' }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="md:hidden absolute top-16 left-0 right-0 bg-[#0d0d0d]/95 backdrop-blur-md border-b border-white/10 shadow-2xl flex flex-col pt-2 pb-4 px-4 overflow-hidden z-50"
+            className="md:hidden absolute top-14 sm:top-16 left-0 right-0 bg-[#0a1120]/95 backdrop-blur-md border-b border-white/10 shadow-2xl flex flex-col pt-2 pb-4 px-4 overflow-hidden z-50"
           >
             <nav className="flex flex-col space-y-2">
               {/* Mobile Tool Section */}

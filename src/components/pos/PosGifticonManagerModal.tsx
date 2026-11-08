@@ -701,182 +701,262 @@ export function PosGifticonManagerModal({
                   <p className="text-sm font-medium text-surface-dim">등록된 기프티콘이 없습니다</p>
                 </div>
               ) : (
-                <div className="border-t border-b border-white/10 divide-y divide-white/5">
-                  {/* Table Header */}
-                  <div className="grid grid-cols-12 gap-2 py-2.5 px-3 bg-[#0a1120] text-[11px] font-semibold text-surface-dim select-none">
-                    <div className="col-span-1 flex items-center">
-                      <button
-                        type="button"
-                        onClick={handleToggleSelectAll}
-                        className="text-surface-dim hover:text-white cursor-pointer"
-                      >
-                        {selectedIds.size > 0 && selectedIds.size === filteredGifticons.length ? (
-                          <CheckSquare className="w-4 h-4 text-secondary-container" />
-                        ) : (
-                          <Square className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
-                    <div className="col-span-3">기프티콘 코드</div>
-                    <div className="col-span-2 text-right">할인 금액</div>
-                    <div className="col-span-2 text-center">상태</div>
-                    <div className="col-span-2">설명 / 사용정보</div>
-                    <div className="col-span-2 text-right">제어</div>
-                  </div>
-
-                  {/* Rows */}
-                  <div className="divide-y divide-white/5">
+                <div className="border-t border-b border-white/10">
+                  {/* Mobile Compact 2-Line List (md:hidden) */}
+                  <div className="md:hidden divide-y divide-white/5">
                     {filteredGifticons.map(gifticon => {
                       const isSelected = selectedIds.has(gifticon.id);
                       return (
                         <div
                           key={gifticon.id}
-                          className={`grid grid-cols-12 gap-2 py-3 px-3 text-xs items-center transition-colors ${
+                          className={`py-3 px-2 flex flex-col gap-2 text-xs transition-colors ${
                             isSelected ? 'bg-secondary/10' : 'hover:bg-white/[0.02]'
                           }`}
                         >
-                          <div className="col-span-1 flex items-center">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleSelect(gifticon.id)}
-                              className="text-surface-dim hover:text-white cursor-pointer"
-                            >
-                              {isSelected ? (
-                                <CheckSquare className="w-4 h-4 text-secondary-container" />
-                              ) : (
-                                <Square className="w-4 h-4" />
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSelect(gifticon.id)}
+                                className="text-surface-dim hover:text-white p-0.5 shrink-0 cursor-pointer"
+                              >
+                                {isSelected ? (
+                                  <CheckSquare className="w-4 h-4 text-secondary-container" />
+                                ) : (
+                                  <Square className="w-4 h-4" />
+                                )}
+                              </button>
+                              <span className="font-mono font-bold text-white tracking-wider truncate">
+                                {gifticon.id}
+                              </span>
+                              <span className="text-[11px] font-semibold shrink-0">
+                                {gifticon.status === 'ACTIVE' && <span className="text-emerald-400">· 사용가능</span>}
+                                {gifticon.status === 'USED' && <span className="text-secondary-container">· 사용완료</span>}
+                                {gifticon.status === 'CANCELLED' && <span className="text-rose-400">· 폐기</span>}
+                              </span>
+                            </div>
+                            <span className="font-mono font-bold text-white tabular-nums shrink-0">
+                              {gifticon.amount.toLocaleString()}원
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 pl-6 text-[11px]">
+                            <div className="min-w-0 flex-1 text-surface-dim truncate">
+                              {gifticon.description || gifticon.memo || (gifticon.status === 'USED' ? `${gifticon.usedBy || '결제 사용'}` : '-')}
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                title="상세 수정"
+                                onClick={() => handleOpenEdit(gifticon)}
+                                className="p-1.5 rounded bg-white/5 text-surface-dim hover:text-white cursor-pointer"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              {gifticon.status === 'USED' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleChangeStatus(gifticon.id, 'ACTIVE')}
+                                  className="px-2 py-1 rounded bg-white/5 text-emerald-300 text-[10px] font-semibold cursor-pointer"
+                                >
+                                  복구
+                                </button>
                               )}
-                            </button>
-                          </div>
-
-                          <div className="col-span-3 font-mono font-bold text-white tracking-wider truncate">
-                            {gifticon.id}
-                          </div>
-
-                          <div className="col-span-2 text-right font-mono font-bold text-white tabular-nums">
-                            {gifticon.amount.toLocaleString()}원
-                          </div>
-
-                          <div className="col-span-2 text-center font-semibold text-[11px]">
-                            {gifticon.status === 'ACTIVE' && (
-                              <span className="text-emerald-400">사용 가능</span>
-                            )}
-                            {gifticon.status === 'USED' && (
-                              <span className="text-secondary-container">사용 완료</span>
-                            )}
-                            {gifticon.status === 'CANCELLED' && (
-                              <span className="text-rose-400">무효/폐기</span>
-                            )}
-                          </div>
-
-                          <div className="col-span-2 text-[11px] space-y-0.5 min-w-0 pr-1">
-                            {gifticon.description && (
-                              <div className="text-surface-dim truncate" title={`설명: ${gifticon.description}`}>
-                                {gifticon.description}
-                              </div>
-                            )}
-                            {gifticon.memo && (
-                              <div className="text-surface-dim/70 text-[10px] truncate" title={`메모: ${gifticon.memo}`}>
-                                메모: {gifticon.memo}
-                              </div>
-                            )}
-                            {gifticon.status === 'USED' && (
-                              <div className="text-secondary-container/80 text-[10px] truncate">
-                                {gifticon.usedBy ? gifticon.usedBy : '결제 사용'}
-                                {gifticon.usedOrderId ? ` (#${gifticon.usedOrderId.slice(-4)})` : ''}
-                              </div>
-                            )}
-                            {!gifticon.description && !gifticon.memo && gifticon.status !== 'USED' && (
-                              <span className="text-surface-dim/40">-</span>
-                            )}
-                          </div>
-
-                          <div className="col-span-2 flex items-center justify-end gap-1">
-                            <button
-                              type="button"
-                              title="상세 수정"
-                              onClick={() => handleOpenEdit(gifticon)}
-                              className="p-1.5 rounded-md text-surface-dim hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-
-                            {gifticon.status === 'USED' && (
+                              {gifticon.status === 'ACTIVE' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleChangeStatus(gifticon.id, 'CANCELLED')}
+                                  className="px-2 py-1 rounded bg-white/5 text-surface-dim hover:text-rose-300 text-[10px] cursor-pointer"
+                                >
+                                  폐기
+                                </button>
+                              )}
+                              {gifticon.status === 'CANCELLED' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleChangeStatus(gifticon.id, 'ACTIVE')}
+                                  className="px-2 py-1 rounded bg-white/5 text-emerald-300 text-[10px] font-semibold cursor-pointer"
+                                >
+                                  활성화
+                                </button>
+                              )}
                               <button
                                 type="button"
-                                title="미사용 상태로 되돌리기"
-                                onClick={() => handleChangeStatus(gifticon.id, 'ACTIVE')}
-                                className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-emerald-300 text-[10px] font-semibold flex items-center gap-0.5 cursor-pointer"
+                                title="영구 삭제"
+                                onClick={() => requestDeleteSingle(gifticon.id)}
+                                className="p-1.5 rounded bg-white/5 text-surface-dim hover:text-rose-400 cursor-pointer"
                               >
-                                <RotateCcw className="w-3 h-3" />
-                                <span>복구</span>
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
-                            )}
-
-                            {gifticon.status === 'ACTIVE' && (
-                              <button
-                                type="button"
-                                title="폐기/무효화"
-                                onClick={() => handleChangeStatus(gifticon.id, 'CANCELLED')}
-                                className="px-1.5 py-1 rounded bg-white/5 hover:bg-rose-500/20 text-surface-dim hover:text-rose-300 text-[10px] cursor-pointer"
-                              >
-                                폐기
-                              </button>
-                            )}
-
-                            {gifticon.status === 'CANCELLED' && (
-                              <button
-                                type="button"
-                                title="다시 활성화"
-                                onClick={() => handleChangeStatus(gifticon.id, 'ACTIVE')}
-                                className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-emerald-300 text-[10px] font-semibold cursor-pointer"
-                              >
-                                활성화
-                              </button>
-                            )}
-
-                            <button
-                              type="button"
-                              title="영구 삭제"
-                              onClick={() => requestDeleteSingle(gifticon.id)}
-                              className="p-1.5 rounded-md text-surface-dim hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            </div>
                           </div>
                         </div>
                       );
                     })}
+                  </div>
+
+                  {/* Desktop 12-Col Grid Table (hidden md:block) */}
+                  <div className="hidden md:block divide-y divide-white/5">
+                    {/* Table Header */}
+                    <div className="grid grid-cols-12 gap-2 py-2.5 px-3 bg-[#0a1120] text-[11px] font-semibold text-surface-dim select-none">
+                      <div className="col-span-1 flex items-center">
+                        <button
+                          type="button"
+                          onClick={handleToggleSelectAll}
+                          className="text-surface-dim hover:text-white cursor-pointer"
+                        >
+                          {selectedIds.size > 0 && selectedIds.size === filteredGifticons.length ? (
+                            <CheckSquare className="w-4 h-4 text-secondary-container" />
+                          ) : (
+                            <Square className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                      <div className="col-span-3">기프티콘 코드</div>
+                      <div className="col-span-2 text-right">할인 금액</div>
+                      <div className="col-span-2 text-center">상태</div>
+                      <div className="col-span-2">설명 / 사용정보</div>
+                      <div className="col-span-2 text-right">제어</div>
+                    </div>
+
+                    {/* Rows */}
+                    <div className="divide-y divide-white/5">
+                      {filteredGifticons.map(gifticon => {
+                        const isSelected = selectedIds.has(gifticon.id);
+                        return (
+                          <div
+                            key={gifticon.id}
+                            className={`grid grid-cols-12 gap-2 py-3 px-3 text-xs items-center transition-colors ${
+                              isSelected ? 'bg-secondary/10' : 'hover:bg-white/[0.02]'
+                            }`}
+                          >
+                            <div className="col-span-1 flex items-center">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSelect(gifticon.id)}
+                                className="text-surface-dim hover:text-white cursor-pointer"
+                              >
+                                {isSelected ? (
+                                  <CheckSquare className="w-4 h-4 text-secondary-container" />
+                                ) : (
+                                  <Square className="w-4 h-4" />
+                                )}
+                              </button>
+                            </div>
+
+                            <div className="col-span-3 font-mono font-bold text-white tracking-wider truncate">
+                              {gifticon.id}
+                            </div>
+
+                            <div className="col-span-2 text-right font-mono font-bold text-white tabular-nums">
+                              {gifticon.amount.toLocaleString()}원
+                            </div>
+
+                            <div className="col-span-2 text-center font-semibold text-[11px]">
+                              {gifticon.status === 'ACTIVE' && (
+                                <span className="text-emerald-400">사용 가능</span>
+                              )}
+                              {gifticon.status === 'USED' && (
+                                <span className="text-secondary-container">사용 완료</span>
+                              )}
+                              {gifticon.status === 'CANCELLED' && (
+                                <span className="text-rose-400">무효/폐기</span>
+                              )}
+                            </div>
+
+                            <div className="col-span-2 text-[11px] space-y-0.5 min-w-0 pr-1">
+                              {gifticon.description && (
+                                <div className="text-surface-dim truncate" title={`설명: ${gifticon.description}`}>
+                                  {gifticon.description}
+                                </div>
+                              )}
+                              {gifticon.memo && (
+                                <div className="text-surface-dim/70 text-[10px] truncate" title={`메모: ${gifticon.memo}`}>
+                                  메모: {gifticon.memo}
+                                </div>
+                              )}
+                              {gifticon.status === 'USED' && (
+                                <div className="text-secondary-container/80 text-[10px] truncate">
+                                  {gifticon.usedBy ? gifticon.usedBy : '결제 사용'}
+                                  {gifticon.usedOrderId ? ` (#${gifticon.usedOrderId.slice(-4)})` : ''}
+                                </div>
+                              )}
+                              {!gifticon.description && !gifticon.memo && gifticon.status !== 'USED' && (
+                                <span className="text-surface-dim/40">-</span>
+                              )}
+                            </div>
+
+                            <div className="col-span-2 flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                title="상세 수정"
+                                onClick={() => handleOpenEdit(gifticon)}
+                                className="p-1.5 rounded-md text-surface-dim hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+
+                              {gifticon.status === 'USED' && (
+                                <button
+                                  type="button"
+                                  title="미사용 상태로 되돌리기"
+                                  onClick={() => handleChangeStatus(gifticon.id, 'ACTIVE')}
+                                  className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-emerald-300 text-[10px] font-semibold flex items-center gap-0.5 cursor-pointer"
+                                >
+                                  <RotateCcw className="w-3 h-3" />
+                                  <span>복구</span>
+                                </button>
+                              )}
+
+                              {gifticon.status === 'ACTIVE' && (
+                                <button
+                                  type="button"
+                                  title="폐기/무효화"
+                                  onClick={() => handleChangeStatus(gifticon.id, 'CANCELLED')}
+                                  className="px-1.5 py-1 rounded bg-white/5 hover:bg-rose-500/20 text-surface-dim hover:text-rose-300 text-[10px] cursor-pointer"
+                                >
+                                  폐기
+                                </button>
+                              )}
+
+                              {gifticon.status === 'CANCELLED' && (
+                                <button
+                                  type="button"
+                                  title="다시 활성화"
+                                  onClick={() => handleChangeStatus(gifticon.id, 'ACTIVE')}
+                                  className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-emerald-300 text-[10px] font-semibold cursor-pointer"
+                                >
+                                  활성화
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                title="영구 삭제"
+                                onClick={() => requestDeleteSingle(gifticon.id)}
+                                className="p-1.5 rounded-md text-surface-dim hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* TAB 2: BATCH SHEET / EXCEL IMPORT */}
+          {/* TAB 2: BATCH SHEET / EXCEL IMPORT (Simplified & Unboxed) */}
           {activeTab === 'batch' && (
-            <div className="max-w-2xl mx-auto space-y-4 py-2">
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 text-xs space-y-2">
-                <div className="flex items-center space-x-2 text-amber-400 font-bold text-sm">
-                  <FileSpreadsheet className="w-4 h-4 shrink-0" />
-                  <span>구글 스프레드시트 / 엑셀 표 영역 붙여넣기 안내</span>
-                </div>
-                <p className="text-amber-200/90 leading-relaxed">
-                  구글 시트나 엑셀에서 기프티콘 목록 열들을 복사(<kbd className="bg-black/40 px-1 py-0.5 rounded text-[10px]">Ctrl+C</kbd>)하여 아래 상자에 그대로 붙여넣기(<kbd className="bg-black/40 px-1 py-0.5 rounded text-[10px]">Ctrl+V</kbd>)하세요.
-                </p>
-                <div className="bg-black/40 p-2.5 rounded-xl font-mono text-[11px] text-surface-dim space-y-1">
-                  <div className="text-white/80 font-bold">지원되는 형식 (탭 또는 쉼표 구분):</div>
-                  <div>1. <span className="text-amber-300">기프티콘번호 [금액] [설명]</span> (예: <code>GFT-2026-001	3000	개교기념일</code>)</div>
-                  <div>2. <span className="text-amber-300">기프티콘번호 [금액]</span> (예: <code>2026-A101	2000</code>)</div>
-                  <div>3. <span className="text-amber-300">기프티콘번호 단독</span> (금액 미기재 시 아래 '기본 금액'으로 자동 일괄 적용)</div>
-                </div>
-              </div>
-
-              {/* Default fallbacks for batch */}
-              <div className="grid grid-cols-2 gap-3 bg-white/5 p-3 rounded-2xl border border-white/10">
+            <div className="max-w-xl mx-auto space-y-5 py-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-4 border-b border-white/10">
                 <div>
-                  <label className="text-[11px] font-bold text-surface-dim block mb-1">
-                    기본 할인 금액 (금액 열이 없을 때 적용)
+                  <label className="text-xs font-medium text-surface-dim block mb-1.5">
+                    기본 할인 금액 (금액 미기재 시 적용)
                   </label>
                   <div className="relative">
                     <input
@@ -885,14 +965,14 @@ export function PosGifticonManagerModal({
                       step={1}
                       value={batchDefaultAmount}
                       onChange={e => setBatchDefaultAmount(parseInt(e.target.value, 10) || 0)}
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white font-mono outline-none focus:border-amber-500/50"
+                      className="w-full bg-[#0a1120] border border-white/10 rounded-lg px-3 py-2 text-xs text-white font-mono outline-none focus:border-secondary"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-surface-dim">원</span>
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-surface-dim block mb-1">
+                  <label className="text-xs font-medium text-surface-dim block mb-1.5">
                     기본 발급 설명
                   </label>
                   <input
@@ -900,152 +980,137 @@ export function PosGifticonManagerModal({
                     value={batchDefaultDesc}
                     onChange={e => setBatchDefaultDesc(e.target.value)}
                     placeholder="예: 매점 이벤트 발급"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+                    className="w-full bg-[#0a1120] border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-secondary"
                   />
                 </div>
               </div>
 
-              {/* Textarea */}
               <div>
-                <div className="flex items-center justify-between mb-1.5 px-1">
-                  <label className="text-xs font-bold text-white flex items-center space-x-1.5">
-                    <span>엑셀 / 시트 데이터 붙여넣기</span>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-white">
+                    엑셀 / 시트 데이터 붙여넣기 <span className="font-normal text-surface-dim ml-1">(번호 [탭/쉼표] 금액 [탭/쉼표] 설명)</span>
                   </label>
-                  <span className="text-xs text-amber-400 font-bold font-mono">
-                    감지된 기프티콘: {parsedBatchItems.length}장
+                  <span className="text-xs text-secondary-container font-bold font-mono tabular-nums">
+                    {parsedBatchItems.length}장 감지
                   </span>
                 </div>
                 <textarea
                   rows={8}
                   value={batchRawText}
                   onChange={e => setBatchRawText(e.target.value)}
-                  placeholder={`여기에 엑셀 표를 붙여넣으세요. 예시:
-CPN-001	3000	체육대회 1등
-CPN-002	3000	체육대회 2등
-CPN-003	2000
-CPN-004`}
-                  className="w-full bg-black/50 border border-white/15 focus:border-amber-500/60 rounded-2xl p-3.5 text-xs font-mono text-white placeholder-slate-600 outline-none transition-all leading-relaxed custom-scrollbar"
+                  placeholder={`CPN-001\t3000\t체육대회 1등\nCPN-002\t2000\nCPN-003`}
+                  className="w-full bg-[#0a1120] border border-white/10 focus:border-secondary rounded-xl p-3.5 text-xs font-mono text-white placeholder-surface-dim/30 outline-none transition-colors leading-relaxed custom-scrollbar"
                 />
               </div>
 
-              {/* Preview strip */}
               {parsedBatchItems.length > 0 && (
-                <div className="bg-black/30 p-3 rounded-2xl border border-white/10 space-y-1 text-xs">
-                  <div className="text-surface-dim font-bold flex items-center justify-between">
-                    <span>미리보기 (상위 5건):</span>
-                    <span className="text-amber-300 font-mono">
-                      총 가치: {parsedBatchItems.reduce((s, c) => s + c.amount, 0).toLocaleString()}원
+                <div className="border-t border-b border-white/10 py-3 space-y-1.5 text-xs">
+                  <div className="text-surface-dim font-medium flex items-center justify-between">
+                    <span>미리보기 (상위 5건)</span>
+                    <span className="text-secondary-container font-mono font-bold tabular-nums">
+                      합계 {parsedBatchItems.reduce((s, c) => s + c.amount, 0).toLocaleString()}원
                     </span>
                   </div>
                   <div className="divide-y divide-white/5 font-mono text-[11px]">
                     {parsedBatchItems.slice(0, 5).map((it, idx) => (
-                      <div key={idx} className="py-1 flex justify-between">
-                        <span className="text-white font-bold">{it.id}</span>
-                        <span className="text-amber-300">{it.amount.toLocaleString()}원</span>
-                        <span className="text-surface-dim truncate max-w-[200px]">{it.description}</span>
+                      <div key={idx} className="py-1.5 flex justify-between gap-3">
+                        <span className="text-white font-bold truncate">{it.id}</span>
+                        <span className="text-secondary-container shrink-0 tabular-nums">{it.amount.toLocaleString()}원</span>
+                        <span className="text-surface-dim truncate max-w-[180px]">{it.description}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Submit Button */}
               <button
                 type="button"
                 disabled={batchLoading || parsedBatchItems.length === 0}
                 onClick={handleExecuteBatchImport}
-                className="w-full py-3.5 rounded-2xl font-bold text-sm bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-black transition-all flex items-center justify-center space-x-2 shadow-xl shadow-amber-500/20 disabled:opacity-40 disabled:pointer-events-none"
+                className="w-full py-3 rounded-xl font-bold text-xs sm:text-sm bg-secondary hover:bg-secondary/90 active:scale-[0.99] text-white transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
               >
                 <FileSpreadsheet className="w-4 h-4" />
                 <span>
                   {batchLoading
-                    ? '일괄 등록 처리 중...'
-                    : `기프티콘 ${parsedBatchItems.length}장 일괄 등록 완료`}
+                    ? '등록 처리 중...'
+                    : `기프티콘 ${parsedBatchItems.length}장 일괄 등록`}
                 </span>
               </button>
             </div>
           )}
 
-          {/* TAB 3: SINGLE REGISTRATION */}
+          {/* TAB 3: SINGLE REGISTRATION (Simplified & Unboxed) */}
           {activeTab === 'single' && (
-            <form onSubmit={handleCreateSingle} className="max-w-md mx-auto space-y-4 py-4">
-              <div className="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-3.5">
-                <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-                  <Plus className="w-4 h-4 text-amber-400" />
-                  <span>개별 기프티콘 번호 등록</span>
-                </h3>
+            <form onSubmit={handleCreateSingle} className="max-w-md mx-auto space-y-4 py-2">
+              <div>
+                <label className="text-xs font-medium text-surface-dim block mb-1.5">
+                  기프티콘 번호 (고유 코드) <span className="text-secondary-container">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={singleId}
+                  onChange={e => setSingleId(e.target.value)}
+                  placeholder="예: 2026-GIFT-001"
+                  className="w-full bg-[#0a1120] border border-white/10 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm text-white font-mono outline-none focus:border-secondary"
+                />
+              </div>
 
-                <div>
-                  <label className="text-xs font-bold text-surface-dim block mb-1">
-                    기프티콘 번호 (고유 코드) <span className="text-amber-400">*</span>
-                  </label>
+              <div>
+                <label className="text-xs font-medium text-surface-dim block mb-1.5">
+                  할인 금액 (원) <span className="text-secondary-container">*</span>
+                </label>
+                <div className="relative">
                   <input
-                    type="text"
+                    type="number"
                     required
-                    value={singleId}
-                    onChange={e => setSingleId(e.target.value)}
-                    placeholder="예: 2026-GIFT-001 또는 자유 형식"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-amber-500/50"
+                    min={1}
+                    step={1}
+                    value={singleAmount}
+                    onChange={e => setSingleAmount(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                    placeholder="3000"
+                    className="w-full bg-[#0a1120] border border-white/10 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm text-white font-mono outline-none focus:border-secondary"
                   />
-                  <p className="text-[11px] text-surface-dim mt-1">
-                    포맷 제한 없음 (영문, 숫자, 하이픈 등 자유롭게 입력 가능)
-                  </p>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-surface-dim block mb-1">
-                    할인 액면 금액 (원) <span className="text-amber-400">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      step={1}
-                      value={singleAmount}
-                      onChange={e => setSingleAmount(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                      placeholder="예: 3000"
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-amber-500/50"
-                    />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-surface-dim">원</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-surface-dim block mb-1">
-                    설명 (선택사항)
-                  </label>
-                  <input
-                    type="text"
-                    value={singleDesc}
-                    onChange={e => setSingleDesc(e.target.value)}
-                    placeholder="예: 1학기 철도축제 당첨 기프티콘"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500/50"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-surface-dim block mb-1">
-                    메모 (선택사항)
-                  </label>
-                  <input
-                    type="text"
-                    value={singleMemo}
-                    onChange={e => setSingleMemo(e.target.value)}
-                    placeholder="메모 입력 (선택사항)"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500/50"
-                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-surface-dim">원</span>
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={singleLoading}
-                className="w-full py-3.5 rounded-2xl font-bold text-sm bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-black transition-all flex items-center justify-center space-x-2 shadow-xl shadow-amber-500/20 disabled:opacity-40"
-              >
-                <Plus className="w-4 h-4" />
-                <span>{singleLoading ? '등록 중...' : '기프티콘 등록 완료'}</span>
-              </button>
+              <div>
+                <label className="text-xs font-medium text-surface-dim block mb-1.5">
+                  설명 (선택)
+                </label>
+                <input
+                  type="text"
+                  value={singleDesc}
+                  onChange={e => setSingleDesc(e.target.value)}
+                  placeholder="예: 축제 이벤트 기프티콘"
+                  className="w-full bg-[#0a1120] border border-white/10 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm text-white outline-none focus:border-secondary"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-surface-dim block mb-1.5">
+                  메모 (선택)
+                </label>
+                <input
+                  type="text"
+                  value={singleMemo}
+                  onChange={e => setSingleMemo(e.target.value)}
+                  placeholder="메모 입력"
+                  className="w-full bg-[#0a1120] border border-white/10 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm text-white outline-none focus:border-secondary"
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={singleLoading}
+                  className="w-full py-3 rounded-xl font-bold text-xs sm:text-sm bg-secondary hover:bg-secondary/90 active:scale-[0.99] text-white transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{singleLoading ? '등록 중...' : '기프티콘 등록'}</span>
+                </button>
+              </div>
             </form>
           )}
         </div>
@@ -1058,16 +1123,12 @@ CPN-004`}
               onClick={() => !isDeleting && setDeleteTarget(null)}
             >
               <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
+                initial={{ scale: 0.96, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
+                exit={{ scale: 0.96, opacity: 0 }}
                 onClick={e => e.stopPropagation()}
-                className="bg-[#0b1328] border border-rose-500/40 w-full max-w-sm rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col items-center text-center relative overflow-hidden"
+                className="bg-[#0a1120] border border-white/10 w-full max-w-sm rounded-2xl p-5 shadow-2xl flex flex-col relative overflow-hidden"
               >
-                <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center mb-3.5 border border-rose-500/30">
-                  <Trash2 className="w-6 h-6" />
-                </div>
-
                 <h3 className="text-base font-bold text-white mb-1.5">
                   {deleteTarget.type === 'single'
                     ? `기프티콘 [${deleteTarget.id}] 삭제`
@@ -1076,16 +1137,16 @@ CPN-004`}
 
                 <p className="text-xs text-surface-dim mb-5 leading-relaxed">
                   {deleteTarget.type === 'single'
-                    ? `선택한 기프티콘 [${deleteTarget.id}]을(를) 영구 삭제하시겠습니까? 삭제 후에는 되돌릴 수 없습니다.`
-                    : `선택한 총 ${deleteTarget.ids.length}장의 기프티콘을 영구 삭제하시겠습니까? 삭제된 기프티콘 번호는 사용할 수 없습니다.`}
+                    ? `선택한 기프티콘 [${deleteTarget.id}]을(를) 영구 삭제합니다.`
+                    : `선택한 총 ${deleteTarget.ids.length}장의 기프티콘을 영구 삭제합니다.`}
                 </p>
 
-                <div className="flex space-x-2.5 w-full">
+                <div className="flex gap-2 w-full">
                   <button
                     type="button"
                     disabled={isDeleting}
                     onClick={() => setDeleteTarget(null)}
-                    className="flex-1 py-3 rounded-xl text-xs font-bold text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 transition-colors disabled:opacity-40 cursor-pointer"
+                    className="flex-1 py-2.5 rounded-lg text-xs font-semibold text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 transition-colors disabled:opacity-40 cursor-pointer"
                   >
                     취소
                   </button>
@@ -1093,10 +1154,9 @@ CPN-004`}
                     type="button"
                     disabled={isDeleting}
                     onClick={handleConfirmDelete}
-                    className="flex-1 py-3 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 active:scale-95 transition-all shadow-lg shadow-rose-950/40 disabled:opacity-40 cursor-pointer flex items-center justify-center space-x-1"
+                    className="flex-1 py-2.5 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 transition-colors disabled:opacity-40 cursor-pointer flex items-center justify-center gap-1"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>{isDeleting ? '삭제 중...' : '영구 삭제'}</span>
+                    <span>{isDeleting ? '삭제 중...' : '삭제'}</span>
                   </button>
                 </div>
               </motion.div>
@@ -1112,55 +1172,41 @@ CPN-004`}
               onClick={() => !isSavingEdit && setEditingGifticon(null)}
             >
               <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
+                initial={{ scale: 0.96, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
+                exit={{ scale: 0.96, opacity: 0 }}
                 onClick={e => e.stopPropagation()}
-                className="bg-[#0b1328] border border-amber-500/40 w-full max-w-lg rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col relative overflow-hidden"
+                className="bg-[#0a1120] border border-white/10 w-full max-w-md rounded-2xl p-5 sm:p-6 shadow-2xl flex flex-col relative overflow-hidden"
               >
                 <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-white/10">
-                  <div className="flex items-center space-x-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center border border-amber-500/30">
-                      <Edit2 className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-white">기프티콘 정보 개별 수정</h3>
-                      <p className="text-[11px] text-surface-dim">번호, 금액, 상태, 설명, 메모를 수정합니다.</p>
-                    </div>
-                  </div>
+                  <h3 className="text-base font-bold text-white">기프티콘 수정</h3>
                   <button
                     type="button"
                     disabled={isSavingEdit}
                     onClick={() => setEditingGifticon(null)}
-                    className="p-1 rounded-lg text-surface-dim hover:text-white hover:bg-white/10"
+                    className="p-1.5 rounded-lg text-surface-dim hover:text-white hover:bg-white/5 cursor-pointer"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                <form onSubmit={handleSaveIndividualEdit} className="space-y-4">
+                <form onSubmit={handleSaveIndividualEdit} className="space-y-3.5">
                   <div>
-                    <label className="text-xs font-bold text-surface-dim block mb-1">
-                      기프티콘 번호 (코드) <span className="text-amber-400">*</span>
+                    <label className="text-xs font-medium text-surface-dim block mb-1">
+                      기프티콘 번호 <span className="text-secondary-container">*</span>
                     </label>
                     <input
                       type="text"
                       required
                       value={editFormId}
                       onChange={e => setEditFormId(e.target.value)}
-                      placeholder="예: RAIL-2026-0001"
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-amber-500/50"
+                      className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-xs sm:text-sm text-white font-mono outline-none focus:border-secondary"
                     />
-                    {editFormId.trim() !== editingGifticon.id && (
-                      <p className="text-[10px] text-amber-300 mt-1">
-                        ※ 번호 변경 시 기존 번호 데이터가 새로운 번호로 자동 이전됩니다.
-                      </p>
-                    )}
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-surface-dim block mb-1">
-                      할인 액면 금액 (원) <span className="text-amber-400">*</span>
+                    <label className="text-xs font-medium text-surface-dim block mb-1">
+                      할인 금액 (원) <span className="text-secondary-container">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -1170,105 +1216,71 @@ CPN-004`}
                         step="100"
                         value={editFormAmount}
                         onChange={e => setEditFormAmount(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                        placeholder="예: 3000"
-                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-amber-500/50"
+                        className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-xs sm:text-sm text-white font-mono outline-none focus:border-secondary"
                       />
-                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-surface-dim">원</span>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-surface-dim">원</span>
                     </div>
-                    <div className="flex gap-1.5 mt-2">
-                      {[1000, 2000, 3000, 5000].map(amt => (
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-medium text-surface-dim block mb-1">상태</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {([
+                        { id: 'ACTIVE', label: '사용 가능', activeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' },
+                        { id: 'USED', label: '사용 완료', activeClass: 'bg-secondary/20 text-secondary-container border-secondary/40' },
+                        { id: 'CANCELLED', label: '폐기/무효', activeClass: 'bg-rose-500/20 text-rose-300 border-rose-500/40' },
+                      ] as const).map(st => (
                         <button
-                          key={amt}
+                          key={st.id}
                           type="button"
-                          onClick={() => setEditFormAmount(amt)}
-                          className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] text-surface-dim hover:text-white border border-white/10 font-mono"
+                          onClick={() => setEditFormStatus(st.id)}
+                          className={`py-2 px-2 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                            editFormStatus === st.id
+                              ? st.activeClass
+                              : 'bg-white/5 text-surface-dim border-white/10 hover:text-white'
+                          }`}
                         >
-                          {amt.toLocaleString()}원
+                          {st.label}
                         </button>
                       ))}
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-surface-dim block mb-1">상태</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditFormStatus('ACTIVE')}
-                        className={`py-2 px-2 rounded-xl text-xs font-bold border transition-colors flex items-center justify-center space-x-1.5 ${
-                          editFormStatus === 'ACTIVE'
-                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
-                            : 'bg-white/5 text-surface-dim border-white/10 hover:text-white'
-                        }`}
-                      >
-                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                        <span>사용 가능</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditFormStatus('USED')}
-                        className={`py-2 px-2 rounded-xl text-xs font-bold border transition-colors flex items-center justify-center space-x-1.5 ${
-                          editFormStatus === 'USED'
-                            ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-sm'
-                            : 'bg-white/5 text-surface-dim border-white/10 hover:text-white'
-                        }`}
-                      >
-                        <span className="w-2 h-2 rounded-full bg-blue-400" />
-                        <span>사용 완료</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditFormStatus('CANCELLED')}
-                        className={`py-2 px-2 rounded-xl text-xs font-bold border transition-colors flex items-center justify-center space-x-1.5 ${
-                          editFormStatus === 'CANCELLED'
-                            ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-sm'
-                            : 'bg-white/5 text-surface-dim border-white/10 hover:text-white'
-                        }`}
-                      >
-                        <span className="w-2 h-2 rounded-full bg-rose-400" />
-                        <span>폐기/무효</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-surface-dim block mb-1">설명 (선택사항)</label>
+                    <label className="text-xs font-medium text-surface-dim block mb-1">설명 (선택)</label>
                     <input
                       type="text"
                       value={editFormDesc}
                       onChange={e => setEditFormDesc(e.target.value)}
-                      placeholder="예: 축제 이벤트 지급권"
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-amber-500/50"
+                      className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-secondary"
                     />
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-surface-dim block mb-1">메모 (선택사항)</label>
+                    <label className="text-xs font-medium text-surface-dim block mb-1">메모 (선택)</label>
                     <input
                       type="text"
                       value={editFormMemo}
                       onChange={e => setEditFormMemo(e.target.value)}
-                      placeholder="메모 입력 (선택사항)"
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-amber-500/50"
+                      className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-secondary"
                     />
                   </div>
 
-                  <div className="flex space-x-2.5 pt-2">
+                  <div className="flex gap-2 pt-2">
                     <button
                       type="button"
                       disabled={isSavingEdit}
                       onClick={() => setEditingGifticon(null)}
-                      className="flex-1 py-3 rounded-xl text-xs font-bold text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                      className="flex-1 py-2.5 rounded-lg text-xs font-semibold text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
                     >
                       취소
                     </button>
                     <button
                       type="submit"
                       disabled={isSavingEdit}
-                      className="flex-1 py-3 rounded-xl text-xs font-bold text-black bg-amber-500 hover:bg-amber-400 active:scale-95 transition-all shadow-lg shadow-amber-950/40 disabled:opacity-40 cursor-pointer flex items-center justify-center space-x-1"
+                      className="flex-1 py-2.5 rounded-lg text-xs font-bold text-white bg-secondary hover:bg-secondary/90 transition-colors disabled:opacity-40 cursor-pointer"
                     >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>{isSavingEdit ? '저장 중...' : '수정 완료'}</span>
+                      {isSavingEdit ? '저장 중...' : '저장'}
                     </button>
                   </div>
                 </form>
@@ -1285,59 +1297,37 @@ CPN-004`}
               onClick={() => !isSavingBatchEdit && setShowBatchEditModal(false)}
             >
               <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
+                initial={{ scale: 0.96, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
+                exit={{ scale: 0.96, opacity: 0 }}
                 onClick={e => e.stopPropagation()}
-                className="bg-[#0b1328] border border-amber-500/40 w-full max-w-lg rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col relative overflow-hidden"
+                className="bg-[#0a1120] border border-white/10 w-full max-w-md rounded-2xl p-5 sm:p-6 shadow-2xl flex flex-col relative overflow-hidden"
               >
                 <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-white/10">
-                  <div className="flex items-center space-x-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center border border-amber-500/30">
-                      <SlidersHorizontal className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-white">기프티콘 일괄 수정</h3>
-                      <p className="text-[11px] text-surface-dim">
-                        선택된 총 <span className="text-amber-400 font-bold">{selectedIds.size}장</span>의 기프티콘을 한 번에 수정합니다.
-                      </p>
-                    </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">기프티콘 일괄 수정 ({selectedIds.size}장)</h3>
                   </div>
                   <button
                     type="button"
                     disabled={isSavingBatchEdit}
                     onClick={() => setShowBatchEditModal(false)}
-                    className="p-1 rounded-lg text-surface-dim hover:text-white hover:bg-white/10"
+                    className="p-1.5 rounded-lg text-surface-dim hover:text-white hover:bg-white/5 cursor-pointer"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                   </button>
-                </div>
-
-                <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-[11px] text-amber-200/90 leading-relaxed flex items-start space-x-2">
-                  <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold">일괄 수정 범위 안내:</span>
-                    <p className="text-[11px] text-amber-200/80 mt-0.5">
-                      일괄 수정에서는 <span className="font-bold underline">금액</span>과 <span className="font-bold underline">상태 (폐기/무효 포함)</span>만 일괄 변경할 수 있습니다. 기프티콘 번호, 설명, 메모는 목록의 개별 수정 버튼을 이용해주세요.
-                    </p>
-                  </div>
                 </div>
 
                 <div className="space-y-4">
                   {/* Option 1: Amount Batch Update */}
-                  <div className={`p-3.5 rounded-2xl border transition-all ${
-                    batchUpdateAmountEnabled
-                      ? 'bg-white/5 border-amber-500/50 shadow-md shadow-amber-500/10'
-                      : 'bg-black/20 border-white/5 opacity-70'
-                  }`}>
+                  <div className="pb-4 border-b border-white/10">
                     <label className="flex items-center space-x-2 cursor-pointer mb-2.5">
                       <input
                         type="checkbox"
                         checked={batchUpdateAmountEnabled}
                         onChange={e => setBatchUpdateAmountEnabled(e.target.checked)}
-                        className="rounded border-white/20 text-amber-500 focus:ring-0 w-4 h-4"
+                        className="rounded border-white/20 text-secondary focus:ring-0 w-4 h-4"
                       />
-                      <span className="text-xs font-bold text-white">1. 할인 금액 일괄 변경</span>
+                      <span className="text-xs font-bold text-white">할인 금액 일괄 변경</span>
                     </label>
 
                     {batchUpdateAmountEnabled && (
@@ -1349,92 +1339,58 @@ CPN-004`}
                             step="100"
                             value={batchUpdateAmountValue}
                             onChange={e => setBatchUpdateAmountValue(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                            placeholder="변경할 할인 금액 입력 (원)"
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white font-mono outline-none focus:border-amber-500/50"
+                            placeholder="변경할 금액"
+                            className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-xs text-white font-mono outline-none focus:border-secondary"
                           />
-                          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-surface-dim">원</span>
-                        </div>
-                        <div className="flex gap-1.5 flex-wrap">
-                          {[1000, 2000, 3000, 5000].map(amt => (
-                            <button
-                              key={amt}
-                              type="button"
-                              onClick={() => setBatchUpdateAmountValue(amt)}
-                              className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] text-surface-dim hover:text-white border border-white/10 font-mono"
-                            >
-                              {amt.toLocaleString()}원
-                            </button>
-                          ))}
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-surface-dim">원</span>
                         </div>
                       </div>
                     )}
                   </div>
 
                   {/* Option 2: Status Batch Update */}
-                  <div className={`p-3.5 rounded-2xl border transition-all ${
-                    batchUpdateStatusEnabled
-                      ? 'bg-white/5 border-amber-500/50 shadow-md shadow-amber-500/10'
-                      : 'bg-black/20 border-white/5 opacity-70'
-                  }`}>
+                  <div>
                     <label className="flex items-center space-x-2 cursor-pointer mb-2.5">
                       <input
                         type="checkbox"
                         checked={batchUpdateStatusEnabled}
                         onChange={e => setBatchUpdateStatusEnabled(e.target.checked)}
-                        className="rounded border-white/20 text-amber-500 focus:ring-0 w-4 h-4"
+                        className="rounded border-white/20 text-secondary focus:ring-0 w-4 h-4"
                       />
-                      <span className="text-xs font-bold text-white">2. 상태 일괄 변경 (폐기/무효 포함)</span>
+                      <span className="text-xs font-bold text-white">상태 일괄 변경</span>
                     </label>
 
                     {batchUpdateStatusEnabled && (
-                      <div className="grid grid-cols-3 gap-2 pl-6">
-                        <button
-                          type="button"
-                          onClick={() => setBatchUpdateStatusValue('ACTIVE')}
-                          className={`py-2 px-2 rounded-xl text-xs font-bold border transition-colors flex items-center justify-center space-x-1.5 ${
-                            batchUpdateStatusValue === 'ACTIVE'
-                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                              : 'bg-white/5 text-surface-dim border-white/10 hover:text-white'
-                          }`}
-                        >
-                          <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                          <span>사용 가능</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setBatchUpdateStatusValue('USED')}
-                          className={`py-2 px-2 rounded-xl text-xs font-bold border transition-colors flex items-center justify-center space-x-1.5 ${
-                            batchUpdateStatusValue === 'USED'
-                              ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
-                              : 'bg-white/5 text-surface-dim border-white/10 hover:text-white'
-                          }`}
-                        >
-                          <span className="w-2 h-2 rounded-full bg-blue-400" />
-                          <span>사용 완료</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setBatchUpdateStatusValue('CANCELLED')}
-                          className={`py-2 px-2 rounded-xl text-xs font-bold border transition-colors flex items-center justify-center space-x-1.5 ${
-                            batchUpdateStatusValue === 'CANCELLED'
-                              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                              : 'bg-white/5 text-surface-dim border-white/10 hover:text-white'
-                          }`}
-                        >
-                          <span className="w-2 h-2 rounded-full bg-rose-400" />
-                          <span>폐기/무효</span>
-                        </button>
+                      <div className="grid grid-cols-3 gap-1.5 pl-6">
+                        {([
+                          { id: 'ACTIVE', label: '사용 가능', activeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' },
+                          { id: 'USED', label: '사용 완료', activeClass: 'bg-secondary/20 text-secondary-container border-secondary/40' },
+                          { id: 'CANCELLED', label: '폐기/무효', activeClass: 'bg-rose-500/20 text-rose-300 border-rose-500/40' },
+                        ] as const).map(st => (
+                          <button
+                            key={st.id}
+                            type="button"
+                            onClick={() => setBatchUpdateStatusValue(st.id)}
+                            className={`py-2 px-2 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                              batchUpdateStatusValue === st.id
+                                ? st.activeClass
+                                : 'bg-white/5 text-surface-dim border-white/10 hover:text-white'
+                            }`}
+                          >
+                            {st.label}
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="flex space-x-2.5 pt-5">
+                <div className="flex gap-2 pt-5">
                   <button
                     type="button"
                     disabled={isSavingBatchEdit}
                     onClick={() => setShowBatchEditModal(false)}
-                    className="flex-1 py-3 rounded-xl text-xs font-bold text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                    className="flex-1 py-2.5 rounded-lg text-xs font-semibold text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
                   >
                     취소
                   </button>
@@ -1442,10 +1398,9 @@ CPN-004`}
                     type="button"
                     disabled={isSavingBatchEdit || (!batchUpdateAmountEnabled && !batchUpdateStatusEnabled)}
                     onClick={handleSaveBatchEdit}
-                    className="flex-1 py-3 rounded-xl text-xs font-bold text-black bg-amber-500 hover:bg-amber-400 active:scale-95 transition-all shadow-lg shadow-amber-950/40 disabled:opacity-40 cursor-pointer flex items-center justify-center space-x-1"
+                    className="flex-1 py-2.5 rounded-lg text-xs font-bold text-white bg-secondary hover:bg-secondary/90 transition-colors disabled:opacity-40 cursor-pointer"
                   >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>{isSavingBatchEdit ? '일괄 수정 중...' : `${selectedIds.size}장 일괄 수정 적용`}</span>
+                    {isSavingBatchEdit ? '적용 중...' : '적용'}
                   </button>
                 </div>
               </motion.div>

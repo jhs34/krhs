@@ -25,7 +25,7 @@ function HeroSection() {
   const { isFullscreen, toggleFullscreen } = useFullscreen();
 
   return (
-    <section className="relative w-full h-screen flex flex-col justify-between overflow-hidden">
+    <section className="relative w-full h-[100dvh] flex flex-col justify-between overflow-hidden">
       {/* Blurred Background with Overlays */}
       <div className="absolute inset-0 z-0 bg-[#0f172a]">
         <div 
@@ -52,9 +52,9 @@ function HeroSection() {
             alt="한국철도고등학교 로고" 
             className="w-8 md:w-10 h-auto drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)] brightness-0 invert"
           />
-          <div className="flex items-baseline space-x-2 md:space-x-4">
-            <span className="font-sans font-bold text-xl md:text-2xl text-white tracking-tighter drop-shadow-md pt-[6px]">한국철도고등학교</span>
-            <span className="font-space font-medium text-[13px] text-white tracking-[0.2em] uppercase hidden sm:block">KOREA RAILROAD HIGH SCHOOL</span>
+          <div className="flex items-center space-x-2.5 md:space-x-4">
+            <span className="font-sans font-bold text-xl md:text-2xl text-white tracking-tighter drop-shadow-md">한국철도고등학교</span>
+            <span className="font-space font-medium text-[13px] text-white/85 tracking-[0.2em] uppercase hidden sm:block">KOREA RAILROAD HIGH SCHOOL</span>
           </div>
         </motion.div>
 
@@ -341,7 +341,7 @@ function AppContent() {
   const upcomingEvents = activeEvents
     .filter(e => selectedDate ? isAfter(e.date, startOfDay(new Date(selectedDate.getTime() - 86400000))) : true)
     .sort((a, b) => a.date.getTime() - b.date.getTime())
-    .slice(0, 3);
+    .slice(0, 4);
 
   const handleItemClick = (item: any, type: 'notice' | 'event' | 'document') => {
     setDetailItem(item);

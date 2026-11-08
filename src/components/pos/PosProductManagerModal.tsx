@@ -1094,37 +1094,26 @@ export function PosProductManagerModal({
                   <p className="text-surface-dim text-sm">표시할 상품이 없습니다.</p>
                 </div>
               ) : viewMode === 'table' ? (
-                <div className="border-t border-b border-white/10 overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-white/10 text-surface-dim text-[11px]">
-                        <th className="py-2.5 px-3 w-10 text-center">★</th>
-                        <th className="py-2.5 px-3">상품명</th>
-                        <th className="py-2.5 px-3">카테고리</th>
-                        <th className="py-2.5 px-3 text-right">가격</th>
-                        <th className="py-2.5 px-3 text-right">판매량</th>
-                        <th className="py-2.5 px-3 text-center">상태</th>
-                        <th className="py-2.5 px-3 text-center hidden sm:table-cell">노출</th>
-                        <th className="py-2.5 px-3 text-right">관리</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {filteredItems.map(item => {
-                        const category = findCategoryOfItem(item.categoryId);
-                        const isSoldOut = isItemSoldOut(item);
-                        const isItemModified = modifiedItems.some(m => m.id === item.id);
-                        const todaySold = todaySoldMap?.[item.id] || 0;
+                <div className="border-t border-b border-white/10">
+                  {/* Mobile Compact 2-Line List (md:hidden) */}
+                  <div className="md:hidden divide-y divide-white/5">
+                    {filteredItems.map(item => {
+                      const category = findCategoryOfItem(item.categoryId);
+                      const isSoldOut = isItemSoldOut(item);
+                      const isItemModified = modifiedItems.some(m => m.id === item.id);
+                      const todaySold = todaySoldMap?.[item.id] || 0;
 
-                        return (
-                          <tr
-                            key={item.id}
-                            className={`hover:bg-white/[0.02] transition-colors ${!item.isActive ? 'opacity-45' : ''}`}
-                          >
-                            <td className="py-2.5 px-3 text-center">
+                      return (
+                        <div
+                          key={item.id}
+                          className={`py-3 px-2 flex flex-col gap-2 transition-colors ${!item.isActive ? 'opacity-45' : ''}`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
                               <button
                                 type="button"
                                 onClick={() => handleToggleFavorite(item.id)}
-                                className="p-1 text-surface-dim hover:text-white cursor-pointer"
+                                className="p-1 text-surface-dim hover:text-white shrink-0 cursor-pointer"
                               >
                                 <Star
                                   className={`w-3.5 h-3.5 ${
@@ -1132,30 +1121,30 @@ export function PosProductManagerModal({
                                   }`}
                                 />
                               </button>
-                            </td>
-                            <td className="py-2.5 px-3 font-bold text-white">
-                              <span>{item.name}</span>
+                              <span className="font-bold text-white text-xs truncate">{item.name}</span>
+                              <span className="text-[11px] text-surface-dim shrink-0">· {category?.name || '미분류'}</span>
                               {isItemModified && (
-                                <span className="ml-1.5 text-[10px] text-amber-300 font-normal">· 수정</span>
+                                <span className="text-[10px] text-amber-300 shrink-0">· 수정</span>
                               )}
-                            </td>
-                            <td className="py-2.5 px-3 text-surface-dim">{category?.name || '미분류'}</td>
-                            <td className="py-2.5 px-3 text-right font-mono font-bold text-white tabular-nums">
+                            </div>
+                            <span className="font-mono font-bold text-xs text-white tabular-nums shrink-0">
                               {item.price.toLocaleString()}원
-                            </td>
-                            <td className="py-2.5 px-3 text-right font-mono tabular-nums text-surface-dim">
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 pl-6 text-[11px]">
+                            <div className="font-mono tabular-nums text-surface-dim">
                               {todaySold > 0 && (
-                                <span className="text-secondary-container font-bold mr-1.5">
-                                  오늘 {todaySold}
-                                </span>
+                                <span className="text-secondary-container font-bold mr-2">오늘 {todaySold}</span>
                               )}
                               <span>누적 {item.totalSold || 0}</span>
-                            </td>
-                            <td className="py-2.5 px-3 text-center">
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
                                 onClick={() => handleToggleSoldOut(item.id)}
-                                className={`px-2 py-0.5 rounded text-[11px] font-bold border transition-colors cursor-pointer ${
+                                className={`px-2 py-1 rounded text-[11px] font-bold border transition-colors cursor-pointer ${
                                   isSoldOut
                                     ? 'bg-rose-500/15 border-rose-500/30 text-rose-300'
                                     : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
@@ -1163,46 +1152,152 @@ export function PosProductManagerModal({
                               >
                                 {isSoldOut ? '품절' : '판매중'}
                               </button>
-                            </td>
-                            <td className="py-2.5 px-3 text-center hidden sm:table-cell">
                               <button
                                 type="button"
                                 onClick={() => handleToggleActive(item.id)}
-                                className={`text-[11px] font-semibold cursor-pointer ${
-                                  item.isActive ? 'text-surface-dim hover:text-white' : 'text-rose-400'
+                                className={`px-2 py-1 rounded bg-white/5 text-[11px] font-semibold cursor-pointer ${
+                                  item.isActive ? 'text-surface-dim' : 'text-rose-400'
                                 }`}
                               >
                                 {item.isActive ? '진열' : '숨김'}
                               </button>
-                            </td>
-                            <td className="py-2.5 px-3 text-right">
-                              <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingItem(item);
+                                  setShowAddModal(true);
+                                }}
+                                className="p-1.5 rounded bg-white/5 text-surface-dim hover:text-white cursor-pointer"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              {effectiveIsAdmin && (
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setEditingItem(item);
-                                    setShowAddModal(true);
-                                  }}
-                                  className="p-1.5 rounded text-surface-dim hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                                  onClick={() => setDeleteConfirmItem(item)}
+                                  className="p-1.5 rounded bg-white/5 text-surface-dim hover:text-rose-400 cursor-pointer"
                                 >
-                                  <Edit2 className="w-3.5 h-3.5" />
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
-                                {effectiveIsAdmin && (
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop Table (hidden md:block) */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-white/10 text-surface-dim text-[11px]">
+                          <th className="py-2.5 px-3 w-10 text-center">★</th>
+                          <th className="py-2.5 px-3">상품명</th>
+                          <th className="py-2.5 px-3">카테고리</th>
+                          <th className="py-2.5 px-3 text-right">가격</th>
+                          <th className="py-2.5 px-3 text-right">판매량</th>
+                          <th className="py-2.5 px-3 text-center">상태</th>
+                          <th className="py-2.5 px-3 text-center">노출</th>
+                          <th className="py-2.5 px-3 text-right">관리</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {filteredItems.map(item => {
+                          const category = findCategoryOfItem(item.categoryId);
+                          const isSoldOut = isItemSoldOut(item);
+                          const isItemModified = modifiedItems.some(m => m.id === item.id);
+                          const todaySold = todaySoldMap?.[item.id] || 0;
+
+                          return (
+                            <tr
+                              key={item.id}
+                              className={`hover:bg-white/[0.02] transition-colors ${!item.isActive ? 'opacity-45' : ''}`}
+                            >
+                              <td className="py-2.5 px-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleFavorite(item.id)}
+                                  className="p-1 text-surface-dim hover:text-white cursor-pointer"
+                                >
+                                  <Star
+                                    className={`w-3.5 h-3.5 ${
+                                      item.isFavorite ? 'fill-amber-400 text-amber-400' : 'text-surface-dim/40'
+                                    }`}
+                                  />
+                                </button>
+                              </td>
+                              <td className="py-2.5 px-3 font-bold text-white">
+                                <span>{item.name}</span>
+                                {isItemModified && (
+                                  <span className="ml-1.5 text-[10px] text-amber-300 font-normal">· 수정</span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-surface-dim">{category?.name || '미분류'}</td>
+                              <td className="py-2.5 px-3 text-right font-mono font-bold text-white tabular-nums">
+                                {item.price.toLocaleString()}원
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono tabular-nums text-surface-dim">
+                                {todaySold > 0 && (
+                                  <span className="text-secondary-container font-bold mr-1.5">
+                                    오늘 {todaySold}
+                                  </span>
+                                )}
+                                <span>누적 {item.totalSold || 0}</span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleSoldOut(item.id)}
+                                  className={`px-2 py-0.5 rounded text-[11px] font-bold border transition-colors cursor-pointer ${
+                                    isSoldOut
+                                      ? 'bg-rose-500/15 border-rose-500/30 text-rose-300'
+                                      : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+                                  }`}
+                                >
+                                  {isSoldOut ? '품절' : '판매중'}
+                                </button>
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleActive(item.id)}
+                                  className={`text-[11px] font-semibold cursor-pointer ${
+                                    item.isActive ? 'text-surface-dim hover:text-white' : 'text-rose-400'
+                                  }`}
+                                >
+                                  {item.isActive ? '진열' : '숨김'}
+                                </button>
+                              </td>
+                              <td className="py-2.5 px-3 text-right">
+                                <div className="flex items-center justify-end gap-1">
                                   <button
                                     type="button"
-                                    onClick={() => setDeleteConfirmItem(item)}
-                                    className="p-1.5 rounded text-surface-dim hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                    onClick={() => {
+                                      setEditingItem(item);
+                                      setShowAddModal(true);
+                                    }}
+                                    className="p-1.5 rounded text-surface-dim hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <Edit2 className="w-3.5 h-3.5" />
                                   </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                                  {effectiveIsAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setDeleteConfirmItem(item)}
+                                      className="p-1.5 rounded text-surface-dim hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">

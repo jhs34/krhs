@@ -1664,8 +1664,17 @@ export async function deletePosSettlement(
 export async function updatePosOrder(order: PosOrder, actorName = '관리자'): Promise<void> {
   await ensurePosAuth();
   const orderRef = doc(db, 'orders', order.id);
+  const discount = typeof order.gifticonDiscountAmount === 'number' ? Math.max(0, order.gifticonDiscountAmount) : 0;
+  const actualPaid =
+    typeof order.actualPaidAmount === 'number'
+      ? Math.max(0, order.actualPaidAmount)
+      : Math.max(0, order.totalAmount - discount);
+
   const dataToSave: Record<string, any> = {
     ...order,
+    gifticonDiscountAmount: discount,
+    actualPaidAmount: actualPaid,
+    usedGifticons: Array.isArray(order.usedGifticons) ? order.usedGifticons : [],
     refundedItems: Array.isArray(order.refundedItems) ? order.refundedItems : [],
     refundedAmount: typeof order.refundedAmount === 'number' ? order.refundedAmount : 0,
     updatedAt: serverTimestamp(),

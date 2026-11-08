@@ -16,12 +16,11 @@ import { PosSalesHistoryModal } from '../components/pos/PosSalesHistoryModal';
 import { PosSettlementModal } from '../components/pos/PosSettlementModal';
 import { PosAuditLogModal } from '../components/pos/PosAuditLogModal';
 import { PosGifticonInputModal } from '../components/pos/PosGifticonInputModal';
-import { PosGifticonManagerModal } from '../components/pos/PosGifticonManagerModal';
 import { PosSplitDivider } from '../components/pos/PosSplitDivider';
 import { PosHubHome } from '../components/pos/PosHubHome';
 import { getStoredPosUser, logoutPosUser } from '../services/posAuth';
 import { DEFAULT_POS_CATEGORIES, DEFAULT_POS_ITEMS } from '../data/defaultPosData';
-import { PosCategory, PosItem, CartItem, PosUser, PosOrder, PosSettlement, PosPreset, PosAuditLog, PosGifticon } from '../types/pos';
+import { PosCategory, PosItem, CartItem, PosUser, PosOrder, PosSettlement, PosPreset, PosAuditLog } from '../types/pos';
 import { PosFeedback } from '../utils/posFeedback';
 import {
   ensurePosAuth,
@@ -31,7 +30,6 @@ import {
   subscribePosSettlement,
   subscribePosLogs,
   IS_POS_AUDIT_LOG_ENABLED,
-  subscribePosGifticons,
   seedInitialPosData,
   resetPosDataToDefaults,
   clearAllPosFavorites,
@@ -195,11 +193,9 @@ export function PosPage() {
   const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
   const [showAuditLogModal, setShowAuditLogModal] = useState<boolean>(false);
   const [showGifticonModal, setShowGifticonModal] = useState<boolean>(false);
-  const [showGifticonManagerModal, setShowGifticonManagerModal] = useState<boolean>(false);
 
-  // Gifticon State
-  const [gifticons, setGifticons] = useState<PosGifticon[]>([]);
-  const [appliedGifticons, setAppliedGifticons] = useState<PosGifticon[]>([]);
+  // Direct Discount Amount State (기프티콘 / 직접 할인 금액)
+  const [discountAmount, setDiscountAmount] = useState<number>(0);
 
   // Responsive Viewport & Orientation Detection
   // 데스크톱 가로 모드 및 태블릿 가로 모드일 때만 좌우 2분할(Split) 레이아웃 적용.
@@ -432,7 +428,6 @@ export function PosPage() {
     let unsubOrders: (() => void) | null = null;
     let unsubSettlement: (() => void) | null = null;
     let unsubLogs: (() => void) | null = null;
-    let unsubGifticons: (() => void) | null = null;
 
     const init = async () => {
       await ensurePosAuth();
@@ -488,18 +483,6 @@ export function PosPage() {
           setLogs(firestoreLogs);
         }
       });
-
-      // Subscribe to Gifticons
-      unsubGifticons = subscribePosGifticons(firestoreGifticons => {
-        if (firestoreGifticons) {
-          setGifticons(firestoreGifticons);
-          // If any applied gifticon becomes inactive in real-time, update applied list
-          setAppliedGifticons(prev => {
-            const activeIds = new Set(firestoreGifticons.filter(c => c.status === 'ACTIVE').map(c => c.id));
-            return prev.filter(c => activeIds.has(c.id));
-          });
-        }
-      });
     };
 
     init().catch(err => {
@@ -512,7 +495,6 @@ export function PosPage() {
       if (unsubOrders) unsubOrders();
       if (unsubSettlement) unsubSettlement();
       if (unsubLogs) unsubLogs();
-      if (unsubGifticons) unsubGifticons();
     };
   }, [todayDateStr]);
 
@@ -529,7 +511,11 @@ export function PosPage() {
   const activeTodayOrders = useMemo(() => todayOrders.filter(o => !o.isCancelled), [todayOrders]);
 
   const totalSalesToday = useMemo(
-    () => activeTodayOrders.reduce((sum, o) => sum + o.totalAmount, 0),
+    () =>
+      activeTodayOrders.reduce(
+        (sum, o) => sum + (o.actualPaidAmount ?? Math.max(0, o.totalAmount - (o.gifticonDiscountAmount || 0))),
+        0
+      ),
     [activeTodayOrders]
   );
 
@@ -537,7 +523,10 @@ export function PosPage() {
     () =>
       activeTodayOrders
         .filter(o => o.paymentMethod === 'CASH')
-        .reduce((sum, o) => sum + o.totalAmount, 0),
+        .reduce(
+          (sum, o) => sum + (o.actualPaidAmount ?? Math.max(0, o.totalAmount - (o.gifticonDiscountAmount || 0))),
+          0
+        ),
     [activeTodayOrders]
   );
 
@@ -545,7 +534,15 @@ export function PosPage() {
     () =>
       activeTodayOrders
         .filter(o => o.paymentMethod === 'TRANSFER')
-        .reduce((sum, o) => sum + o.totalAmount, 0),
+        .reduce(
+          (sum, o) => sum + (o.actualPaidAmount ?? Math.max(0, o.totalAmount - (o.gifticonDiscountAmount || 0))),
+          0
+        ),
+    [activeTodayOrders]
+  );
+
+  const todayDiscountTotal = useMemo(
+    () => activeTodayOrders.reduce((sum, o) => sum + (o.gifticonDiscountAmount || 0), 0),
     [activeTodayOrders]
   );
 
@@ -789,6 +786,7 @@ export function PosPage() {
   const handleClearCart = () => {
     if (!isSoundMuted) PosFeedback.playCancel();
     setCart([]);
+    setDiscountAmount(0);
     showToast('장바구니를 비웠습니다.');
   };
 
@@ -798,7 +796,7 @@ export function PosPage() {
     setKeypadTarget(null);
   };
 
-  // [트랜잭션 결제] runOrderTransaction: orders 문서 생성과 items.stock 차감, 기프티콘 USED 처리를 Firestore 단일 트랜잭션으로 원자적 처리
+  // [트랜잭션 결제] runOrderTransaction: orders 문서 생성과 items.stock 차감을 Firestore 단일 트랜잭션으로 원자적 처리
   const executeOrder = async (
     method: 'CASH' | 'TRANSFER',
     total: number,
@@ -812,10 +810,10 @@ export function PosPage() {
     setIsProcessingOrder(true);
 
     try {
-      const gifticonDiscountAmount = appliedGifticons.reduce((sum, c) => sum + c.amount, 0);
-      const actualPaidAmount = Math.max(0, total - gifticonDiscountAmount);
+      const effectiveDiscount = Math.min(total, Math.max(0, discountAmount));
+      const actualPaidAmount = Math.max(0, total - effectiveDiscount);
 
-      const newOrder = await runOrderTransaction({
+      await runOrderTransaction({
         sessionId: todayDateStr,
         handlerUid: currentUser?.id || 'staff',
         handlerName: currentUser?.name || '매점판매원',
@@ -823,27 +821,27 @@ export function PosPage() {
         memo,
         paymentMethod: method,
         totalAmount: total,
-        gifticonDiscountAmount,
+        gifticonDiscountAmount: effectiveDiscount,
         actualPaidAmount,
-        gifticonsToUse: appliedGifticons,
+        gifticonsToUse: [],
         cashReceived,
         changeAmount,
         cart,
       });
 
-      // Reset cart and applied gifticons upon success
+      // Reset cart and applied discount upon success
       setCart([]);
-      setAppliedGifticons([]);
+      setDiscountAmount(0);
 
       if (!isSoundMuted) PosFeedback.playSuccess();
 
       const buyerText = buyerName ? ` (결제자: ${buyerName})` : '';
-      const gifticonNotice = gifticonDiscountAmount > 0
-        ? ` [기프티콘 할인 -${gifticonDiscountAmount.toLocaleString()}원 / 실결제 ${actualPaidAmount.toLocaleString()}원]`
+      const discountNotice = effectiveDiscount > 0
+        ? ` [할인 -${effectiveDiscount.toLocaleString()}원 / 실결제 ${actualPaidAmount.toLocaleString()}원]`
         : '';
 
       showToast(
-        `${method === 'CASH' ? '현금' : '계좌이체'} 결제가 완료되었습니다! (${(gifticonDiscountAmount > 0 ? actualPaidAmount : total).toLocaleString()}원)${buyerText}${gifticonNotice}${extraDetails ? ` - ${extraDetails}` : ''}`,
+        `${method === 'CASH' ? '현금' : '계좌이체'} 결제가 완료되었습니다! (${(effectiveDiscount > 0 ? actualPaidAmount : total).toLocaleString()}원)${buyerText}${discountNotice}${extraDetails ? ` - ${extraDetails}` : ''}`,
         'success'
       );
     } catch (error: any) {
@@ -1206,12 +1204,22 @@ export function PosPage() {
   const handleConfirmEndShift = () => {
     setShowEndShiftConfirm(false);
     setCart([]);
+    setDiscountAmount(0);
     setPosScreenMode('hub');
     showToast('매점 영업이 종료되었습니다. 메인 화면으로 복귀했습니다.');
   };
 
   const totalCartAmount = cart.reduce((sum, item) => sum + item.item.price * item.count, 0);
   const totalCartCount = cart.reduce((sum, item) => sum + item.count, 0);
+  const effectiveDiscountAmount = Math.min(totalCartAmount, Math.max(0, discountAmount));
+  const payableCartAmount = Math.max(0, totalCartAmount - effectiveDiscountAmount);
+
+  // Automatically reset discountAmount if cart becomes empty
+  useEffect(() => {
+    if (cart.length === 0 && discountAmount !== 0) {
+      setDiscountAmount(0);
+    }
+  }, [cart.length, discountAmount]);
 
   return (
     <div className="fixed inset-0 w-full h-full bg-primary text-white flex flex-col overflow-hidden z-50 select-none">
@@ -1232,16 +1240,15 @@ export function PosPage() {
           user={currentUser}
           items={items}
           categories={categories}
-          gifticons={gifticons}
           totalSalesToday={totalSalesToday}
           cashSalesToday={cashSalesToday}
           transferSalesToday={transferSalesToday}
+          todayDiscountTotal={todayDiscountTotal}
           todayOrdersCount={activeTodayOrders.length}
           todayTotalSoldCount={todayTotalSoldCount}
           hasActiveCart={cart.length > 0}
           onStartSales={() => setPosScreenMode('register')}
           onOpenProductManager={() => setShowProductManager(true)}
-          onOpenGifticonManager={() => setShowGifticonManagerModal(true)}
           onOpenSalesHistory={() => setShowSalesHistoryModal(true)}
           onOpenSettlement={() => setShowSettlementModal(true)}
           onOpenAuditLog={IS_POS_AUDIT_LOG_ENABLED ? () => setShowAuditLogModal(true) : undefined}
@@ -1262,7 +1269,6 @@ export function PosPage() {
             onToggleSound={toggleSound}
             onExitToPortal={handleExitToPortal}
             onOpenProductManager={() => setShowProductManager(true)}
-            onOpenGifticonManager={() => setShowGifticonManagerModal(true)}
             onOpenSalesHistory={() => setShowSalesHistoryModal(true)}
             onOpenAuditLog={IS_POS_AUDIT_LOG_ENABLED ? () => setShowAuditLogModal(true) : undefined}
             onOpenSettlement={() => setShowSettlementModal(true)}
@@ -1317,9 +1323,9 @@ export function PosPage() {
               >
                 <PosCart
                   cart={cart}
-                  appliedGifticons={appliedGifticons}
-                  onOpenGifticonModal={() => setShowGifticonModal(true)}
-                  onRemoveGifticon={gifticonId => setAppliedGifticons(prev => prev.filter(c => c.id !== gifticonId))}
+                  discountAmount={effectiveDiscountAmount}
+                  onOpenDiscountModal={() => setShowGifticonModal(true)}
+                  onClearDiscount={() => setDiscountAmount(0)}
                   isProcessing={isProcessingOrder}
                   isOnline={isOnline}
                   onUpdateCount={handleUpdateCount}
@@ -1336,7 +1342,7 @@ export function PosPage() {
           {/* Bottom Cart Mode (스마트폰 및 탭/태블릿 세로 모드): Floating Bottom Cart Bar */}
           {!isSplitLayout && (
             <div
-              className={`fixed bottom-0 inset-x-0 z-40 bg-[#0a1120]/95 backdrop-blur-xl border-t border-white/10 px-4 sm:px-6 pt-2 pb-3 sm:pb-4 shadow-2xl transition-all select-none ${
+              className={`fixed bottom-0 inset-x-0 z-40 bg-[#0a1120]/95 backdrop-blur-xl border-t border-white/10 px-4 sm:px-6 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4 shadow-2xl transition-all select-none ${
                 isMobileCartOpen ? 'pointer-events-none opacity-0 translate-y-full' : 'opacity-100 translate-y-0'
               }`}
             >
@@ -1366,10 +1372,14 @@ export function PosPage() {
 
                     <div className="min-w-0">
                       <div className="text-[11px] sm:text-xs text-surface-dim font-medium truncate">
-                        {totalCartCount > 0 ? `선택 품목 ${totalCartCount}개` : '장바구니가 비어 있습니다'}
+                        {totalCartCount > 0
+                          ? effectiveDiscountAmount > 0
+                            ? `선택 ${totalCartCount}개 (할인 -${effectiveDiscountAmount.toLocaleString()}원)`
+                            : `선택 품목 ${totalCartCount}개`
+                          : '장바구니가 비어 있습니다'}
                       </div>
                       <div className="text-base sm:text-lg font-black text-white font-mono tabular-nums tracking-tight">
-                        {totalCartAmount.toLocaleString()}
+                        {payableCartAmount.toLocaleString()}
                         <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
                       </div>
                     </div>
@@ -1414,7 +1424,7 @@ export function PosPage() {
                     animate={{ y: 0 }}
                     exit={{ y: '100%' }}
                     transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-                    className="fixed inset-x-0 bottom-0 z-[125] h-[88vh] max-h-[92vh] max-w-3xl mx-auto bg-primary border-t sm:border-x border-white/10 rounded-t-2xl shadow-2xl flex flex-col overflow-hidden"
+                    className="fixed inset-x-0 bottom-0 z-[125] h-[88dvh] max-h-[92dvh] max-w-3xl mx-auto bg-primary border-t sm:border-x border-white/10 rounded-t-2xl shadow-2xl flex flex-col overflow-hidden"
                   >
                     {/* Sheet Header with Gesture Drag Down Handle & Dedicated Close Button */}
                     <div
@@ -1451,9 +1461,9 @@ export function PosPage() {
                     <div className="flex-1 overflow-hidden">
                       <PosCart
                         cart={cart}
-                        appliedGifticons={appliedGifticons}
-                        onOpenGifticonModal={() => setShowGifticonModal(true)}
-                        onRemoveGifticon={gifticonId => setAppliedGifticons(prev => prev.filter(c => c.id !== gifticonId))}
+                        discountAmount={effectiveDiscountAmount}
+                        onOpenDiscountModal={() => setShowGifticonModal(true)}
+                        onClearDiscount={() => setDiscountAmount(0)}
                         isProcessing={isProcessingOrder}
                         isOnline={isOnline}
                         onUpdateCount={handleUpdateCount}
@@ -1568,11 +1578,11 @@ export function PosPage() {
       <AnimatePresence>
         {showCashModal && (
           <PosCashModal
-            totalAmount={Math.max(0, totalCartAmount - appliedGifticons.reduce((s, c) => s + c.amount, 0))}
+            totalAmount={payableCartAmount}
             originalTotalAmount={totalCartAmount}
-            appliedGifticons={appliedGifticons}
-            onOpenGifticonModal={() => setShowGifticonModal(true)}
-            onRemoveGifticon={gifticonId => setAppliedGifticons(prev => prev.filter(c => c.id !== gifticonId))}
+            discountAmount={effectiveDiscountAmount}
+            onOpenDiscountModal={() => setShowGifticonModal(true)}
+            onClearDiscount={() => setDiscountAmount(0)}
             onConfirmPayment={handleConfirmCashPayment}
             onClose={() => setShowCashModal(false)}
           />
@@ -1583,11 +1593,11 @@ export function PosPage() {
       <AnimatePresence>
         {showTransferModal && (
           <PosTransferModal
-            totalAmount={Math.max(0, totalCartAmount - appliedGifticons.reduce((s, c) => s + c.amount, 0))}
+            totalAmount={payableCartAmount}
             originalTotalAmount={totalCartAmount}
-            appliedGifticons={appliedGifticons}
-            onOpenGifticonModal={() => setShowGifticonModal(true)}
-            onRemoveGifticon={gifticonId => setAppliedGifticons(prev => prev.filter(c => c.id !== gifticonId))}
+            discountAmount={effectiveDiscountAmount}
+            onOpenDiscountModal={() => setShowGifticonModal(true)}
+            onClearDiscount={() => setDiscountAmount(0)}
             onConfirmPayment={handleConfirmTransferPayment}
             onClose={() => setShowTransferModal(false)}
           />
@@ -1672,30 +1682,15 @@ export function PosPage() {
         />
       )}
 
-      {/* Modal: Gifticon Input Modal (결제창 기프티콘 입력) */}
+      {/* Modal: Direct Discount Input Modal (할인 금액 입력) */}
       <AnimatePresence>
         {showGifticonModal && (
           <PosGifticonInputModal
             isOpen={showGifticonModal}
             onClose={() => setShowGifticonModal(false)}
             originalTotalAmount={totalCartAmount}
-            availableGifticons={gifticons}
-            appliedGifticons={appliedGifticons}
-            onApplyGifticons={newSelected => setAppliedGifticons(newSelected)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Modal: Gifticon Manager Modal (기프티콘 관리 - 번호 등록/시트 붙여넣기/현황) */}
-      <AnimatePresence>
-        {showGifticonManagerModal && (
-          <PosGifticonManagerModal
-            isOpen={showGifticonManagerModal}
-            onClose={() => setShowGifticonManagerModal(false)}
-            gifticons={gifticons}
-            currentUserName={currentUser?.name || '관리자'}
-            currentUserId={currentUser?.id || 'admin'}
-            isAdmin={currentUser?.role === 'admin'}
+            discountAmount={effectiveDiscountAmount}
+            onApplyDiscount={newDiscount => setDiscountAmount(newDiscount)}
           />
         )}
       </AnimatePresence>

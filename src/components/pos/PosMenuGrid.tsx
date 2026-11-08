@@ -406,7 +406,7 @@ export function PosMenuGrid({
         </div>
 
         {/* Bottom: Price & In-Cart Count */}
-        <div className="flex items-baseline justify-between w-full pt-1.5 mt-auto border-t border-white/[0.04] gap-1">
+        <div className="flex items-center justify-between w-full pt-1.5 mt-auto border-t border-white/[0.04] gap-1">
           <div className="flex items-baseline">
             <span
               className={`transition-colors font-mono tabular-nums ${priceSize} ${
@@ -472,10 +472,10 @@ export function PosMenuGrid({
           <button
             type="button"
             onClick={() => setSelectedCategoryId('all')}
-            className={`h-full flex items-center text-xs sm:text-sm whitespace-nowrap border-b-2 transition-colors shrink-0 cursor-pointer ${
+            className={`h-full flex items-center text-xs sm:text-sm whitespace-nowrap border-t-2 border-t-transparent border-b-2 transition-colors shrink-0 cursor-pointer ${
               selectedCategoryId === 'all'
-                ? 'border-secondary-container text-white font-bold'
-                : 'border-transparent text-surface-dim hover:text-white font-medium'
+                ? 'border-b-secondary-container text-white font-bold'
+                : 'border-b-transparent text-surface-dim hover:text-white font-medium'
             }`}
           >
             <span>전체</span>
@@ -487,13 +487,13 @@ export function PosMenuGrid({
           <button
             type="button"
             onClick={() => setSelectedCategoryId('favorites')}
-            className={`h-full flex items-center space-x-1 text-xs sm:text-sm whitespace-nowrap border-b-2 transition-colors shrink-0 cursor-pointer ${
+            className={`h-full flex items-center space-x-1 text-xs sm:text-sm whitespace-nowrap border-t-2 border-t-transparent border-b-2 transition-colors shrink-0 cursor-pointer ${
               selectedCategoryId === 'favorites'
-                ? 'border-amber-400 text-white font-bold'
-                : 'border-transparent text-surface-dim hover:text-white font-medium'
+                ? 'border-b-amber-400 text-white font-bold'
+                : 'border-b-transparent text-surface-dim hover:text-white font-medium'
             }`}
           >
-            <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+            <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
             <span>인기</span>
             <span className="text-[11px] font-mono tabular-nums text-surface-dim/70">
               {items.filter(i => i.isActive && i.isFavorite).length}
@@ -510,10 +510,10 @@ export function PosMenuGrid({
                 key={cat.name}
                 type="button"
                 onClick={() => setSelectedCategoryId(cat.name)}
-                className={`h-full flex items-center text-xs sm:text-sm whitespace-nowrap border-b-2 transition-colors shrink-0 cursor-pointer ${
+                className={`h-full flex items-center text-xs sm:text-sm whitespace-nowrap border-t-2 border-t-transparent border-b-2 transition-colors shrink-0 cursor-pointer ${
                   isSelected
-                    ? 'border-secondary-container text-white font-bold'
-                    : 'border-transparent text-surface-dim hover:text-white font-medium'
+                    ? 'border-b-secondary-container text-white font-bold'
+                    : 'border-b-transparent text-surface-dim hover:text-white font-medium'
                 }`}
               >
                 <span>{cat.name}</span>

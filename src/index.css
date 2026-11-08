@@ -6,6 +6,7 @@
   
   /* Brand Palette from Design System */
   --color-primary: #000613;
+  --color-primary-dark: #00040d;
   --color-on-primary: #ffffff;
   --color-primary-container: #001f3f;
   --color-on-primary-container: #6f88ad;
@@ -15,6 +16,8 @@
   --color-on-secondary: #ffffff;
   --color-secondary-container: #65a1ff;
   --color-on-secondary-container: #003671;
+  --color-secondary-fixed: #d3e4ff;
+  --color-secondary-fixed-dim: #65a1ff;
   
   --color-tertiary: #00070a;
   --color-on-tertiary: #ffffff;

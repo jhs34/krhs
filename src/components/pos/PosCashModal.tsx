@@ -1,296 +1,214 @@
-import { useState } from 'react';
-import { X, Check, Ticket } from 'lucide-react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { PosGifticon } from '../../types/pos';
+import { Banknote, Check, RotateCcw, Ticket, X, User } from 'lucide-react';
 
 interface PosCashModalProps {
-  totalAmount: number; // 실제 결제 대상 금액 (기프티콘 할인 후 실결제액)
-  originalTotalAmount?: number; // 할인 전 정가
-  appliedGifticons?: PosGifticon[]; // 적용된 기프티콘 목록
-  onOpenGifticonModal?: () => void;
-  onRemoveGifticon?: (gifticonId: string) => void;
-  onConfirmPayment: (received: number, change: number, buyerName?: string, memo?: string) => void;
+  totalAmount: number; // 할인 차감 후 실결제 금액
+  originalTotalAmount?: number;
+  discountAmount?: number;
+  onOpenDiscountModal?: () => void;
+  onClearDiscount?: () => void;
+  onConfirmPayment: (cashReceived: number, changeAmount: number, buyerName?: string, memo?: string) => void;
   onClose: () => void;
 }
 
-export function PosCashModal({
+export const PosCashModal: React.FC<PosCashModalProps> = ({
   totalAmount,
   originalTotalAmount,
-  appliedGifticons,
-  onOpenGifticonModal,
-  onRemoveGifticon,
+  discountAmount = 0,
+  onOpenDiscountModal,
+  onClearDiscount,
   onConfirmPayment,
   onClose,
-}: PosCashModalProps) {
-  const activeGifticons = appliedGifticons || [];
-  const openModal = onOpenGifticonModal;
-  const removeHandler = onRemoveGifticon;
-
-  const [receivedStr, setReceivedStr] = useState<string>('');
+}) => {
+  const [cashReceived, setCashReceived] = useState<number>(0);
   const [buyerName, setBuyerName] = useState<string>('');
-  const [memo, setMemo] = useState<string>('');
 
-  const receivedAmount = parseInt(receivedStr, 10) || 0;
-  const changeAmount = receivedAmount - totalAmount;
-  const isSufficient = receivedAmount >= totalAmount;
+  // If cashReceived is 0, treat it as exact payment (딱 맞게 받음)
+  const effectiveReceived = cashReceived === 0 ? totalAmount : cashReceived;
+  const changeAmount = effectiveReceived - totalAmount;
+  const isInsufficient = effectiveReceived < totalAmount;
 
-  const totalDiscount = activeGifticons.reduce((sum, c) => sum + c.amount, 0);
-
-  const handleDigit = (digit: string) => {
-    if (receivedStr === '0') {
-      setReceivedStr(digit);
-    } else if (receivedStr.length < 8) {
-      setReceivedStr(prev => prev + digit);
-    }
+  const handleAddCash = (amount: number) => {
+    setCashReceived(prev => prev + amount);
   };
 
-  const handleBackspace = () => {
-    if (receivedStr.length <= 1) {
-      setReceivedStr('');
-    } else {
-      setReceivedStr(prev => prev.slice(0, -1));
-    }
+  const handleExactAmount = () => {
+    setCashReceived(totalAmount);
   };
 
-  const handleClear = () => {
-    setReceivedStr('');
-  };
-
-  const handleAddQuickCash = (amount: number) => {
-    const next = (parseInt(receivedStr, 10) || 0) + amount;
-    setReceivedStr(String(next));
-  };
-
-  const handleSetExact = () => {
-    setReceivedStr(String(totalAmount));
-  };
-
-  const handleComplete = () => {
-    if (!isSufficient) return;
-    onConfirmPayment(receivedAmount, changeAmount, buyerName.trim() || undefined, memo.trim() || undefined);
+  const handleConfirm = () => {
+    if (isInsufficient) return;
+    onConfirmPayment(
+      effectiveReceived,
+      Math.max(0, changeAmount),
+      buyerName.trim() || undefined,
+      undefined
+    );
   };
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md select-none">
       <motion.div
         initial={{ scale: 0.96, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.96, opacity: 0 }}
-        transition={{ duration: 0.18, ease: 'easeOut' }}
-        onClick={e => e.stopPropagation()}
-        className="bg-[#0a1120] border border-white/10 w-full max-w-md max-h-[95vh] overflow-y-auto custom-scrollbar rounded-2xl p-5 sm:p-6 shadow-2xl flex flex-col relative"
+        className="bg-[#0a1120] border border-white/10 w-full max-w-md rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
-          <div>
-            <h3 className="font-bold text-white text-base">현금 결제 처리</h3>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-surface-dim hover:text-white hover:bg-white/5 cursor-pointer">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Gifticon Row (Unboxed hairline section) */}
-        <div className="py-3 border-b border-white/10 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-xs">
-              <Ticket className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span className="font-bold text-white">기프티콘 할인</span>
-              {activeGifticons.length > 0 && (
-                <span className="text-amber-400 font-mono tabular-nums font-bold">
-                  {activeGifticons.length}장 (-{totalDiscount.toLocaleString()}원)
-                </span>
-              )}
+        <div className="flex items-center justify-between pb-3 border-b border-white/10">
+          <div className="flex items-center space-x-2.5">
+            <Banknote className="w-5 h-5 text-emerald-400 shrink-0" />
+            <div>
+              <h3 className="text-base font-bold text-white">현금 수납 및 거스름돈 계산</h3>
+              <p className="text-xs text-surface-dim">
+                금액을 선택하지 않고 완료하면 정액 수납 처리됩니다
+              </p>
             </div>
-
-            {openModal && (
-              <button
-                type="button"
-                onClick={openModal}
-                className="text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors cursor-pointer"
-              >
-                {activeGifticons.length > 0 ? '변경' : '+ 번호 입력'}
-              </button>
-            )}
           </div>
 
-          {activeGifticons.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {activeGifticons.map(c => (
-                <div
-                  key={c.id}
-                  className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded bg-white/[0.04] border border-white/10 text-[11px] text-surface-dim"
-                >
-                  <span className="font-mono font-bold text-white">{c.id}</span>
-                  <span className="text-amber-400 font-mono tabular-nums">-{c.amount.toLocaleString()}원</span>
-                  {removeHandler && (
-                    <button
-                      type="button"
-                      onClick={() => removeHandler(c.id)}
-                      className="text-surface-dim hover:text-white pl-0.5 cursor-pointer"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
+          {onOpenDiscountModal && (
+            <button
+              type="button"
+              onClick={onOpenDiscountModal}
+              className="px-2.5 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 text-xs font-bold flex items-center space-x-1 transition-all cursor-pointer shrink-0"
+            >
+              <Ticket className="w-3.5 h-3.5" />
+              <span>{discountAmount > 0 ? '할인 수정' : '할인 입력'}</span>
+            </button>
           )}
         </div>
 
-        {/* Financial Comparison Strip (Unboxed divide-x) */}
-        <div className="grid grid-cols-2 divide-x divide-white/10 py-3.5 border-b border-white/10">
-          <div className="pr-4">
-            <span className="text-[11px] font-medium text-surface-dim block">실 결제 금액</span>
-            <span className="text-xl sm:text-2xl font-black text-white mt-1 font-mono tabular-nums block">
+        {/* Amount Summary */}
+        <div className="py-3 border-y border-white/10 space-y-2.5">
+          {discountAmount > 0 && originalTotalAmount !== undefined && (
+            <>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-surface-dim">적용 전 금액</span>
+                <span className="font-mono tabular-nums text-surface-dim">
+                  {originalTotalAmount.toLocaleString()}원
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-purple-300 font-bold">할인 적용 금액</span>
+                <div className="flex items-center space-x-1.5">
+                  <span className="font-mono tabular-nums text-purple-300 font-bold">
+                    -{discountAmount.toLocaleString()}원
+                  </span>
+                  {onClearDiscount && (
+                    <button
+                      type="button"
+                      onClick={onClearDiscount}
+                      className="text-surface-dim hover:text-rose-400 p-0.5 cursor-pointer"
+                      title="할인 해제"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-surface-dim">받을 금액 (실결제액)</span>
+            <span className="text-lg font-bold font-mono tabular-nums text-white">
               {totalAmount.toLocaleString()}원
             </span>
-            {originalTotalAmount && originalTotalAmount !== totalAmount && (
-              <span className="text-[11px] text-surface-dim line-through font-mono tabular-nums">
-                정가 {originalTotalAmount.toLocaleString()}원
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-surface-dim">받은 현금</span>
+            <div className="flex items-center space-x-2">
+              <span className="text-lg font-bold font-mono tabular-nums text-emerald-400">
+                {effectiveReceived.toLocaleString()}원
               </span>
-            )}
+              {cashReceived > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setCashReceived(0)}
+                  className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+                  title="초기화"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="pl-4">
-            <span className="text-[11px] font-medium text-secondary-container block">받은 현금</span>
-            <span className="text-xl sm:text-2xl font-black text-white mt-1 font-mono tabular-nums block">
-              {receivedAmount > 0 ? `${receivedAmount.toLocaleString()}원` : '0원'}
+          <div className="pt-2.5 border-t border-white/10 flex items-center justify-between">
+            <span className="text-xs font-bold text-surface-dim">거스름돈</span>
+            <span
+              className={`text-xl font-black font-mono tabular-nums ${
+                isInsufficient ? 'text-rose-400' : 'text-amber-300'
+              }`}
+            >
+              {isInsufficient
+                ? `${Math.abs(changeAmount).toLocaleString()}원 부족`
+                : `${changeAmount.toLocaleString()}원`}
             </span>
-          </div>
-        </div>
-
-        {/* Change Readout Row (Unboxed hairline row) */}
-        <div className="py-3 border-b border-white/10 flex items-center justify-between">
-          <span className="text-xs font-bold text-surface-dim">
-            {totalAmount === 0
-              ? '기프티콘 전액 결제 (추가 수납 없음)'
-              : receivedAmount === 0
-              ? '받은 금액을 입력하세요'
-              : isSufficient
-              ? '거스름돈'
-              : '부족한 금액'}
-          </span>
-
-          <span
-            className={`text-lg sm:text-xl font-black font-mono tabular-nums ${
-              totalAmount === 0 || (receivedAmount > 0 && isSufficient)
-                ? 'text-emerald-400'
-                : receivedAmount === 0
-                ? 'text-surface-dim'
-                : 'text-rose-400'
-            }`}
-          >
-            {totalAmount === 0 || receivedAmount === 0
-              ? '0원'
-              : isSufficient
-              ? `${changeAmount.toLocaleString()}원`
-              : `-${Math.abs(changeAmount).toLocaleString()}원`}
-          </span>
-        </div>
-
-        {/* Optional Buyer Name & Memo Inputs */}
-        <div className="grid grid-cols-2 gap-2.5 py-3 border-b border-white/10">
-          <div>
-            <label className="text-[11px] font-medium text-surface-dim block mb-1">
-              결제자 이름 <span className="text-white/30">(선택)</span>
-            </label>
-            <input
-              type="text"
-              value={buyerName}
-              onChange={e => setBuyerName(e.target.value)}
-              placeholder="이름 / 학번"
-              maxLength={20}
-              className="w-full bg-primary border border-white/10 focus:border-secondary-container rounded-lg px-2.5 py-2 text-xs text-white placeholder-white/25 outline-none transition-colors"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] font-medium text-surface-dim block mb-1">
-              메모 <span className="text-white/30">(선택)</span>
-            </label>
-            <input
-              type="text"
-              value={memo}
-              onChange={e => setMemo(e.target.value)}
-              placeholder="주문 메모"
-              maxLength={100}
-              className="w-full bg-primary border border-white/10 focus:border-secondary-container rounded-lg px-2.5 py-2 text-xs text-white placeholder-white/25 outline-none transition-colors"
-            />
           </div>
         </div>
 
         {/* Quick Cash Buttons */}
-        {totalAmount > 0 && (
-          <div className="grid grid-cols-4 gap-1.5 pt-3">
-            <button
-              type="button"
-              onClick={handleSetExact}
-              className="py-2 rounded-lg text-xs font-bold bg-secondary/20 hover:bg-secondary/30 text-secondary-container border border-secondary/30 active:scale-95 transition-all cursor-pointer"
-            >
-              딱 맞게
-            </button>
-            {[1000, 5000, 10000].map(amt => (
+        <div className="space-y-2">
+          <div className="grid grid-cols-3 gap-2">
+            {[500, 1000, 5000, 10000, 50000].map(amt => (
               <button
                 key={amt}
                 type="button"
-                onClick={() => handleAddQuickCash(amt)}
-                className="py-2 rounded-lg text-xs font-bold font-mono tabular-nums bg-white/[0.03] hover:bg-white/[0.08] text-white border border-white/5 active:scale-95 transition-all cursor-pointer"
+                onClick={() => handleAddCash(amt)}
+                className="py-2.5 px-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/15 border border-white/10 font-mono tabular-nums text-xs sm:text-sm font-bold text-white transition-colors cursor-pointer"
               >
                 +{amt.toLocaleString()}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={handleExactAmount}
+              className="py-2.5 px-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs sm:text-sm font-bold text-emerald-300 transition-colors cursor-pointer"
+            >
+              정액 수납
+            </button>
           </div>
-        )}
+        </div>
 
-        {/* Numeric Keypad Grid */}
-        {totalAmount > 0 && (
-          <div className="grid grid-cols-3 gap-1.5 my-2.5">
-            {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map(k => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => {
-                  if (k === 'C') handleClear();
-                  else if (k === '⌫') handleBackspace();
-                  else handleDigit(k);
-                }}
-                className={`py-2.5 rounded-lg font-bold font-mono tabular-nums text-base active:scale-95 transition-all flex items-center justify-center cursor-pointer ${
-                  k === 'C'
-                    ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20'
-                    : k === '⌫'
-                    ? 'bg-white/5 text-surface-dim hover:bg-white/10'
-                    : 'bg-white/[0.03] hover:bg-white/[0.08] text-white border border-white/5'
-                }`}
-              >
-                {k}
-              </button>
-            ))}
+        {/* Optional Buyer Name Input */}
+        <div className="pt-1">
+          <label className="block text-[11px] font-semibold text-surface-dim mb-1.5">
+            주문자 이름 (선택)
+          </label>
+          <div className="relative">
+            <User className="w-3.5 h-3.5 text-surface-dim absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={buyerName}
+              onChange={e => setBuyerName(e.target.value)}
+              placeholder="이름 입력 (생략 가능)"
+              className="w-full pl-8 pr-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 focus:border-emerald-500/50 focus:outline-none text-xs sm:text-sm text-white placeholder:text-surface-dim/50"
+            />
           </div>
-        )}
+        </div>
 
-        {/* Action Button */}
-        <div className="flex space-x-2 pt-2">
+        {/* Actions */}
+        <div className="grid grid-cols-2 gap-2.5 pt-1">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-3 rounded-xl font-bold text-xs sm:text-sm bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+            className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer"
           >
             취소
           </button>
           <button
             type="button"
-            disabled={totalAmount > 0 && !isSufficient}
-            onClick={handleComplete}
-            className="flex-[2] py-3 rounded-xl font-bold text-xs sm:text-sm bg-secondary hover:bg-secondary/90 active:scale-[0.99] disabled:opacity-30 disabled:pointer-events-none text-white transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+            disabled={isInsufficient}
+            onClick={handleConfirm}
+            className="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:pointer-events-none text-white text-xs sm:text-sm font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
           >
             <Check className="w-4 h-4" />
-            <span>
-              {totalAmount === 0 ? '기프티콘 결제 완료' : '현금 결제 완료'}
-            </span>
+            <span>현금 결제 완료</span>
           </button>
         </div>
       </motion.div>
     </div>
   );
-}
+};

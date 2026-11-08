@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { X, Calendar as CalendarIcon, FileText, ArrowRight, Edit2 } from 'lucide-react';
+import { X, Edit2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ItemDetailPopupProps {
@@ -48,7 +48,7 @@ export function ItemDetailPopup({ item, type, isAdmin, onClose, onEdit }: ItemDe
         className="bg-[#0a1120] border border-white/10 w-full max-w-2xl max-h-[85vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl relative"
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-6 border-b border-white/10 flex items-start justify-between bg-white/5">
+        <div className="p-5 sm:p-6 border-b border-white/10 flex items-start justify-between bg-white/5">
           <div className="flex-1 pr-4">
             <div className="flex items-center space-x-3 mb-2">
               <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase inline-flex items-center ${
@@ -70,7 +70,7 @@ export function ItemDetailPopup({ item, type, isAdmin, onClose, onEdit }: ItemDe
                 </span>
               )}
             </div>
-            <h2 className="text-2xl font-bold text-white leading-tight">{title}</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-white leading-tight">{title}</h2>
           </div>
           <div className="flex space-x-2 shrink-0">
             {isAdmin && (
@@ -91,20 +91,14 @@ export function ItemDetailPopup({ item, type, isAdmin, onClose, onEdit }: ItemDe
           </div>
         </div>
         
-        <div className="p-6 overflow-y-auto custom-scrollbar flex-grow">
-          {content && (
-            <div className="text-surface-dim text-base leading-relaxed whitespace-pre-wrap mb-8">
+        <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-grow">
+          {content ? (
+            <div className="text-surface-dim text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
               {renderContentWithLinks(content)}
             </div>
+          ) : (
+            <div className="text-surface-dim/50 text-sm">상세 내용이 없습니다.</div>
           )}
-        </div>
-        
-        {/* Placeholder for future page links */}
-        <div className="p-4 border-t border-white/10 bg-black/20 flex justify-end">
-          <button className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-bold text-surface-dim hover:text-white transition-colors flex items-center space-x-2 opacity-50 cursor-not-allowed">
-            <span>상세 페이지로 이동 (준비중)</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
         </div>
       </motion.div>
     </div>
