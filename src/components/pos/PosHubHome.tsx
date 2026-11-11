@@ -8,11 +8,11 @@ import {
   ShieldCheck,
   ReceiptText,
   Calculator,
-  Ticket,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion } from 'motion/react';
-import { PosUser, PosItem, PosCategory, PosGifticon } from '../../types/pos';
+import { PosUser, PosItem, PosCategory } from '../../types/pos';
+import { EASE_OUT_EXPO } from '../../utils/motion';
 
 interface PosHubHomeProps {
   user: PosUser;
@@ -130,9 +130,9 @@ export function PosHubHome({
       <main className="flex-1 max-w-7xl w-full mx-auto px-5 sm:px-10 md:px-16 lg:px-24 py-8 sm:py-12 md:py-16 flex flex-col space-y-10 sm:space-y-12">
         {/* Section 1: Editorial Header */}
         <motion.div
-          initial={{ opacity: 0, y: 24, filter: 'blur(8px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          transition={{ duration: 0.6 }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: EASE_OUT_EXPO }}
           className="border-b border-white/10 pb-7 sm:pb-9"
         >
           <div className="space-y-3">
@@ -152,10 +152,11 @@ export function PosHubHome({
           <motion.button
             type="button"
             onClick={onStartSales}
-            initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            transition={{ duration: 0.6, delay: 0.05 }}
-            className="lg:col-span-7 text-left bg-[#0a1120] hover:bg-[#0d1629] border border-white/10 hover:border-secondary/60 rounded-3xl p-6 sm:p-8 md:p-10 flex flex-col justify-between transition-all duration-300 group cursor-pointer"
+            whileTap={{ scale: 0.99 }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24, delay: 0.03, ease: EASE_OUT_EXPO }}
+            className="lg:col-span-7 text-left bg-[#0a1120] hover:bg-[#0d1629] border border-white/10 hover:border-secondary/60 rounded-3xl p-6 sm:p-8 md:p-10 flex flex-col justify-between transition-colors duration-200 group cursor-pointer"
           >
             <div>
               <div className="flex items-center justify-between mb-6 sm:mb-8">
@@ -190,9 +191,9 @@ export function PosHubHome({
 
           {/* Right 5 Cols: Clean Hairline-Divided Operations List (Unboxed individual items) */}
           <motion.div
-            initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            transition={{ duration: 0.6, delay: 0.12 }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24, delay: 0.06, ease: EASE_OUT_EXPO }}
             className="lg:col-span-5 bg-[#0a1120] border border-white/5 rounded-3xl p-6 sm:p-8 flex flex-col justify-between"
           >
             <div>
@@ -269,9 +270,9 @@ export function PosHubHome({
 
         {/* Section 3: Bottom Unboxed Live Telemetry Strip */}
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.18 }}
+          transition={{ duration: 0.24, delay: 0.09, ease: EASE_OUT_EXPO }}
           className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8 pt-8 border-t border-white/10"
         >
           <div className="space-y-1">
@@ -314,7 +315,7 @@ export function PosHubHome({
               <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
             </div>
             <div className="text-[11px] text-surface-dim/70">
-              기프티콘 · 직접 할인 합계
+              주문 할인 적용 합계
             </div>
           </div>
         </motion.div>

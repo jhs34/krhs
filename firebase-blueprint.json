@@ -5,10 +5,17 @@
       "description": "A school notice or announcement.",
       "type": "object",
       "properties": {
-        "title": { "type": "string", "description": "Title of the notice." },
-        "content": { "type": "string", "description": "Details of the notice." },
+        "title": { "type": "string", "maxLength": 200, "description": "Title of the notice." },
+        "content": { "type": "string", "maxLength": 10000, "description": "Details of the notice." },
         "date": { "type": "string", "format": "date-time", "description": "Notice date (ISO string)." },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp." }
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp." },
+        "validUntil": { "type": "string", "description": "Optional expiration date for auto-archiving." },
+        "link": { "type": "string", "maxLength": 2000, "description": "Optional external reference URL." },
+        "fileUrl": { "type": "string", "maxLength": 2000 },
+        "fileName": { "type": "string", "maxLength": 500 },
+        "files": { "type": "array", "description": "Attached file links (up to 10)." },
+        "isArchived": { "type": "boolean" },
+        "archivedAt": { "type": "string" }
       },
       "required": ["title", "content", "date", "createdAt"]
     },
@@ -17,15 +24,34 @@
       "description": "An event in the academic calendar.",
       "type": "object",
       "properties": {
-        "title": { "type": "string" },
-        "description": { "type": "string" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 1000 },
         "date": { "type": "string", "format": "date-time" },
         "endDate": { "type": "string", "format": "date-time" },
         "createdAt": { "type": "string", "format": "date-time" },
-        "color": { "type": "string" },
-        "isHoliday": { "type": "boolean" }
+        "color": { "type": "string", "maxLength": 50 },
+        "isHoliday": { "type": "boolean" },
+        "isArchived": { "type": "boolean" },
+        "archivedAt": { "type": "string" }
       },
       "required": ["title", "description", "date", "createdAt"]
+    },
+    "SchoolDocument": {
+      "title": "SchoolDocument",
+      "description": "Downloadable form or reference document in the school archive.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 10000 },
+        "link": { "type": "string", "maxLength": 2000 },
+        "fileUrl": { "type": "string", "maxLength": 2000 },
+        "fileName": { "type": "string", "maxLength": 500 },
+        "files": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isArchived": { "type": "boolean" },
+        "archivedAt": { "type": "string" }
+      },
+      "required": ["title", "createdAt"]
     },
     "SiteInfo": {
       "title": "SiteInfo",
@@ -139,10 +165,30 @@
       "properties": {
         "sessionId": { "type": "string" },
         "initialCash": { "type": "number" },
+        "transferSales": { "type": "number" },
+        "cashSales": { "type": "number" },
         "totalSales": { "type": "number" },
+        "grossSales": { "type": "number" },
+        "gifticonSales": { "type": "number" },
+        "actualCashInput": { "type": "number" },
+        "discrepancy": { "type": "number" },
         "status": { "type": "string" }
       },
-      "required": ["sessionId", "status"]
+      "required": ["status"]
+    },
+    "PosPreset": {
+      "title": "PosPreset",
+      "description": "Saved menu preset with categories and items for POS",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "categories": { "type": "array" },
+        "items": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "categories", "items"]
     },
     "PosAuditLog": {
       "title": "PosAuditLog",
@@ -183,7 +229,7 @@
       "description": "POS daily settlement records"
     },
     "/pos_presets/{presetId}": {
-      "schema": { "$ref": "#/entities/PosCategory" },
+      "schema": { "$ref": "#/entities/PosPreset" },
       "description": "POS preset templates"
     },
     "/pos_logs/{logId}": {
@@ -197,6 +243,10 @@
     "/events/{eventId}": {
       "schema": { "$ref": "#/entities/AcademicEvent" },
       "description": "Collection of academic calendar events."
+    },
+    "/documents/{docId}": {
+      "schema": { "$ref": "#/entities/SchoolDocument" },
+      "description": "Collection of downloadable school documents and forms."
     },
     "/siteInfo/{infoId}": {
       "schema": { "$ref": "#/entities/SiteInfo" },

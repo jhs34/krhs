@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ArrowDown, Maximize, Minimize } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { format, isAfter, startOfDay } from 'date-fns';
-import { HashRouter as Router, Routes, Route, useLocation, Link } from 'react-router-dom';
+import { motion, AnimatePresence, MotionConfig } from 'motion/react';
+import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { Dashboard } from './pages/Dashboard';
 import { EventsPage } from './pages/EventsPage';
 import TimetablePage from './pages/TimetablePage';
@@ -16,10 +15,21 @@ import { AdminPanel } from './components/AdminPanel';
 import { ItemDetailPopup } from './components/ItemDetailPopup';
 import { SiteInfoPopup } from './components/SiteInfoPopup';
 import { AcademicEvent } from './types';
-import { loginWithGoogle, logout, auth } from './firebase';
-import { subscribeToEvents, subscribeToNotices, subscribeToDocuments, subscribeToSiteInfo, FirestoreEvent, Notice, SchoolDocument, SiteInfo, updateEvent, updateNotice, deleteEvent, deleteNotice, deleteDocument } from './services/firestore';
+import { loginWithGoogle, auth } from './firebase';
+import { subscribeToEvents, subscribeToNotices, subscribeToDocuments, subscribeToSiteInfo, Notice, SchoolDocument, SiteInfo, updateEvent, updateNotice, deleteEvent, deleteNotice, deleteDocument } from './services/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFullscreen } from './utils/useFullscreen';
+import { EASE_OUT_EXPO, PORTAL_PAGE_TRANSITION } from './utils/motion';
+
+function getEndOfLocalDayMs(input: Date | string): number {
+  if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input.trim())) {
+    const [y, m, d] = input.trim().split('-').map(Number);
+    return new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+  }
+  const parsed = input instanceof Date ? input : new Date(input);
+  if (isNaN(parsed.getTime())) return 0;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 23, 59, 59, 999).getTime();
+}
 
 function HeroSection() {
   const { isFullscreen, toggleFullscreen } = useFullscreen();
@@ -42,9 +52,9 @@ function HeroSection() {
       {/* Top Header - Logo & Fullscreen Action */}
       <header className="relative z-50 w-full pt-8 sm:pt-10 px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 max-w-7xl w-full mx-auto flex items-center justify-between">
         <motion.div 
-          initial={{ opacity: 0, y: -20, filter: 'blur(10px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: EASE_OUT_EXPO }}
           className="flex items-center space-x-3 md:space-x-4"
         >
           <img 
@@ -63,10 +73,10 @@ function HeroSection() {
           type="button"
           onClick={toggleFullscreen}
           title={isFullscreen ? '전체화면 종료 (ESC)' : '전체화면 모드 전환'}
-          initial={{ opacity: 0, y: -20, filter: 'blur(10px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
-          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/90 hover:text-white border border-white/20 backdrop-blur-md text-xs font-medium transition-all cursor-pointer shadow-sm"
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.06, ease: EASE_OUT_EXPO }}
+          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white/90 hover:text-white border border-white/20 backdrop-blur-md text-xs font-medium transition-all cursor-pointer shadow-sm"
           aria-label={isFullscreen ? '전체화면 종료' : '전체화면 모드'}
         >
           {isFullscreen ? (
@@ -81,9 +91,9 @@ function HeroSection() {
       {/* Center Text Editorial Style */}
       <div className="relative z-10 flex flex-col items-center justify-center flex-grow px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 max-w-7xl w-full mx-auto">
         <motion.div 
-          initial={{ opacity: 0, y: 30, filter: 'blur(15px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, delay: 0.1, ease: EASE_OUT_EXPO }}
           className="text-center"
         >
           <h2 className="text-white/80 font-space font-semibold text-[10px] sm:text-xs md:text-sm tracking-[0.2em] sm:tracking-[0.3em] mb-3 sm:mb-4 uppercase drop-shadow-md leading-relaxed px-2">
@@ -104,14 +114,14 @@ function HeroSection() {
         onClick={() => {
           document.getElementById('dashboard')?.scrollIntoView({ behavior: 'smooth' });
         }}
-        initial={{ opacity: 0, filter: 'blur(10px)' }}
-        animate={{ opacity: 0.8, filter: 'blur(0px)' }}
-        transition={{ duration: 1, delay: 1 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.8 }}
+        transition={{ duration: 0.5, delay: 0.35 }}
         className="relative z-10 flex flex-col items-center pb-12 group cursor-pointer hover:opacity-100 transition-opacity"
       >
         <span className="text-white text-xs font-medium mb-4 tracking-tight font-sans">아래로 스크롤하여 더보기</span>
         <motion.div 
-          animate={{ y: [0, 8, 0] }} 
+          animate={{ y: [0, 7, 0] }} 
           transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
         >
           <ArrowDown className="w-5 h-5 text-white" strokeWidth={2} />
@@ -144,6 +154,12 @@ function AppContent() {
   const isPosPage = location.pathname.startsWith('/tool/pos');
 
   useEffect(() => {
+    if (!isHome && !isPosPage && window.scrollY > 0) {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  }, [location.pathname, isHome, isPosPage]);
+
+  useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
@@ -153,7 +169,8 @@ function AppContent() {
         }
       }
       const effectiveEmail = (auth.currentUser?.email || user?.email || user?.providerData?.[0]?.email || '').toLowerCase().trim();
-      setIsAdmin(effectiveEmail === 'jhs34.kr@gmail.com' || effectiveEmail === 'hoya100304@gmail.com');
+      const emailVerified = Boolean(auth.currentUser?.emailVerified ?? user?.emailVerified);
+      setIsAdmin(emailVerified && (effectiveEmail === 'jhs34.kr@gmail.com' || effectiveEmail === 'hoya100304@gmail.com'));
       setHasAuthChecked(true);
     });
 
@@ -213,15 +230,14 @@ function AppContent() {
     if (!isAdmin) return;
     if (events.length === 0 && notices.length === 0 && documents.length === 0) return;
 
-    const todayStart = new Date().setHours(0, 0, 0, 0);
-    const now = new Date().getTime();
+    const now = Date.now();
 
-    // 1. Auto-archive past events
+    // 1. Auto-archive past events strictly after 23:59:59.999 of endDate (or date)
     events.forEach(async (event) => {
       if (!event.isArchived) {
-        const eventEnd = event.endDate ? new Date(event.endDate) : new Date(event.date);
-        // If event set to end of that day is in the past
-        if (eventEnd.getTime() < todayStart) {
+        const eventEndTarget = event.endDate ? event.endDate : event.date;
+        const eventEndMs = getEndOfLocalDayMs(eventEndTarget);
+        if (eventEndMs > 0 && eventEndMs < now) {
           const actionKey = `archive-event-${event.id}`;
           if (processingRef.current.has(actionKey)) return;
           processingRef.current.add(actionKey);
@@ -247,11 +263,11 @@ function AppContent() {
       }
     });
 
-    // 2. Auto-archive expired notices (based on validUntil)
+    // 2. Auto-archive expired notices strictly after 23:59:59.999 of validUntil
     notices.forEach(async (notice) => {
       if (!notice.isArchived && notice.validUntil) {
-        const expirationTime = new Date(notice.validUntil).getTime();
-        if (expirationTime < now) {
+        const expirationMs = getEndOfLocalDayMs(notice.validUntil);
+        if (expirationMs > 0 && expirationMs < now) {
           const actionKey = `archive-notice-${notice.id}`;
           if (processingRef.current.has(actionKey)) return;
           processingRef.current.add(actionKey);
@@ -265,6 +281,8 @@ function AppContent() {
             archivedAt: new Date().toISOString(),
             validUntil: notice.validUntil,
             link: notice.link || '',
+            fileUrl: notice.fileUrl || '',
+            fileName: notice.fileName || '',
             files: notice.files || []
           };
           try {
@@ -338,8 +356,9 @@ function AppContent() {
     });
   }, [isAdmin, events, notices, documents]);
 
+  const nowForUpcoming = Date.now();
   const upcomingEvents = activeEvents
-    .filter(e => selectedDate ? isAfter(e.date, startOfDay(new Date(selectedDate.getTime() - 86400000))) : true)
+    .filter(e => getEndOfLocalDayMs(e.endDate || e.date) >= nowForUpcoming)
     .sort((a, b) => a.date.getTime() - b.date.getTime())
     .slice(0, 4);
 
@@ -382,69 +401,79 @@ function AppContent() {
         loginWithGoogle={loginWithGoogle}
       />
 
-      <main className="flex-grow w-full bg-primary pt-24 pb-32">
-        <Routes>
-          <Route path="/" element={
-            <Dashboard 
-              upcomingEvents={upcomingEvents}
-              notices={activeNotices}
-              documents={activeDocuments}
-              isAdmin={isAdmin}
-              onItemClick={handleItemClick}
-              onEditItem={handleEditItem}
-              currentDate={currentDate}
-              onDateChange={setCurrentDate}
-              selectedDate={selectedDate}
-              onSelectDate={setSelectedDate}
-              events={events}
-              onAddEventClick={handleAddEventOnDate}
-            />
-          } />
-          <Route path="/events" element={
-            <EventsPage
-              events={events}
-              isAdmin={isAdmin}
-              selectedDate={selectedDate}
-              onSelectDate={setSelectedDate}
-              currentDate={currentDate}
-              onDateChange={setCurrentDate}
-              onItemClick={handleItemClick}
-              onEditItem={handleEditItem}
-              onAddEventClick={handleAddEventOnDate}
-            />
-          } />
-          <Route path="/timetable" element={
-            <TimetablePage isAdmin={isAdmin} />
-          } />
-          <Route path="/notices" element={
-            <NoticesPage
-              notices={activeNotices}
-              isAdmin={isAdmin}
-              onItemClick={handleItemClick}
-              onEditItem={handleEditItem}
-            />
-          } />
-          <Route path="/documents" element={
-            <DocumentsPage
-              documents={activeDocuments}
-              isAdmin={isAdmin}
-              onItemClick={handleItemClick}
-              onEditItem={handleEditItem}
-            />
-          } />
-          <Route path="/archive" element={
-            <ArchivePage
-              events={events}
-              notices={notices}
-              documents={documents}
-              isAdmin={isAdmin}
-              onItemClick={handleItemClick}
-              onEditItem={handleEditItem}
-            />
-          } />
-          <Route path="/tool" element={<ToolHubPage />} />
-          <Route path="/tool/pos" element={<PosPage />} />
-        </Routes>
+      <main className="flex-grow w-full bg-primary pt-24 pb-32 overflow-x-clip">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={PORTAL_PAGE_TRANSITION}
+          >
+            <Routes location={location}>
+              <Route path="/" element={
+                <Dashboard 
+                  upcomingEvents={upcomingEvents}
+                  notices={activeNotices}
+                  documents={activeDocuments}
+                  isAdmin={isAdmin}
+                  onItemClick={handleItemClick}
+                  onEditItem={handleEditItem}
+                  currentDate={currentDate}
+                  onDateChange={setCurrentDate}
+                  selectedDate={selectedDate}
+                  onSelectDate={setSelectedDate}
+                  events={events}
+                  onAddEventClick={handleAddEventOnDate}
+                />
+              } />
+              <Route path="/events" element={
+                <EventsPage
+                  events={events}
+                  isAdmin={isAdmin}
+                  selectedDate={selectedDate}
+                  onSelectDate={setSelectedDate}
+                  currentDate={currentDate}
+                  onDateChange={setCurrentDate}
+                  onItemClick={handleItemClick}
+                  onEditItem={handleEditItem}
+                  onAddEventClick={handleAddEventOnDate}
+                />
+              } />
+              <Route path="/timetable" element={
+                <TimetablePage isAdmin={isAdmin} />
+              } />
+              <Route path="/notices" element={
+                <NoticesPage
+                  notices={activeNotices}
+                  isAdmin={isAdmin}
+                  onItemClick={handleItemClick}
+                  onEditItem={handleEditItem}
+                />
+              } />
+              <Route path="/documents" element={
+                <DocumentsPage
+                  documents={activeDocuments}
+                  isAdmin={isAdmin}
+                  onItemClick={handleItemClick}
+                  onEditItem={handleEditItem}
+                />
+              } />
+              <Route path="/archive" element={
+                <ArchivePage
+                  events={events}
+                  notices={notices}
+                  documents={documents}
+                  isAdmin={isAdmin}
+                  onItemClick={handleItemClick}
+                  onEditItem={handleEditItem}
+                />
+              } />
+              <Route path="/tool" element={<ToolHubPage />} />
+              <Route path="/tool/pos" element={<PosPage />} />
+            </Routes>
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       <footer className="relative z-50 bg-[#050a14] py-8 md:py-12 border-t border-white/5">
@@ -464,6 +493,7 @@ function AppContent() {
       <AnimatePresence>
         {isAdminModalOpen && (
           <AdminPanel
+            key="admin-panel-modal"
             onClose={() => {
               setIsAdminModalOpen(false);
               setAdminInitialEditItem(null);
@@ -483,6 +513,7 @@ function AppContent() {
       <AnimatePresence>
         {detailItem && detailType && (
           <ItemDetailPopup
+            key={`detail-popup-${detailType}-${detailItem.id || 'item'}`}
             item={detailItem}
             type={detailType}
             isAdmin={isAdmin}
@@ -493,8 +524,12 @@ function AppContent() {
             onEdit={handleEditItem}
           />
         )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {siteInfoPopup && (
           <SiteInfoPopup
+            key={`site-info-${siteInfoPopup.title}`}
             title={siteInfoPopup.title}
             content={siteInfoPopup.content}
             onClose={() => setSiteInfoPopup(null)}
@@ -507,8 +542,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <Router>
-      <AppContent />
-    </Router>
+    <MotionConfig reducedMotion="user">
+      <Router>
+        <AppContent />
+      </Router>
+    </MotionConfig>
   );
 }

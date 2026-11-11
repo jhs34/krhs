@@ -4,7 +4,6 @@ import {
   Search, 
   X, 
   RotateCcw, 
-  Printer, 
   Copy, 
   Check, 
   Clock, 
@@ -32,8 +31,11 @@ import {
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { AnimatePresence, motion } from 'motion/react';
 import { auth, loginWithGoogle, logout, getDisplayUserEmail } from '../../firebase';
+import { isGoogleAdminEmail } from '../../services/posAuth';
 import { PosOrder, PosRefundedItem } from '../../types/pos';
+import { POS_MODAL_BACKDROP_TRANSITION, POS_MODAL_PANEL_TRANSITION, POS_TAB_SPRING, EASE_OUT_EXPO } from '../../utils/motion';
 
 interface PosSalesHistoryModalProps {
   isOpen: boolean;
@@ -100,6 +102,12 @@ export function PosSalesHistoryModal({
   // Google Admin Auth State
   const [googleUser, setGoogleUser] = useState<FirebaseUser | null>(() => auth.currentUser);
   const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+  const [authToast, setAuthToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showAuthToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setAuthToast({ message, type });
+    setTimeout(() => setAuthToast(null), 3000);
+  };
 
   // Modals for Google Admin: Edit Order & Delete Order
   const [editingOrder, setEditingOrder] = useState<PosOrder | null>(null);
@@ -131,17 +139,24 @@ export function PosSalesHistoryModal({
   const userEmail = (googleUser?.email || googleUser?.providerData?.[0]?.email || '').toLowerCase().trim();
   const isGoogleAdmin = Boolean(
     googleUser &&
-    (userEmail === 'jhs34.kr@gmail.com' ||
-     userEmail === 'hoya100304@gmail.com' ||
-     googleUser.emailVerified)
+    googleUser.emailVerified &&
+    isGoogleAdminEmail(userEmail)
   );
 
   const handleGoogleLogin = async () => {
     setIsLoggingIn(true);
     try {
-      await loginWithGoogle();
+      const signedInUser = await loginWithGoogle();
+      const signedInEmail = (signedInUser?.email || signedInUser?.providerData?.[0]?.email || '').toLowerCase().trim();
+      if (!signedInUser || !signedInUser.emailVerified || !isGoogleAdminEmail(signedInEmail)) {
+        await logout();
+        showAuthToast(`승인된 관리자 계정이 아닙니다.${signedInEmail ? ` (${signedInEmail})` : ''}`, 'error');
+        return;
+      }
+      showAuthToast('관리자 구글 계정으로 인증되었습니다.', 'success');
     } catch (e) {
       console.error('Google login error', e);
+      showAuthToast('구글 로그인에 실패했습니다.', 'error');
     } finally {
       setIsLoggingIn(false);
     }
@@ -431,10 +446,6 @@ export function PosSalesHistoryModal({
     URL.revokeObjectURL(url);
   };
 
-  const handlePrintReceipt = () => {
-    window.print();
-  };
-
   const openRefundModal = (order: PosOrder, preselectedItemId?: string) => {
     setConfirmCancelTarget(order);
     if (preselectedItemId === '__PARTIAL__') {
@@ -626,12 +637,49 @@ export function PosSalesHistoryModal({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-primary border-0 sm:border sm:border-white/10 rounded-none sm:rounded-2xl w-full max-w-6xl h-full sm:h-[94vh] sm:max-h-[900px] flex flex-col shadow-2xl overflow-hidden">
-        {/* Header */}
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          key="pos-sales-history-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={POS_MODAL_BACKDROP_TRANSITION}
+          className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-5 bg-black/80 backdrop-blur-md"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: 8 }}
+            transition={POS_MODAL_PANEL_TRANSITION}
+            className="bg-primary border-0 sm:border sm:border-white/10 rounded-none sm:rounded-2xl w-full max-w-6xl h-full sm:h-[94vh] sm:max-h-[900px] flex flex-col shadow-2xl overflow-hidden relative"
+          >
+            {/* Header */}
+            <AnimatePresence>
+              {authToast && (
+                <motion.div
+                  key="sales-history-auth-toast"
+                  initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                  transition={{ duration: 0.14, ease: EASE_OUT_EXPO }}
+                  className={`absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-xl border flex items-center space-x-2 ${
+                    authToast.type === 'error'
+                      ? 'bg-[#0a1120] border-rose-500/50 text-rose-200'
+                      : 'bg-[#0a1120] border-secondary/50 text-white'
+                  }`}
+                >
+                  {authToast.type === 'error' ? (
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                  ) : (
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  )}
+                  <span>{authToast.message}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
         <div className="px-4 sm:px-6 py-3.5 border-b border-white/10 bg-[#0a1120] flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center space-x-3 min-w-0">
             <div>
@@ -751,13 +799,20 @@ export function PosSalesHistoryModal({
             <button
               type="button"
               onClick={() => setFilterDate('ALL')}
-              className={`py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
+              className={`relative py-2.5 text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
                 filterDate === 'ALL'
-                  ? 'border-secondary-container text-white'
-                  : 'border-transparent text-surface-dim hover:text-white'
+                  ? 'text-white'
+                  : 'text-surface-dim hover:text-white'
               }`}
             >
               전체 일자 <span className="font-mono tabular-nums text-[11px] opacity-70 ml-0.5">{orders.length}</span>
+              {filterDate === 'ALL' && (
+                <motion.span
+                  layoutId="pos-sales-date-tab"
+                  transition={POS_TAB_SPRING}
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-secondary-container rounded-full"
+                />
+              )}
             </button>
 
             {availableDates.slice(0, 6).map(({ dateStr, count }) => {
@@ -777,14 +832,21 @@ export function PosSalesHistoryModal({
                   key={dateStr}
                   type="button"
                   onClick={() => setFilterDate(dateStr)}
-                  className={`py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`relative py-2.5 text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
                     isCurrent
-                      ? 'border-secondary-container text-white'
-                      : 'border-transparent text-surface-dim hover:text-white'
+                      ? 'text-white'
+                      : 'text-surface-dim hover:text-white'
                   }`}
                 >
                   <span>{label}</span>
                   <span className="font-mono tabular-nums text-[11px] opacity-70 ml-1">{count}</span>
+                  {isCurrent && (
+                    <motion.span
+                      layoutId="pos-sales-date-tab"
+                      transition={POS_TAB_SPRING}
+                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-secondary-container rounded-full"
+                    />
+                  )}
                 </button>
               );
             })}
@@ -1301,7 +1363,7 @@ export function PosSalesHistoryModal({
 
                 {/* Receipt Actions Bottom */}
                 <div className="mt-4 max-w-sm mx-auto w-full space-y-2">
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => handleCopyReceipt(activeOrder)}
@@ -1328,15 +1390,6 @@ export function PosSalesHistoryModal({
                     >
                       <Download className="w-3.5 h-3.5 text-surface-dim" />
                       <span>저장</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handlePrintReceipt}
-                      className="flex items-center justify-center space-x-1.5 py-2 px-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-colors cursor-pointer"
-                    >
-                      <Printer className="w-3.5 h-3.5 text-surface-dim" />
-                      <span>출력</span>
                     </button>
                   </div>
 
@@ -1450,59 +1503,75 @@ export function PosSalesHistoryModal({
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Batch Delete Confirmation Modal */}
-      {showBatchDeleteModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-[#0a1120] border border-white/10 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4">
-            <div className="pb-3 border-b border-white/10 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">선택 매출 일괄 삭제</h3>
-              <span className="text-xs font-mono text-rose-400 font-bold">
-                총 {selectedOrderIds.size}건 · {selectedTotalAmount.toLocaleString()}원
-              </span>
-            </div>
-
-            <div className="space-y-2 text-xs">
-              <p className="text-surface-dim leading-relaxed">
-                선택한 주문 내역을 영구 삭제하시겠습니까? 삭제 후에는 복구할 수 없습니다.
-              </p>
-              <div className="divide-y divide-white/5 border-t border-b border-white/10 py-1 max-h-36 overflow-y-auto custom-scrollbar text-[11px]">
-                {selectedOrdersList.slice(0, 5).map(o => (
-                  <div key={o.id} className="flex justify-between py-1.5 text-surface-dim">
-                    <span className="truncate pr-2">{o.id} ({o.items[0]?.name || '품목'} 등)</span>
-                    <span className="font-mono text-white shrink-0">{o.totalAmount.toLocaleString()}원</span>
-                  </div>
-                ))}
-                {selectedOrdersList.length > 5 && (
-                  <div className="text-center text-surface-dim py-1">
-                    외 {selectedOrdersList.length - 5}건
-                  </div>
-                )}
+      <AnimatePresence>
+        {showBatchDeleteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={POS_MODAL_BACKDROP_TRANSITION}
+            onClick={() => !isBatchDeleting && setShowBatchDeleteModal(false)}
+            className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0, y: 6 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0, y: 6 }}
+              transition={POS_MODAL_PANEL_TRANSITION}
+              onClick={e => e.stopPropagation()}
+              className="bg-[#0a1120] border border-white/10 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4"
+            >
+              <div className="pb-3 border-b border-white/10 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white">선택 매출 일괄 삭제</h3>
+                <span className="text-xs font-mono text-rose-400 font-bold">
+                  총 {selectedOrderIds.size}건 · {selectedTotalAmount.toLocaleString()}원
+                </span>
               </div>
-            </div>
 
-            <div className="flex space-x-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setShowBatchDeleteModal(false)}
-                disabled={isBatchDeleting}
-                className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-bold transition-colors cursor-pointer"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={handleExecuteBatchDelete}
-                disabled={isBatchDeleting}
-                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors cursor-pointer"
-              >
-                {isBatchDeleting ? '삭제 중...' : `${selectedOrderIds.size}건 삭제`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              <div className="space-y-2 text-xs">
+                <p className="text-surface-dim leading-relaxed">
+                  선택한 주문 내역을 영구 삭제하시겠습니까? 삭제 후에는 복구할 수 없습니다.
+                </p>
+                <div className="divide-y divide-white/5 border-t border-b border-white/10 py-1 max-h-36 overflow-y-auto custom-scrollbar text-[11px]">
+                  {selectedOrdersList.slice(0, 5).map(o => (
+                    <div key={o.id} className="flex justify-between py-1.5 text-surface-dim">
+                      <span className="truncate pr-2">{o.id} ({o.items[0]?.name || '품목'} 등)</span>
+                      <span className="font-mono text-white shrink-0">{o.totalAmount.toLocaleString()}원</span>
+                    </div>
+                  ))}
+                  {selectedOrdersList.length > 5 && (
+                    <div className="text-center text-surface-dim py-1">
+                      외 {selectedOrdersList.length - 5}건
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex space-x-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowBatchDeleteModal(false)}
+                  disabled={isBatchDeleting}
+                  className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs font-bold transition-colors cursor-pointer"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteBatchDelete}
+                  disabled={isBatchDeleting}
+                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white text-xs font-bold transition-all cursor-pointer"
+                >
+                  {isBatchDeleting ? '삭제 중...' : `${selectedOrderIds.size}건 삭제`}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Cancel / Partial Refund Order Confirm Modal */}
       {confirmCancelTarget && (() => {
@@ -2613,6 +2682,8 @@ export function PosSalesHistoryModal({
           </div>
         );
       })()}
-    </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

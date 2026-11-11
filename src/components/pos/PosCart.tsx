@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { CartItem } from '../../types/pos';
 import { motion, AnimatePresence } from 'motion/react';
+import { POS_BUMP_TRANSITION, EASE_OUT_EXPO } from '../../utils/motion';
 
 interface PosCartProps {
   cart: CartItem[];
@@ -56,44 +57,66 @@ export const PosCart: React.FC<PosCartProps> = ({
         <div className="flex items-center space-x-2">
           <ShoppingCart className="w-4 h-4 text-secondary-container shrink-0" />
           <h2 className="text-sm font-bold text-white tracking-tight">주문 내역</h2>
-          {totalItems > 0 && (
-            <span className="text-xs font-mono tabular-nums font-bold text-secondary-container">
-              {totalItems}개
-            </span>
-          )}
+          <AnimatePresence initial={false}>
+            {totalItems > 0 && (
+              <motion.span
+                key={totalItems}
+                initial={{ scale: 1.18, opacity: 0.7 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.85, opacity: 0 }}
+                transition={POS_BUMP_TRANSITION}
+                className="text-xs font-mono tabular-nums font-bold text-secondary-container inline-block"
+              >
+                {totalItems}개
+              </motion.span>
+            )}
+          </AnimatePresence>
         </div>
 
-        {cart.length > 0 && (
-          <button
-            type="button"
-            onClick={onRequestClear}
-            disabled={isProcessing}
-            className="inline-flex items-center justify-center space-x-1 text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 px-2.5 h-7 rounded-lg transition-colors cursor-pointer"
-          >
-            <Trash2 className="w-3.5 h-3.5 shrink-0" />
-            <span>비우기</span>
-          </button>
-        )}
+        <AnimatePresence initial={false}>
+          {cart.length > 0 && (
+            <motion.button
+              type="button"
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.12, ease: EASE_OUT_EXPO }}
+              onClick={onRequestClear}
+              disabled={isProcessing}
+              className="inline-flex items-center justify-center space-x-1 text-xs font-semibold text-rose-400 hover:text-rose-300 active:scale-95 bg-rose-500/10 hover:bg-rose-500/20 px-2.5 h-7 rounded-lg transition-all cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5 shrink-0" />
+              <span>비우기</span>
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Cart Items List */}
       <div className="flex-1 overflow-y-auto px-3 py-2 divide-y divide-white/8">
         <AnimatePresence initial={false}>
           {cart.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center py-12 text-surface-dim/50">
+            <motion.div
+              key="empty-cart-placeholder"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.14, ease: EASE_OUT_EXPO }}
+              className="h-full flex flex-col items-center justify-center text-center py-12 text-surface-dim/50"
+            >
               <ShoppingCart className="w-8 h-8 stroke-[1.5] text-surface-dim/30 mb-2.5" />
               <p className="text-xs sm:text-sm font-medium text-surface-dim/70">장바구니가 비어 있습니다</p>
               <p className="text-[11px] mt-1 text-surface-dim/40">메뉴를 터치하면 이곳에 담깁니다</p>
-            </div>
+            </motion.div>
           ) : (
             cart.map(({ item, count }) => (
               <motion.div
                 key={item.id}
-                layout
+                layout="position"
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: 16 }}
-                transition={{ duration: 0.14 }}
+                transition={{ duration: 0.14, ease: EASE_OUT_EXPO }}
                 className="py-2.5 px-1 flex flex-col gap-2 hover:bg-white/[0.02] transition-colors"
               >
                 <div className="flex items-start justify-between gap-2">
@@ -107,7 +130,7 @@ export const PosCart: React.FC<PosCartProps> = ({
                     type="button"
                     onClick={() => onRemoveItem(item.id)}
                     disabled={isProcessing}
-                    className="p-1 rounded-md text-surface-dim/50 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                    className="p-1 rounded-md text-surface-dim/50 hover:text-rose-400 hover:bg-rose-500/10 active:scale-90 transition-all cursor-pointer"
                     title="항목 삭제"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -121,7 +144,7 @@ export const PosCart: React.FC<PosCartProps> = ({
                       type="button"
                       onClick={() => onUpdateCount(item.id, -1)}
                       disabled={isProcessing}
-                      className="w-7 h-7 rounded-md bg-white/5 hover:bg-white/10 active:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+                      className="w-7 h-7 rounded-md bg-white/5 hover:bg-white/10 active:bg-white/20 active:scale-90 flex items-center justify-center text-white transition-all cursor-pointer"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
@@ -130,17 +153,25 @@ export const PosCart: React.FC<PosCartProps> = ({
                       type="button"
                       onClick={() => onOpenKeypad({ item, count })}
                       disabled={isProcessing}
-                      className="min-w-[2.25rem] px-1.5 h-7 rounded-md hover:bg-secondary/20 text-center font-mono tabular-nums font-bold text-xs sm:text-sm text-secondary-container transition-colors cursor-pointer"
+                      className="min-w-[2.25rem] px-1.5 h-7 rounded-md hover:bg-secondary/20 text-center font-mono tabular-nums font-bold text-xs sm:text-sm text-secondary-container transition-colors cursor-pointer flex items-center justify-center"
                       title="수량 직접 입력"
                     >
-                      {count}
+                      <motion.span
+                        key={count}
+                        initial={{ scale: 1.2 }}
+                        animate={{ scale: 1 }}
+                        transition={POS_BUMP_TRANSITION}
+                        className="inline-block"
+                      >
+                        {count}
+                      </motion.span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => onUpdateCount(item.id, 1)}
                       disabled={isProcessing}
-                      className="w-7 h-7 rounded-md bg-white/5 hover:bg-white/10 active:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+                      className="w-7 h-7 rounded-md bg-white/5 hover:bg-white/10 active:bg-white/20 active:scale-90 flex items-center justify-center text-white transition-all cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -148,7 +179,15 @@ export const PosCart: React.FC<PosCartProps> = ({
 
                   {/* Subtotal */}
                   <div className="text-right font-mono tabular-nums font-bold text-white text-xs sm:text-sm">
-                    {(item.price * count).toLocaleString()}
+                    <motion.span
+                      key={item.price * count}
+                      initial={{ scale: 1.06 }}
+                      animate={{ scale: 1 }}
+                      transition={POS_BUMP_TRANSITION}
+                      className="inline-block"
+                    >
+                      {(item.price * count).toLocaleString()}
+                    </motion.span>
                     <span className="text-[11px] font-sans font-normal text-surface-dim ml-0.5">원</span>
                   </div>
                 </div>
@@ -160,60 +199,75 @@ export const PosCart: React.FC<PosCartProps> = ({
 
       {/* Cart Footer: Single Discount Button + Total + Payment Buttons */}
       <div className="p-4 bg-[#070c18] border-t border-white/10 space-y-3">
-        {cart.length > 0 && (
-          <div className="pb-2.5 border-b border-white/10">
-            {effectiveDiscount > 0 ? (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs text-surface-dim">
-                  <span>적용 전 금액</span>
-                  <span className="font-mono tabular-nums text-white">
-                    {totalAmount.toLocaleString()}원
-                  </span>
+        <AnimatePresence initial={false}>
+          {cart.length > 0 && (
+            <motion.div
+              key={effectiveDiscount > 0 ? 'discount-active' : 'discount-idle'}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              transition={{ duration: 0.13, ease: EASE_OUT_EXPO }}
+              className="pb-2.5 border-b border-white/10"
+            >
+              {effectiveDiscount > 0 ? (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs text-surface-dim">
+                    <span>적용 전 금액</span>
+                    <span className="font-mono tabular-nums text-white">
+                      {totalAmount.toLocaleString()}원
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <button
+                      type="button"
+                      onClick={onOpenDiscountModal}
+                      className="flex items-center space-x-1.5 text-purple-300 hover:text-purple-200 font-bold cursor-pointer"
+                    >
+                      <Ticket className="w-3.5 h-3.5" />
+                      <span>할인 금액 수정</span>
+                    </button>
+                    <div className="flex items-center space-x-1.5">
+                      <motion.span
+                        key={effectiveDiscount}
+                        initial={{ scale: 1.08 }}
+                        animate={{ scale: 1 }}
+                        transition={POS_BUMP_TRANSITION}
+                        className="font-mono tabular-nums font-bold text-purple-300 inline-block"
+                      >
+                        -{effectiveDiscount.toLocaleString()}원
+                      </motion.span>
+                      {onClearDiscount && (
+                        <button
+                          type="button"
+                          onClick={onClearDiscount}
+                          className="p-0.5 rounded bg-white/5 hover:bg-rose-500/20 text-surface-dim hover:text-rose-300 transition-colors cursor-pointer"
+                          title="할인 해제"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between text-xs">
+              ) : (
+                onOpenDiscountModal && (
                   <button
                     type="button"
                     onClick={onOpenDiscountModal}
-                    className="flex items-center space-x-1.5 text-purple-300 hover:text-purple-200 font-bold cursor-pointer"
+                    disabled={isProcessing}
+                    className="w-full py-2 px-3 rounded-xl bg-purple-500/10 hover:bg-purple-500/15 active:scale-[0.99] border border-purple-500/25 flex items-center justify-between text-xs text-purple-200 font-bold transition-all cursor-pointer"
                   >
-                    <Ticket className="w-3.5 h-3.5" />
-                    <span>할인 금액 수정</span>
-                  </button>
-                  <div className="flex items-center space-x-1.5">
-                    <span className="font-mono tabular-nums font-bold text-purple-300">
-                      -{effectiveDiscount.toLocaleString()}원
+                    <span className="flex items-center space-x-1.5">
+                      <Ticket className="w-3.5 h-3.5 text-purple-400" />
+                      <span>할인 금액 입력</span>
                     </span>
-                    {onClearDiscount && (
-                      <button
-                        type="button"
-                        onClick={onClearDiscount}
-                        className="p-0.5 rounded bg-white/5 hover:bg-rose-500/20 text-surface-dim hover:text-rose-300 transition-colors cursor-pointer"
-                        title="할인 해제"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              onOpenDiscountModal && (
-                <button
-                  type="button"
-                  onClick={onOpenDiscountModal}
-                  disabled={isProcessing}
-                  className="w-full py-2 px-3 rounded-xl bg-purple-500/10 hover:bg-purple-500/15 border border-purple-500/25 flex items-center justify-between text-xs text-purple-200 font-bold transition-colors cursor-pointer"
-                >
-                  <span className="flex items-center space-x-1.5">
-                    <Ticket className="w-3.5 h-3.5 text-purple-400" />
-                    <span>할인 금액 입력</span>
-                  </span>
-                  <span className="text-[11px] text-purple-300/80 font-mono">+ 할인 적용</span>
-                </button>
-              )
-            )}
-          </div>
-        )}
+                    <span className="text-[11px] text-purple-300/80 font-mono">+ 할인 적용</span>
+                  </button>
+                )
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Payable Total Display */}
         <div className="flex items-center justify-between">
@@ -221,9 +275,15 @@ export const PosCart: React.FC<PosCartProps> = ({
             {effectiveDiscount > 0 ? '적용 후 금액' : '총 결제 금액'}
           </span>
           <div className="flex items-baseline">
-            <span className="text-xl sm:text-2xl font-black font-mono tabular-nums text-white tracking-tight">
+            <motion.span
+              key={payableAmount}
+              initial={{ scale: 1.06 }}
+              animate={{ scale: 1 }}
+              transition={POS_BUMP_TRANSITION}
+              className="text-xl sm:text-2xl font-black font-mono tabular-nums text-white tracking-tight inline-block origin-right"
+            >
               {payableAmount.toLocaleString()}
-            </span>
+            </motion.span>
             <span className="text-xs font-sans font-normal text-surface-dim ml-1">원</span>
           </div>
         </div>

@@ -82,9 +82,9 @@ export interface PosOrder {
   memo?: string; // 추가 메모 (선택사항)
   paymentMethod: PaymentMethod;
   totalAmount: number; // 상품 정가 합계 (현재 유효 주문 금액)
-  gifticonDiscountAmount?: number; // 기프티콘 총 할인 금액
+  gifticonDiscountAmount?: number; // 주문 직접 할인 적용 금액 (하위 호환 필드명 유지)
   actualPaidAmount?: number; // 실제 고객 결제 금액 (totalAmount - 할인금액, 최소 0원)
-  usedGifticons?: PosUsedGifticonSummary[]; // 사용된 기프티콘 목록
+  usedGifticons?: PosUsedGifticonSummary[]; // 과거 주문 데이터 하위 호환용
   cashReceived?: number;
   changeAmount?: number;
   items: PosOrderItem[];
@@ -106,8 +106,8 @@ export interface PosSettlement {
   transferSales: number; // 이체 합계 (실제 입금액)
   cashSales: number; // 현금 합계 (실제 입금액)
   totalSales: number; // 실제 수납 매출 (현금 + 계좌이체)
-  grossSales?: number; // 기프티콘 포함 총 매출 (정가 기준)
-  gifticonSales?: number; // 기프티콘 할인 총액
+  grossSales?: number; // 할인 전 정가 기준 총 매출
+  gifticonSales?: number; // 당일 적용된 할인 총액 (하위 호환 필드명 유지)
   actualCashInput?: number; // 실측 현금
   discrepancy?: number; // 오차 (+ / -)
   status: 'OPEN' | 'CLOSED';

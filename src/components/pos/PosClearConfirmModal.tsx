@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { POS_MODAL_BACKDROP_TRANSITION, POS_MODAL_PANEL_TRANSITION } from '../../utils/motion';
 
 interface PosClearConfirmModalProps {
   onConfirm: () => void;
@@ -8,12 +9,19 @@ interface PosClearConfirmModalProps {
 
 export function PosClearConfirmModal({ onConfirm, onClose, totalItems }: PosClearConfirmModalProps) {
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-primary/80 backdrop-blur-md overflow-y-auto" onClick={onClose}>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={POS_MODAL_BACKDROP_TRANSITION}
+      className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-primary/80 backdrop-blur-md overflow-y-auto"
+      onClick={onClose}
+    >
       <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        transition={{ duration: 0.18, ease: 'easeOut' }}
+        initial={{ scale: 0.96, opacity: 0, y: 6 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.96, opacity: 0, y: 6 }}
+        transition={POS_MODAL_PANEL_TRANSITION}
         onClick={e => e.stopPropagation()}
         className="bg-[#0a1120] border border-white/10 w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col relative"
       >
@@ -38,12 +46,12 @@ export function PosClearConfirmModal({ onConfirm, onClose, totalItems }: PosClea
               onConfirm();
               onClose();
             }}
-            className="flex-1 py-3 rounded-xl font-bold text-xs sm:text-sm bg-red-600 hover:bg-red-500 text-white transition-colors cursor-pointer"
+            className="flex-1 py-3 rounded-xl font-bold text-xs sm:text-sm bg-red-600 hover:bg-red-500 active:scale-[0.98] text-white transition-all cursor-pointer"
           >
             모두 비우기
           </button>
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }

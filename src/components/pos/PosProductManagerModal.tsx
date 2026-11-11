@@ -44,10 +44,12 @@ import {
   saveBatchPosCategories,
   deletePosCategory,
 } from '../../services/posFirestore';
-import { loginWithGoogle } from '../../firebase';
-import { createGoogleAdminPosUser } from '../../services/posAuth';
+import { loginWithGoogle, logout } from '../../firebase';
+import { createGoogleAdminPosUser, isGoogleAdminEmail } from '../../services/posAuth';
+import { AnimatePresence, motion } from 'motion/react';
 import { PosItemFormModal } from './PosItemFormModal';
 import { PosSheetImportModal } from './PosSheetImportModal';
+import { POS_MODAL_BACKDROP_TRANSITION, POS_MODAL_PANEL_TRANSITION } from '../../utils/motion';
 
 interface PosProductManagerModalProps {
   categories: PosCategory[];
@@ -162,19 +164,27 @@ export function PosProductManagerModal({
     setIsGoogleLoading(true);
     try {
       const googleUser = await loginWithGoogle();
-      if (googleUser && googleUser.email) {
-        const adminUser = createGoogleAdminPosUser(
-          googleUser.email,
-          googleUser.displayName,
-          googleUser.uid
-        );
-        setLocalIsAdmin(true);
-        if (onGoogleAdminLogin) {
-          onGoogleAdminLogin(adminUser);
-        }
-        showToast('관리자 계정으로 인증되었습니다.', 'success');
-        setShowAdminRequiredModal({ isOpen: false, featureName: '' });
+      const userEmail = (googleUser?.email || googleUser?.providerData?.[0]?.email || '').toLowerCase().trim();
+      if (!googleUser || !userEmail) {
+        showToast('구글 계정 이메일 정보를 확인할 수 없습니다.', 'error');
+        return;
       }
+      if (!googleUser.emailVerified || !isGoogleAdminEmail(userEmail)) {
+        await logout();
+        showToast(`승인된 관리자 계정이 아닙니다. (${userEmail})`, 'error');
+        return;
+      }
+      const adminUser = createGoogleAdminPosUser(
+        userEmail,
+        googleUser.displayName,
+        googleUser.uid
+      );
+      setLocalIsAdmin(true);
+      if (onGoogleAdminLogin) {
+        onGoogleAdminLogin(adminUser);
+      }
+      showToast('관리자 계정으로 인증되었습니다.', 'success');
+      setShowAdminRequiredModal({ isOpen: false, featureName: '' });
     } catch (err: any) {
       console.error('Google admin login error:', err);
       showToast('관리자 로그인 실패: ' + (err.message || '인증 오류'), 'error');
@@ -639,7 +649,12 @@ export function PosProductManagerModal({
       onUpdateCategories(localCategories);
 
       isDirtyRef.current = false;
-      showToast(`총 ${modifiedItems.length}개 상품의 변경사항이 안전하게 저장되었습니다.`, 'success');
+      showToast(
+        modifiedItems.length > 0
+          ? `총 ${modifiedItems.length}개 상품의 변경사항이 안전하게 저장되었습니다.`
+          : '카테고리 구성 변경사항이 안전하게 저장되었습니다.',
+        'success'
+      );
       setShowUnsavedConfirmModal(false);
     } catch (err: any) {
       console.error('Save changes error:', err);
@@ -667,13 +682,9 @@ export function PosProductManagerModal({
     }
   };
 
-  // Preset Handlers
+  // Preset Handlers (생성 · 수정 · 적용은 PIN 근무자 포함 전체 허용 / 영구 삭제는 관리자 전용)
   const handleCreatePresetFromCurrent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!effectiveIsAdmin) {
-      setShowAdminRequiredModal({ isOpen: true, featureName: '새 프리셋 저장' });
-      return;
-    }
     if (!newPresetName.trim()) return;
 
     setIsSavingPreset(true);
@@ -704,11 +715,6 @@ export function PosProductManagerModal({
   };
 
   const handleApplyPresetConfirm = async () => {
-    if (!effectiveIsAdmin) {
-      setShowAdminRequiredModal({ isOpen: true, featureName: '프리셋 메뉴 설정' });
-      setApplyTargetPreset(null);
-      return;
-    }
     if (!applyTargetPreset) return;
 
     const targetPreset = applyTargetPreset;
@@ -737,10 +743,6 @@ export function PosProductManagerModal({
     newItems: PosItem[],
     pName: string
   ) => {
-    if (!effectiveIsAdmin) {
-      setShowAdminRequiredModal({ isOpen: true, featureName: '시트/엑셀 재고 적용' });
-      return;
-    }
     const clonedCategories: PosCategory[] = JSON.parse(JSON.stringify(newCategories));
     const clonedItems: PosItem[] = JSON.parse(JSON.stringify(newItems));
 
@@ -758,10 +760,6 @@ export function PosProductManagerModal({
   };
 
   const handleSavePresetFromSheet = async (preset: PosPreset) => {
-    if (!effectiveIsAdmin) {
-      setShowAdminRequiredModal({ isOpen: true, featureName: '시트/엑셀 프리셋 저장' });
-      return;
-    }
     await savePosPreset(preset, currentActorName, currentActorUid);
     setCustomPresets(prev => {
       const idx = prev.findIndex(p => p.id === preset.id);
@@ -775,20 +773,12 @@ export function PosProductManagerModal({
   };
 
   const handleOpenEditPreset = (preset: PosPreset) => {
-    if (!effectiveIsAdmin) {
-      setShowAdminRequiredModal({ isOpen: true, featureName: '프리셋 정보 수정' });
-      return;
-    }
     setEditingPreset(preset);
     setEditPresetName(preset.name);
     setEditPresetDesc(preset.description || '');
   };
 
   const handleSaveEditPreset = async () => {
-    if (!effectiveIsAdmin) {
-      setShowAdminRequiredModal({ isOpen: true, featureName: '프리셋 정보 수정' });
-      return;
-    }
     if (!editingPreset || !editPresetName.trim()) return;
 
     try {
@@ -810,10 +800,6 @@ export function PosProductManagerModal({
   };
 
   const handleOverwritePresetWithCurrent = async (preset: PosPreset) => {
-    if (!effectiveIsAdmin) {
-      setShowAdminRequiredModal({ isOpen: true, featureName: '프리셋 갱신' });
-      return;
-    }
     try {
       const updated: PosPreset = {
         ...preset,
@@ -852,68 +838,135 @@ export function PosProductManagerModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-4 lg:p-6 bg-black/80 backdrop-blur-md">
-      <div className="bg-primary border border-white/10 w-full max-w-[1440px] h-full sm:h-[92vh] rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white animate-in fade-in duration-150">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={POS_MODAL_BACKDROP_TRANSITION}
+      className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-4 lg:p-6 bg-black/80 backdrop-blur-md"
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 8 }}
+        transition={POS_MODAL_PANEL_TRANSITION}
+        className="bg-primary border border-white/10 w-full max-w-[1440px] h-full sm:h-[92vh] rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white"
+      >
         {/* Top Header */}
-        <div className="px-4 sm:px-6 py-3.5 border-b border-white/10 flex flex-wrap items-center justify-between gap-3 bg-[#0a1120] shrink-0">
-          <div className="flex items-center gap-3">
-            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
-              상품 관리
-            </h2>
-            <span className="text-xs text-surface-dim font-mono tabular-nums">
-              전체 {localItems.length} · 품절 {outOfStockCount}
+        <div className="px-4 sm:px-6 py-3 sm:py-3.5 border-b border-white/10 bg-[#0a1120] shrink-0 flex flex-col gap-2.5">
+          {/* Row 1: Title + Stats on Left, Actions + Desktop Tabs + Pinned Close Button on Right */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-white tracking-tight whitespace-nowrap shrink-0">
+                상품 관리
+              </h2>
+              <span className="text-xs text-surface-dim font-mono tabular-nums truncate">
+                전체 {localItems.length} · 품절 {outOfStockCount}
+                {hasChanges && (
+                  <span className="ml-1.5 text-amber-300 font-sans font-bold">
+                    · 수정 {modifiedItems.length > 0 ? `${modifiedItems.length}건` : '대기'}
+                  </span>
+                )}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               {hasChanges && (
-                <span className="ml-2 text-amber-300 font-sans font-bold">
-                  · 수정 {modifiedItems.length}건
+                <div className="hidden sm:flex items-center gap-1.5 mr-0.5">
+                  <button
+                    type="button"
+                    onClick={handleDiscardChanges}
+                    disabled={isSavingChanges}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50"
+                  >
+                    초기화
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveChanges}
+                    disabled={isSavingChanges}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-secondary hover:bg-secondary/90 text-white transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-50"
+                  >
+                    {isSavingChanges ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Save className="w-3.5 h-3.5" />
+                    )}
+                    <span>{modifiedItems.length > 0 ? `저장 (${modifiedItems.length})` : '저장'}</span>
+                  </button>
+                </div>
+              )}
+
+              {!effectiveIsAdmin ? (
+                <button
+                  type="button"
+                  onClick={handleGoogleAdminLogin}
+                  disabled={isGoogleLoading}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white border border-white/10 transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-50"
+                >
+                  {isGoogleLoading ? '...' : '관리자 전환'}
+                </button>
+              ) : (
+                <span className="hidden sm:inline text-xs font-bold text-secondary-container whitespace-nowrap px-1">
+                  관리자
                 </span>
               )}
-            </span>
-          </div>
 
-          <div className="flex items-center gap-2 ml-auto">
-            {hasChanges && (
-              <div className="flex items-center gap-1.5 mr-1">
+              {/* Desktop Segmented Tabs (lg and up) */}
+              <div className="hidden lg:flex items-center gap-1 bg-primary p-1 rounded-lg border border-white/10 text-xs shrink-0">
                 <button
                   type="button"
-                  onClick={handleDiscardChanges}
-                  disabled={isSavingChanges}
-                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                  onClick={() => setActiveTab('items')}
+                  className={`px-3 py-1.5 rounded-md font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                    activeTab === 'items'
+                      ? 'bg-secondary text-white font-bold'
+                      : 'text-surface-dim hover:text-white'
+                  }`}
                 >
-                  초기화
+                  상품 ({localItems.length})
                 </button>
                 <button
                   type="button"
-                  onClick={handleSaveChanges}
-                  disabled={isSavingChanges}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-secondary hover:bg-secondary/90 text-white transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  onClick={() => setActiveTab('categories')}
+                  className={`px-3 py-1.5 rounded-md font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                    activeTab === 'categories'
+                      ? 'bg-secondary text-white font-bold'
+                      : 'text-surface-dim hover:text-white'
+                  }`}
                 >
-                  {isSavingChanges ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Save className="w-3.5 h-3.5" />
-                  )}
-                  <span>저장 ({modifiedItems.length})</span>
+                  카테고리 ({localCategories.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('presets')}
+                  className={`px-3 py-1.5 rounded-md font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                    activeTab === 'presets'
+                      ? 'bg-secondary text-white font-bold'
+                      : 'text-surface-dim hover:text-white'
+                  }`}
+                >
+                  프리셋 ({allPresets.length})
                 </button>
               </div>
-            )}
 
-            {!effectiveIsAdmin && (
               <button
                 type="button"
-                onClick={handleGoogleAdminLogin}
-                disabled={isGoogleLoading}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white border border-white/10 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                onClick={handleAttemptClose}
+                aria-label="상품 관리 닫기"
+                className="p-1.5 sm:p-2 rounded-lg text-surface-dim hover:text-white hover:bg-white/5 transition-colors cursor-pointer shrink-0"
               >
-                {isGoogleLoading ? '...' : '관리자 전환'}
+                <X className="w-5 h-5" />
               </button>
-            )}
+            </div>
+          </div>
 
-            {/* Segmented Tabs */}
-            <div className="flex items-center gap-1 bg-primary p-1 rounded-lg border border-white/10 text-xs shrink-0">
+          {/* Row 2 (Mobile & Tablet < lg): Full-width Segmented Tabs + Mobile Unsaved Action Bar */}
+          <div className="lg:hidden flex flex-col gap-2">
+            <div className="grid grid-cols-3 gap-1 bg-primary p-1 rounded-lg border border-white/10 text-xs">
               <button
                 type="button"
                 onClick={() => setActiveTab('items')}
-                className={`px-3 py-1.5 rounded-md font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                className={`py-1.5 px-2 rounded-md font-semibold transition-colors whitespace-nowrap truncate cursor-pointer ${
                   activeTab === 'items'
                     ? 'bg-secondary text-white font-bold'
                     : 'text-surface-dim hover:text-white'
@@ -924,7 +977,7 @@ export function PosProductManagerModal({
               <button
                 type="button"
                 onClick={() => setActiveTab('categories')}
-                className={`px-3 py-1.5 rounded-md font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                className={`py-1.5 px-2 rounded-md font-semibold transition-colors whitespace-nowrap truncate cursor-pointer ${
                   activeTab === 'categories'
                     ? 'bg-secondary text-white font-bold'
                     : 'text-surface-dim hover:text-white'
@@ -935,7 +988,7 @@ export function PosProductManagerModal({
               <button
                 type="button"
                 onClick={() => setActiveTab('presets')}
-                className={`px-3 py-1.5 rounded-md font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                className={`py-1.5 px-2 rounded-md font-semibold transition-colors whitespace-nowrap truncate cursor-pointer ${
                   activeTab === 'presets'
                     ? 'bg-secondary text-white font-bold'
                     : 'text-surface-dim hover:text-white'
@@ -945,13 +998,36 @@ export function PosProductManagerModal({
               </button>
             </div>
 
-            <button
-              type="button"
-              onClick={handleAttemptClose}
-              className="p-2 rounded-lg text-surface-dim hover:text-white hover:bg-white/5 transition-colors cursor-pointer shrink-0"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {hasChanges && (
+              <div className="sm:hidden flex items-center justify-between gap-2 pt-0.5">
+                <span className="text-xs font-bold text-amber-300 truncate">
+                  미저장 변경 {modifiedItems.length > 0 ? `${modifiedItems.length}건` : '있음'}
+                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleDiscardChanges}
+                    disabled={isSavingChanges}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    초기화
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveChanges}
+                    disabled={isSavingChanges}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-secondary hover:bg-secondary/90 text-white transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingChanges ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Save className="w-3.5 h-3.5" />
+                    )}
+                    <span>{modifiedItems.length > 0 ? `저장 (${modifiedItems.length})` : '저장'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1530,39 +1606,33 @@ export function PosProductManagerModal({
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Compact Top Action Bar */}
             <div className="px-4 sm:px-6 py-3 border-b border-white/10 bg-[#0a1120]/50 flex flex-col lg:flex-row lg:items-center justify-between gap-3 shrink-0">
-              {effectiveIsAdmin ? (
-                <form
-                  onSubmit={handleCreatePresetFromCurrent}
-                  className="flex items-center gap-2 flex-1 max-w-xl"
+              <form
+                onSubmit={handleCreatePresetFromCurrent}
+                className="flex items-center gap-2 flex-1 max-w-xl"
+              >
+                <input
+                  type="text"
+                  value={newPresetName}
+                  onChange={e => setNewPresetName(e.target.value)}
+                  placeholder="현재 메뉴를 새 프리셋으로 저장 (이름 입력)"
+                  className="flex-1 min-w-0 bg-[#0a1120] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-secondary placeholder:text-surface-dim/40"
+                />
+                <button
+                  type="submit"
+                  disabled={!newPresetName.trim() || isSavingPreset}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-secondary text-white disabled:opacity-40 hover:bg-secondary/90 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  <input
-                    type="text"
-                    value={newPresetName}
-                    onChange={e => setNewPresetName(e.target.value)}
-                    placeholder="현재 메뉴를 새 프리셋으로 저장 (이름 입력)"
-                    className="flex-1 bg-[#0a1120] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-secondary placeholder:text-surface-dim/40"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!newPresetName.trim() || isSavingPreset}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-secondary text-white disabled:opacity-40 hover:bg-secondary/90 transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>{isSavingPreset ? '저장 중' : '현재 메뉴 저장'}</span>
-                  </button>
-                </form>
-              ) : (
-                <div className="text-xs text-surface-dim">
-                  프리셋 생성 및 적용은 관리자 권한이 필요합니다.
-                </div>
-              )}
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{isSavingPreset ? '저장 중' : '현재 메뉴 저장'}</span>
+                </button>
+              </form>
 
               <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
                 <div className="flex items-center gap-1 bg-[#0a1120] border border-white/10 rounded-lg p-0.5 text-xs">
                   <button
                     type="button"
                     onClick={() => setPresetTypeFilter('ALL')}
-                    className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                       presetTypeFilter === 'ALL' ? 'bg-secondary text-white' : 'text-surface-dim hover:text-white'
                     }`}
                   >
@@ -1571,7 +1641,7 @@ export function PosProductManagerModal({
                   <button
                     type="button"
                     onClick={() => setPresetTypeFilter('CUSTOM')}
-                    className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                       presetTypeFilter === 'CUSTOM' ? 'bg-secondary text-white' : 'text-surface-dim hover:text-white'
                     }`}
                   >
@@ -1580,7 +1650,7 @@ export function PosProductManagerModal({
                   <button
                     type="button"
                     onClick={() => setPresetTypeFilter('BUILTIN')}
-                    className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                       presetTypeFilter === 'BUILTIN' ? 'bg-secondary text-white' : 'text-surface-dim hover:text-white'
                     }`}
                   >
@@ -1588,16 +1658,14 @@ export function PosProductManagerModal({
                   </button>
                 </div>
 
-                {effectiveIsAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => setShowSheetImportModal(true)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white/5 hover:bg-white/10 text-white border border-white/10 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
-                  >
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-secondary-container" />
-                    <span>시트 불러오기</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setShowSheetImportModal(true)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white/5 hover:bg-white/10 text-white border border-white/10 transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer shrink-0"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-secondary-container" />
+                  <span>시트 불러오기</span>
+                </button>
               </div>
             </div>
 
@@ -1628,24 +1696,26 @@ export function PosProductManagerModal({
                             </p>
                           </div>
 
-                          {!preset.isBuiltIn && effectiveIsAdmin && (
+                          {!preset.isBuiltIn && (
                             <div className="flex items-center gap-0.5 shrink-0">
                               <button
                                 type="button"
                                 onClick={() => handleOpenEditPreset(preset)}
-                                title="이름 수정"
+                                title="이름/메모 수정"
                                 className="p-1.5 rounded-md text-surface-dim hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => setDeleteTargetPreset(preset)}
-                                title="삭제"
-                                className="p-1.5 rounded-md text-surface-dim hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {effectiveIsAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteTargetPreset(preset)}
+                                  title="프리셋 삭제 (관리자 전용)"
+                                  className="p-1.5 rounded-md text-surface-dim hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1683,32 +1753,30 @@ export function PosProductManagerModal({
                           <button
                             type="button"
                             onClick={() => setExpandedPresetId(isExpanded ? null : preset.id)}
-                            className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors whitespace-nowrap cursor-pointer"
                           >
                             {isExpanded ? '접기' : '미리보기'}
                           </button>
 
-                          {!preset.isBuiltIn && effectiveIsAdmin && (
+                          {!preset.isBuiltIn && (
                             <button
                               type="button"
                               onClick={() => handleOverwritePresetWithCurrent(preset)}
                               title="현재 메뉴 상태로 이 프리셋 덮어쓰기"
-                              className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+                              className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors whitespace-nowrap cursor-pointer"
                             >
                               덮어쓰기
                             </button>
                           )}
                         </div>
 
-                        {effectiveIsAdmin && (
-                          <button
-                            type="button"
-                            onClick={() => setApplyTargetPreset(preset)}
-                            className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-secondary hover:bg-secondary/90 text-white transition-colors cursor-pointer"
-                          >
-                            적용
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => setApplyTargetPreset(preset)}
+                          className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-secondary hover:bg-secondary/90 text-white transition-colors whitespace-nowrap cursor-pointer"
+                        >
+                          적용
+                        </button>
                       </div>
                     </div>
                   );
@@ -1719,314 +1787,446 @@ export function PosProductManagerModal({
         )}
 
         {/* Modal: Item Form (Add / Edit) */}
-        {showAddModal && (
-          <PosItemFormModal
-            item={editingItem}
-            categories={localCategories}
-            onSave={handleSaveItem}
-            onClose={() => {
-              setShowAddModal(false);
-              setEditingItem(null);
-            }}
-          />
-        )}
+        <AnimatePresence>
+          {showAddModal && (
+            <PosItemFormModal
+              item={editingItem}
+              categories={localCategories}
+              onSave={handleSaveItem}
+              onClose={() => {
+                setShowAddModal(false);
+                setEditingItem(null);
+              }}
+            />
+          )}
+        </AnimatePresence>
 
         {/* Modal: Delete Item Confirm */}
-        {deleteConfirmItem && (
-          <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4">
-              <div>
-                <h4 className="text-sm font-bold text-white">상품 삭제</h4>
-                <p className="text-xs text-surface-dim mt-1">
-                  '{deleteConfirmItem.name}' 상품을 삭제하시겠습니까?
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDeleteConfirmItem(null)}
-                  className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteItem}
-                  className="flex-1 py-2 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white cursor-pointer"
-                >
-                  삭제
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {deleteConfirmItem && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={POS_MODAL_BACKDROP_TRANSITION}
+              onClick={() => setDeleteConfirmItem(null)}
+              className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.96, opacity: 0, y: 6 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.96, opacity: 0, y: 6 }}
+                transition={POS_MODAL_PANEL_TRANSITION}
+                onClick={e => e.stopPropagation()}
+                className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4"
+              >
+                <div>
+                  <h4 className="text-sm font-bold text-white">상품 삭제</h4>
+                  <p className="text-xs text-surface-dim mt-1">
+                    '{deleteConfirmItem.name}' 상품을 삭제하시겠습니까?
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirmItem(null)}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteItem}
+                    className="flex-1 py-2 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white transition-all cursor-pointer"
+                  >
+                    삭제
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Modal: Delete Category Confirm */}
-        {deleteConfirmCat && (
-          <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4">
-              <div>
-                <h4 className="text-sm font-bold text-white">카테고리 삭제</h4>
-                <p className="text-xs text-surface-dim mt-1">
-                  '{deleteConfirmCat.name}' 카테고리를 삭제하시겠습니까?
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDeleteConfirmCat(null)}
-                  className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteCategory}
-                  className="flex-1 py-2 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white cursor-pointer"
-                >
-                  삭제
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {deleteConfirmCat && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={POS_MODAL_BACKDROP_TRANSITION}
+              onClick={() => setDeleteConfirmCat(null)}
+              className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.96, opacity: 0, y: 6 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.96, opacity: 0, y: 6 }}
+                transition={POS_MODAL_PANEL_TRANSITION}
+                onClick={e => e.stopPropagation()}
+                className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4"
+              >
+                <div>
+                  <h4 className="text-sm font-bold text-white">카테고리 삭제</h4>
+                  <p className="text-xs text-surface-dim mt-1">
+                    '{deleteConfirmCat.name}' 카테고리를 삭제하시겠습니까?
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirmCat(null)}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteCategory}
+                    className="flex-1 py-2 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white transition-all cursor-pointer"
+                  >
+                    삭제
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Modal: Clear All Favorites Confirm */}
-        {showClearFavoritesConfirm && (
-          <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4">
-              <div>
-                <h4 className="text-sm font-bold text-white">즐겨찾기 초기화</h4>
-                <p className="text-xs text-surface-dim mt-1">
-                  즐겨찾기 {favoritesCount}개를 모두 해제하시겠습니까?
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowClearFavoritesConfirm(false)}
-                  className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExecuteClearAllFavorites}
-                  className="flex-1 py-2 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white cursor-pointer"
-                >
-                  해제
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {showClearFavoritesConfirm && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={POS_MODAL_BACKDROP_TRANSITION}
+              onClick={() => setShowClearFavoritesConfirm(false)}
+              className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.96, opacity: 0, y: 6 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.96, opacity: 0, y: 6 }}
+                transition={POS_MODAL_PANEL_TRANSITION}
+                onClick={e => e.stopPropagation()}
+                className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4"
+              >
+                <div>
+                  <h4 className="text-sm font-bold text-white">즐겨찾기 초기화</h4>
+                  <p className="text-xs text-surface-dim mt-1">
+                    즐겨찾기 {favoritesCount}개를 모두 해제하시겠습니까?
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowClearFavoritesConfirm(false)}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExecuteClearAllFavorites}
+                    className="flex-1 py-2 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 active:scale-[0.98] text-white transition-all cursor-pointer"
+                  >
+                    해제
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Modal: Apply Preset Confirm */}
-        {applyTargetPreset && (
-          <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4">
-              <div>
-                <h4 className="text-sm font-bold text-white">프리셋 적용</h4>
-                <p className="text-xs text-surface-dim mt-1">
-                  '{applyTargetPreset.name}' ({applyTargetPreset.items.length}개 상품) 구성을 현재 메뉴에 적용하시겠습니까?
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setApplyTargetPreset(null)}
-                  className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  onClick={handleApplyPresetConfirm}
-                  className="flex-1 py-2 rounded-lg text-xs font-bold bg-secondary hover:bg-secondary/90 text-white cursor-pointer"
-                >
-                  적용
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {applyTargetPreset && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={POS_MODAL_BACKDROP_TRANSITION}
+              onClick={() => setApplyTargetPreset(null)}
+              className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.96, opacity: 0, y: 6 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.96, opacity: 0, y: 6 }}
+                transition={POS_MODAL_PANEL_TRANSITION}
+                onClick={e => e.stopPropagation()}
+                className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4"
+              >
+                <div>
+                  <h4 className="text-sm font-bold text-white">프리셋 적용</h4>
+                  <p className="text-xs text-surface-dim mt-1">
+                    '{applyTargetPreset.name}' ({applyTargetPreset.items.length}개 상품) 구성을 현재 메뉴에 적용하시겠습니까?
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setApplyTargetPreset(null)}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApplyPresetConfirm}
+                    className="flex-1 py-2 rounded-lg text-xs font-bold bg-secondary hover:bg-secondary/90 active:scale-[0.98] text-white transition-all cursor-pointer"
+                  >
+                    적용
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Modal: Edit Preset Info */}
-        {editingPreset && (
-          <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#0a1120] border border-white/10 w-full max-w-sm rounded-2xl p-5 shadow-2xl space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-white">프리셋 수정</h4>
-                <button
-                  type="button"
-                  onClick={() => setEditingPreset(null)}
-                  className="p-1 rounded-lg text-surface-dim hover:text-white cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-surface-dim block mb-1">이름</label>
-                  <input
-                    type="text"
-                    value={editPresetName}
-                    onChange={e => setEditPresetName(e.target.value)}
-                    className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-secondary"
-                  />
+        <AnimatePresence>
+          {editingPreset && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={POS_MODAL_BACKDROP_TRANSITION}
+              onClick={() => setEditingPreset(null)}
+              className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.96, opacity: 0, y: 6 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.96, opacity: 0, y: 6 }}
+                transition={POS_MODAL_PANEL_TRANSITION}
+                onClick={e => e.stopPropagation()}
+                className="bg-[#0a1120] border border-white/10 w-full max-w-sm rounded-2xl p-5 shadow-2xl space-y-4"
+              >
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-bold text-white">프리셋 수정</h4>
+                  <button
+                    type="button"
+                    onClick={() => setEditingPreset(null)}
+                    className="p-1 rounded-lg text-surface-dim hover:text-white cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                <div>
-                  <label className="text-xs text-surface-dim block mb-1">메모 (선택)</label>
-                  <input
-                    type="text"
-                    value={editPresetDesc}
-                    onChange={e => setEditPresetDesc(e.target.value)}
-                    className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-secondary"
-                  />
-                </div>
-              </div>
 
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingPreset(null)}
-                  className="py-2 px-3.5 rounded-lg text-xs font-semibold bg-white/5 text-surface-dim hover:text-white cursor-pointer"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  disabled={!editPresetName.trim()}
-                  onClick={handleSaveEditPreset}
-                  className="py-2 px-4 rounded-lg text-xs font-bold bg-secondary text-white disabled:opacity-40 cursor-pointer"
-                >
-                  저장
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs text-surface-dim block mb-1">이름</label>
+                    <input
+                      type="text"
+                      value={editPresetName}
+                      onChange={e => setEditPresetName(e.target.value)}
+                      className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-secondary"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-surface-dim block mb-1">메모 (선택)</label>
+                    <input
+                      type="text"
+                      value={editPresetDesc}
+                      onChange={e => setEditPresetDesc(e.target.value)}
+                      className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-secondary"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingPreset(null)}
+                    className="py-2 px-3.5 rounded-lg text-xs font-semibold bg-white/5 text-surface-dim hover:text-white cursor-pointer"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!editPresetName.trim()}
+                    onClick={handleSaveEditPreset}
+                    className="py-2 px-4 rounded-lg text-xs font-bold bg-secondary active:scale-[0.98] text-white disabled:opacity-40 transition-all cursor-pointer"
+                  >
+                    저장
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Modal: Delete Preset Confirm */}
-        {deleteTargetPreset && (
-          <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4">
-              <div>
-                <h4 className="text-sm font-bold text-white">프리셋 삭제</h4>
-                <p className="text-xs text-surface-dim mt-1">
-                  '{deleteTargetPreset.name}' 프리셋을 삭제하시겠습니까?
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDeleteTargetPreset(null)}
-                  className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeletePresetConfirm}
-                  className="flex-1 py-2 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white cursor-pointer"
-                >
-                  삭제
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {deleteTargetPreset && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={POS_MODAL_BACKDROP_TRANSITION}
+              onClick={() => setDeleteTargetPreset(null)}
+              className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.96, opacity: 0, y: 6 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.96, opacity: 0, y: 6 }}
+                transition={POS_MODAL_PANEL_TRANSITION}
+                onClick={e => e.stopPropagation()}
+                className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4"
+              >
+                <div>
+                  <h4 className="text-sm font-bold text-white">프리셋 삭제</h4>
+                  <p className="text-xs text-surface-dim mt-1">
+                    '{deleteTargetPreset.name}' 프리셋을 삭제하시겠습니까?
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTargetPreset(null)}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white cursor-pointer"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeletePresetConfirm}
+                    className="flex-1 py-2 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white transition-all cursor-pointer"
+                  >
+                    삭제
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Sheet / Excel Import Modal */}
-        {showSheetImportModal && (
-          <PosSheetImportModal
-            currentCategories={localCategories}
-            currentItems={localItems}
-            onApplyPreset={handleApplyFromSheet}
-            onSavePreset={handleSavePresetFromSheet}
-            onClose={() => setShowSheetImportModal(false)}
-            showToast={showToast}
-          />
-        )}
+        <AnimatePresence>
+          {showSheetImportModal && (
+            <PosSheetImportModal
+              currentCategories={localCategories}
+              currentItems={localItems}
+              onApplyPreset={handleApplyFromSheet}
+              onSavePreset={handleSavePresetFromSheet}
+              onClose={() => setShowSheetImportModal(false)}
+              showToast={showToast}
+            />
+          )}
+        </AnimatePresence>
 
         {/* Modal: Admin Required */}
-        {showAdminRequiredModal.isOpen && (
-          <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4">
-              <div>
-                <h4 className="text-sm font-bold text-white">관리자 권한 필요</h4>
-                <p className="text-xs text-surface-dim mt-1">
-                  '{showAdminRequiredModal.featureName}' 기능은 관리자 전용입니다.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAdminRequiredModal({ isOpen: false, featureName: '' })}
-                  className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 text-surface-dim hover:text-white cursor-pointer"
-                >
-                  닫기
-                </button>
-                <button
-                  type="button"
-                  onClick={handleGoogleAdminLogin}
-                  disabled={isGoogleLoading}
-                  className="flex-1 py-2 rounded-lg text-xs font-bold bg-secondary text-white cursor-pointer disabled:opacity-50"
-                >
-                  {isGoogleLoading ? '...' : '로그인'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {showAdminRequiredModal.isOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={POS_MODAL_BACKDROP_TRANSITION}
+              onClick={() => setShowAdminRequiredModal({ isOpen: false, featureName: '' })}
+              className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.96, opacity: 0, y: 6 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.96, opacity: 0, y: 6 }}
+                transition={POS_MODAL_PANEL_TRANSITION}
+                onClick={e => e.stopPropagation()}
+                className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4"
+              >
+                <div>
+                  <h4 className="text-sm font-bold text-white">관리자 권한 필요</h4>
+                  <p className="text-xs text-surface-dim mt-1">
+                    '{showAdminRequiredModal.featureName}' 기능은 관리자 전용입니다.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminRequiredModal({ isOpen: false, featureName: '' })}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold bg-white/5 text-surface-dim hover:text-white cursor-pointer"
+                  >
+                    닫기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGoogleAdminLogin}
+                    disabled={isGoogleLoading}
+                    className="flex-1 py-2 rounded-lg text-xs font-bold bg-secondary active:scale-[0.98] text-white transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {isGoogleLoading ? '...' : '로그인'}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Modal: Unsaved Changes Confirm on Close */}
-        {showUnsavedConfirmModal && (
-          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
-            <div className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4">
-              <div>
-                <h4 className="text-sm font-bold text-white">변경사항 저장</h4>
-                <p className="text-xs text-surface-dim mt-1">
-                  수정된 {modifiedItems.length}건을 저장하시겠습니까?
-                </p>
-              </div>
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await handleSaveChanges();
-                    setShowUnsavedConfirmModal(false);
-                    onClose();
-                  }}
-                  disabled={isSavingChanges}
-                  className="w-full py-2 rounded-lg text-xs font-bold bg-secondary text-white cursor-pointer disabled:opacity-50"
-                >
-                  저장하고 닫기
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleDiscardChanges();
-                    setShowUnsavedConfirmModal(false);
-                    onClose();
-                  }}
-                  className="w-full py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-rose-500/15 text-surface-dim hover:text-rose-300 cursor-pointer"
-                >
-                  저장 안 함
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowUnsavedConfirmModal(false)}
-                  className="w-full py-1.5 text-xs text-surface-dim hover:text-white cursor-pointer"
-                >
-                  취소
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+        <AnimatePresence>
+          {showUnsavedConfirmModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={POS_MODAL_BACKDROP_TRANSITION}
+              onClick={() => setShowUnsavedConfirmModal(false)}
+              className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.96, opacity: 0, y: 6 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.96, opacity: 0, y: 6 }}
+                transition={POS_MODAL_PANEL_TRANSITION}
+                onClick={e => e.stopPropagation()}
+                className="bg-[#0a1120] border border-white/10 w-full max-w-xs rounded-2xl p-5 shadow-2xl space-y-4"
+              >
+                <div>
+                  <h4 className="text-sm font-bold text-white">변경사항 저장</h4>
+                  <p className="text-xs text-surface-dim mt-1">
+                    수정된 {modifiedItems.length}건을 저장하시겠습니까?
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await handleSaveChanges();
+                      setShowUnsavedConfirmModal(false);
+                      onClose();
+                    }}
+                    disabled={isSavingChanges}
+                    className="w-full py-2 rounded-lg text-xs font-bold bg-secondary active:scale-[0.98] text-white transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    저장하고 닫기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDiscardChanges();
+                      setShowUnsavedConfirmModal(false);
+                      onClose();
+                    }}
+                    className="w-full py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-rose-500/15 text-surface-dim hover:text-rose-300 cursor-pointer"
+                  >
+                    저장 안 함
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowUnsavedConfirmModal(false)}
+                    className="w-full py-1.5 text-xs text-surface-dim hover:text-white cursor-pointer"
+                  >
+                    취소
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </motion.div>
   );
 }

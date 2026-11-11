@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, AlertCircle, Check, Ban, TrendingUp, Plus } from 'lucide-react';
+import { X, AlertCircle, Check, Ban, TrendingUp, Plus } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { PosCategory, PosItem } from '../../types/pos';
+import { POS_MODAL_BACKDROP_TRANSITION, POS_MODAL_PANEL_TRANSITION, EASE_OUT_EXPO } from '../../utils/motion';
 
 interface PosItemFormModalProps {
   item?: PosItem | null; // null이면 신규 추가
@@ -72,8 +74,22 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
   };
 
   return (
-    <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-      <div className="bg-[#0a1120] border border-white/10 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={POS_MODAL_BACKDROP_TRANSITION}
+      onClick={onClose}
+      className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+    >
+      <motion.div
+        initial={{ scale: 0.96, opacity: 0, y: 8 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.96, opacity: 0, y: 8 }}
+        transition={POS_MODAL_PANEL_TRANSITION}
+        onClick={e => e.stopPropagation()}
+        className="bg-[#0a1120] border border-white/10 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden"
+      >
         {/* Header */}
         <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-primary/40">
           <div>
@@ -95,12 +111,21 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
-            <div className="flex items-center space-x-2 text-xs text-rose-300 bg-rose-500/15 border border-rose-500/30 px-3.5 py-2.5 rounded-xl">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-              <span>{error}</span>
-            </div>
-          )}
+          <AnimatePresence initial={false}>
+            {error && (
+              <motion.div
+                key="item-form-error"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.14, ease: EASE_OUT_EXPO }}
+                className="flex items-center space-x-2 text-xs text-rose-300 bg-rose-500/15 border border-rose-500/30 px-3.5 py-2.5 rounded-xl"
+              >
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{error}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Product Name */}
           <div>
@@ -272,7 +297,7 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

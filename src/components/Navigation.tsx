@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Settings, Menu, X, Store, Wrench, ChevronDown, Boxes, ShieldCheck, LogOut, Maximize, Minimize } from 'lucide-react';
+import { Settings, Menu, X, Store, Wrench, ChevronDown, Boxes, LogOut, Maximize, Minimize } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, logout, getDisplayUserEmail } from '../firebase';
 import { useFullscreen } from '../utils/useFullscreen';
+import { EASE_OUT_EXPO, NAV_SPRING_TRANSITION } from '../utils/motion';
 
 interface NavigationProps {
   isAdmin: boolean;
@@ -62,7 +63,11 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
                   >
                     <span>{item.name}</span>
                     {isActive && (
-                      <span className="absolute -bottom-1 left-0 right-0 h-[2px] rounded-full bg-secondary-fixed-dim" />
+                      <motion.span
+                        layoutId="portal-nav-underline"
+                        transition={NAV_SPRING_TRANSITION}
+                        className="absolute -bottom-1 left-0 right-0 h-[2px] rounded-full bg-secondary-fixed-dim"
+                      />
                     )}
                   </Link>
                 );
@@ -90,11 +95,11 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
                 <AnimatePresence>
                   {isToolMenuOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                      initial={{ opacity: 0, y: 6, scale: 0.97 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                      transition={{ duration: 0.15 }}
-                      className="fixed left-3.5 right-3.5 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 bg-[#0c1426] border border-white/15 rounded-2xl p-2 shadow-2xl z-50 overflow-hidden backdrop-blur-md"
+                      exit={{ opacity: 0, y: 4, scale: 0.97 }}
+                      transition={{ duration: 0.16, ease: EASE_OUT_EXPO }}
+                      className="fixed left-3.5 right-3.5 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 bg-[#0c1426] border border-white/15 rounded-2xl p-2 shadow-2xl z-50 overflow-hidden backdrop-blur-md origin-top-right"
                     >
                       <div className="px-3 py-2 border-b border-white/5 flex items-center justify-between">
                         <span className="text-[11px] font-bold text-surface-dim">포털 도구함</span>
@@ -195,11 +200,35 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
               )}
               {/* Mobile Menu Toggle Button */}
               <button 
-                className="md:hidden p-1.5 text-white/70 hover:text-white transition-colors cursor-pointer"
+                className="md:hidden p-1.5 text-white/70 hover:text-white active:scale-95 transition-all cursor-pointer"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                aria-label="메뉴 열기"
+                aria-label={isMobileMenuOpen ? '메뉴 닫기' : '메뉴 열기'}
               >
-                {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                <AnimatePresence mode="wait" initial={false}>
+                  {isMobileMenuOpen ? (
+                    <motion.span
+                      key="close"
+                      initial={{ opacity: 0, rotate: -45, scale: 0.85 }}
+                      animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                      exit={{ opacity: 0, rotate: 45, scale: 0.85 }}
+                      transition={{ duration: 0.14 }}
+                      className="block"
+                    >
+                      <X className="w-5 h-5" />
+                    </motion.span>
+                  ) : (
+                    <motion.span
+                      key="menu"
+                      initial={{ opacity: 0, rotate: 45, scale: 0.85 }}
+                      animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                      exit={{ opacity: 0, rotate: -45, scale: 0.85 }}
+                      transition={{ duration: 0.14 }}
+                      className="block"
+                    >
+                      <Menu className="w-5 h-5" />
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </button>
             </div>
           </div>
@@ -210,11 +239,11 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div 
-            initial={{ opacity: 0, height: 0, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, height: 'auto', filter: 'blur(0px)' }}
-            exit={{ opacity: 0, height: 0, filter: 'blur(8px)' }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="md:hidden absolute top-14 sm:top-16 left-0 right-0 bg-[#0a1120]/95 backdrop-blur-md border-b border-white/10 shadow-2xl flex flex-col pt-2 pb-4 px-4 overflow-hidden z-50"
+            initial={{ opacity: 0, y: -8, scaleY: 0.97 }}
+            animate={{ opacity: 1, y: 0, scaleY: 1 }}
+            exit={{ opacity: 0, y: -6, scaleY: 0.97 }}
+            transition={{ duration: 0.18, ease: EASE_OUT_EXPO }}
+            className="md:hidden absolute top-14 sm:top-16 left-0 right-0 bg-[#0a1120]/95 backdrop-blur-md border-b border-white/10 shadow-2xl flex flex-col pt-2 pb-4 px-4 overflow-hidden z-50 origin-top"
           >
             <nav className="flex flex-col space-y-2">
               {/* Mobile Tool Section */}

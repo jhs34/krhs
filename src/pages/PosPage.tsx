@@ -18,10 +18,18 @@ import { PosAuditLogModal } from '../components/pos/PosAuditLogModal';
 import { PosGifticonInputModal } from '../components/pos/PosGifticonInputModal';
 import { PosSplitDivider } from '../components/pos/PosSplitDivider';
 import { PosHubHome } from '../components/pos/PosHubHome';
-import { getStoredPosUser, logoutPosUser } from '../services/posAuth';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../firebase';
+import { getStoredPosUser, logoutPosUser, isGoogleAdminEmail } from '../services/posAuth';
 import { DEFAULT_POS_CATEGORIES, DEFAULT_POS_ITEMS } from '../data/defaultPosData';
 import { PosCategory, PosItem, CartItem, PosUser, PosOrder, PosSettlement, PosPreset, PosAuditLog } from '../types/pos';
 import { PosFeedback } from '../utils/posFeedback';
+import {
+  POS_SCREEN_TRANSITION,
+  POS_MODAL_BACKDROP_TRANSITION,
+  POS_MODAL_PANEL_TRANSITION,
+  POS_BUMP_TRANSITION,
+} from '../utils/motion';
 import {
   ensurePosAuth,
   subscribePosCategories,
@@ -91,6 +99,22 @@ export function PosPage() {
 
   // Auth User state
   const [currentUser, setCurrentUser] = useState<PosUser | null>(() => getStoredPosUser());
+
+  // Ensure stored admin sessions remain backed by an authenticated & verified Google Admin token
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, firebaseUser => {
+      setCurrentUser(prev => {
+        if (!prev || prev.role !== 'admin') return prev;
+        const email = (firebaseUser?.email || firebaseUser?.providerData?.[0]?.email || '').toLowerCase().trim();
+        if (!firebaseUser || !firebaseUser.emailVerified || !isGoogleAdminEmail(email)) {
+          logoutPosUser(prev);
+          return null;
+        }
+        return prev;
+      });
+    });
+    return () => unsub();
+  }, []);
 
   // Screen View Mode: 'hub' (포스기 메인화면) | 'register' (포스기 판매/영업 화면)
   const [posScreenMode, setPosScreenMode] = useState<'hub' | 'register'>('hub');
@@ -194,7 +218,7 @@ export function PosPage() {
   const [showAuditLogModal, setShowAuditLogModal] = useState<boolean>(false);
   const [showGifticonModal, setShowGifticonModal] = useState<boolean>(false);
 
-  // Direct Discount Amount State (기프티콘 / 직접 할인 금액)
+  // Direct Discount Amount State (직접 할인 금액)
   const [discountAmount, setDiscountAmount] = useState<number>(0);
 
   // Responsive Viewport & Orientation Detection
@@ -823,7 +847,6 @@ export function PosPage() {
         totalAmount: total,
         gifticonDiscountAmount: effectiveDiscount,
         actualPaidAmount,
-        gifticonsToUse: [],
         cashReceived,
         changeAmount,
         cart,
@@ -1223,60 +1246,74 @@ export function PosPage() {
 
   return (
     <div className="fixed inset-0 w-full h-full bg-primary text-white flex flex-col overflow-hidden z-50 select-none">
-      {/* 1. If not logged in at all, show dedicated POS initial login modal */}
-      {!currentUser && (
-        <PosLoginModal
-          onLoginSuccess={user => {
-            setCurrentUser(user);
-            setPosScreenMode('hub');
-          }}
-          onExitToPortal={handleExitToPortal}
-        />
-      )}
-
-      {/* 2. When logged in: If in 'hub' mode -> Show POS Main Screen (Landing Hub) */}
-      {currentUser && posScreenMode === 'hub' && (
-        <PosHubHome
-          user={currentUser}
-          items={items}
-          categories={categories}
-          totalSalesToday={totalSalesToday}
-          cashSalesToday={cashSalesToday}
-          transferSalesToday={transferSalesToday}
-          todayDiscountTotal={todayDiscountTotal}
-          todayOrdersCount={activeTodayOrders.length}
-          todayTotalSoldCount={todayTotalSoldCount}
-          hasActiveCart={cart.length > 0}
-          onStartSales={() => setPosScreenMode('register')}
-          onOpenProductManager={() => setShowProductManager(true)}
-          onOpenSalesHistory={() => setShowSalesHistoryModal(true)}
-          onOpenSettlement={() => setShowSettlementModal(true)}
-          onOpenAuditLog={IS_POS_AUDIT_LOG_ENABLED ? () => setShowAuditLogModal(true) : undefined}
-          onLogout={handleLogout}
-          onExitToPortal={handleExitToPortal}
-        />
-      )}
-
-      {/* 3. When logged in: If in 'register' mode -> Active Sales Register Screen */}
-      {currentUser && posScreenMode === 'register' && (
-        <>
-          {/* POS Active Sales Header with End Shift */}
-          <PosHeader
-            user={currentUser}
-            isCloudConnected={isFirestoreConnected}
-            isOnline={isOnline}
-            isSoundMuted={isSoundMuted}
-            onToggleSound={toggleSound}
+      <AnimatePresence mode="wait" initial={false}>
+        {/* 1. If not logged in at all, show dedicated POS initial login modal */}
+        {!currentUser ? (
+          <PosLoginModal
+            key="pos-screen-login"
+            onLoginSuccess={user => {
+              setCurrentUser(user);
+              setPosScreenMode('hub');
+            }}
             onExitToPortal={handleExitToPortal}
-            onOpenProductManager={() => setShowProductManager(true)}
-            onOpenSalesHistory={() => setShowSalesHistoryModal(true)}
-            onOpenAuditLog={IS_POS_AUDIT_LOG_ENABLED ? () => setShowAuditLogModal(true) : undefined}
-            onOpenSettlement={() => setShowSettlementModal(true)}
-            onEndShift={() => setShowEndShiftConfirm(true)}
-            totalSalesToday={totalSalesToday}
-            cashSalesToday={cashSalesToday}
-            transferSalesToday={transferSalesToday}
           />
+        ) : posScreenMode === 'hub' ? (
+          /* 2. When logged in: If in 'hub' mode -> Show POS Main Screen (Landing Hub) */
+          <motion.div
+            key="pos-screen-hub"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={POS_SCREEN_TRANSITION}
+            className="flex-1 flex flex-col min-h-0 overflow-hidden"
+          >
+            <PosHubHome
+              user={currentUser}
+              items={items}
+              categories={categories}
+              totalSalesToday={totalSalesToday}
+              cashSalesToday={cashSalesToday}
+              transferSalesToday={transferSalesToday}
+              todayDiscountTotal={todayDiscountTotal}
+              todayOrdersCount={activeTodayOrders.length}
+              todayTotalSoldCount={todayTotalSoldCount}
+              hasActiveCart={cart.length > 0}
+              onStartSales={() => setPosScreenMode('register')}
+              onOpenProductManager={() => setShowProductManager(true)}
+              onOpenSalesHistory={() => setShowSalesHistoryModal(true)}
+              onOpenSettlement={() => setShowSettlementModal(true)}
+              onOpenAuditLog={IS_POS_AUDIT_LOG_ENABLED ? () => setShowAuditLogModal(true) : undefined}
+              onLogout={handleLogout}
+              onExitToPortal={handleExitToPortal}
+            />
+          </motion.div>
+        ) : (
+          /* 3. When logged in: If in 'register' mode -> Active Sales Register Screen */
+          <motion.div
+            key="pos-screen-register"
+            initial={{ opacity: 0, scale: 0.992 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.992 }}
+            transition={POS_SCREEN_TRANSITION}
+            className="flex-1 flex flex-col min-h-0 overflow-hidden"
+          >
+            {/* POS Active Sales Header with End Shift */}
+            <PosHeader
+              user={currentUser}
+              isCloudConnected={isFirestoreConnected}
+              isOnline={isOnline}
+              isSoundMuted={isSoundMuted}
+              onToggleSound={toggleSound}
+              onExitToPortal={handleExitToPortal}
+              onOpenProductManager={() => setShowProductManager(true)}
+              onOpenSalesHistory={() => setShowSalesHistoryModal(true)}
+              onOpenAuditLog={IS_POS_AUDIT_LOG_ENABLED ? () => setShowAuditLogModal(true) : undefined}
+              onOpenSettlement={() => setShowSettlementModal(true)}
+              onEndShift={() => setShowEndShiftConfirm(true)}
+              totalSalesToday={totalSalesToday}
+              cashSalesToday={cashSalesToday}
+              transferSalesToday={transferSalesToday}
+            />
 
           {/* Main Layout: Split Layout (Desktop & Tablet Landscape) vs Bottom Cart Mode (Mobile & Tablet Portrait) */}
           <div
@@ -1366,9 +1403,15 @@ export function PosPage() {
                     onClick={() => setIsMobileCartOpen(true)}
                     className="flex items-center space-x-3 cursor-pointer min-w-0 flex-1 py-1"
                   >
-                    <div className="relative w-10 h-10 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center text-white shrink-0">
+                    <motion.div
+                      key={totalCartCount}
+                      initial={totalCartCount > 0 ? { scale: 1.14 } : false}
+                      animate={{ scale: 1 }}
+                      transition={POS_BUMP_TRANSITION}
+                      className="relative w-10 h-10 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center text-white shrink-0"
+                    >
                       <ShoppingCart className="w-5 h-5 text-secondary-container" />
-                    </div>
+                    </motion.div>
 
                     <div className="min-w-0">
                       <div className="text-[11px] sm:text-xs text-surface-dim font-medium truncate">
@@ -1379,7 +1422,15 @@ export function PosPage() {
                           : '장바구니가 비어 있습니다'}
                       </div>
                       <div className="text-base sm:text-lg font-black text-white font-mono tabular-nums tracking-tight">
-                        {payableCartAmount.toLocaleString()}
+                        <motion.span
+                          key={payableCartAmount}
+                          initial={totalCartCount > 0 ? { scale: 1.06 } : false}
+                          animate={{ scale: 1 }}
+                          transition={POS_BUMP_TRANSITION}
+                          className="inline-block origin-left"
+                        >
+                          {payableCartAmount.toLocaleString()}
+                        </motion.span>
                         <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
                       </div>
                     </div>
@@ -1479,17 +1530,27 @@ export function PosPage() {
               )}
             </AnimatePresence>
           )}
-        </>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Modal: End Shift Confirmation */}
       <AnimatePresence>
         {showEndShiftConfirm && (
-          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={POS_MODAL_BACKDROP_TRANSITION}
+            onClick={() => setShowEndShiftConfirm(false)}
+            className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          >
             <motion.div
-              initial={{ scale: 0.96, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.96, opacity: 0 }}
+              initial={{ scale: 0.96, opacity: 0, y: 6 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0, y: 6 }}
+              transition={POS_MODAL_PANEL_TRANSITION}
+              onClick={e => e.stopPropagation()}
               className="bg-[#0a1120] border border-white/10 w-full max-w-sm rounded-2xl p-6 shadow-2xl relative"
             >
               <div className="pb-3 border-b border-white/10">
@@ -1525,7 +1586,7 @@ export function PosPage() {
                 </button>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 

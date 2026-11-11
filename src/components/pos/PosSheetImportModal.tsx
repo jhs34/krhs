@@ -16,7 +16,9 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { motion } from 'motion/react';
 import { PosCategory, PosItem, PosPreset } from '../../types/pos';
+import { POS_MODAL_BACKDROP_TRANSITION, POS_MODAL_PANEL_TRANSITION } from '../../utils/motion';
 
 export interface ParsedSheetItem {
   tempId: string;
@@ -469,8 +471,22 @@ export function PosSheetImportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[240] flex items-center justify-center p-2.5 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-      <div className="bg-[#0a1120] border border-white/10 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-white">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={POS_MODAL_BACKDROP_TRANSITION}
+      onClick={onClose}
+      className="fixed inset-0 z-[240] flex items-center justify-center p-2.5 sm:p-4 bg-black/80 backdrop-blur-md"
+    >
+      <motion.div
+        initial={{ scale: 0.97, opacity: 0, y: 8 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.97, opacity: 0, y: 8 }}
+        transition={POS_MODAL_PANEL_TRANSITION}
+        onClick={e => e.stopPropagation()}
+        className="bg-[#0a1120] border border-white/10 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-white"
+      >
         {/* Header */}
         <div className="px-4 sm:px-5 py-3.5 border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-3">
@@ -747,7 +763,7 @@ export function PosSheetImportModal({
             </>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

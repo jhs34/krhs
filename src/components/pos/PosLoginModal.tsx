@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { AlertCircle, X, Loader2 } from 'lucide-react';
-import { motion } from 'motion/react';
-import { loginPosUser, createGoogleAdminPosUser } from '../../services/posAuth';
-import { loginWithGoogle } from '../../firebase';
+import { AnimatePresence, motion } from 'motion/react';
+import { loginPosUser, createGoogleAdminPosUser, isGoogleAdminEmail } from '../../services/posAuth';
+import { loginWithGoogle, logout } from '../../firebase';
 import { PosUser } from '../../types/pos';
+import { POS_MODAL_BACKDROP_TRANSITION, POS_MODAL_PANEL_TRANSITION, EASE_OUT_EXPO } from '../../utils/motion';
 
 interface PosLoginModalProps {
   onLoginSuccess: (user: PosUser) => void;
@@ -24,8 +25,14 @@ export function PosLoginModal({
   const [username, setUsername] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [shakeKey, setShakeKey] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const triggerLoginError = (msg: string) => {
+    setError(msg);
+    setShakeKey(prev => prev + 1);
+  };
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -38,7 +45,7 @@ export function PosLoginModal({
       if (res.success && res.user) {
         onLoginSuccess(res.user);
       } else {
-        setError(res.error || '아이디 또는 비밀번호(PIN)가 올바르지 않습니다.');
+        triggerLoginError(res.error || '아이디 또는 비밀번호(PIN)가 올바르지 않습니다.');
       }
     }, 180);
   };
@@ -48,17 +55,25 @@ export function PosLoginModal({
     setIsGoogleLoading(true);
     try {
       const googleUser = await loginWithGoogle();
-      if (googleUser && googleUser.email) {
-        const adminUser = createGoogleAdminPosUser(
-          googleUser.email,
-          googleUser.displayName,
-          googleUser.uid
-        );
-        onLoginSuccess(adminUser);
+      const userEmail = (googleUser?.email || googleUser?.providerData?.[0]?.email || '').toLowerCase().trim();
+      if (!googleUser || !userEmail) {
+        triggerLoginError('구글 계정 이메일 정보를 확인할 수 없습니다.');
+        return;
       }
+      if (!googleUser.emailVerified || !isGoogleAdminEmail(userEmail)) {
+        await logout();
+        triggerLoginError(`승인된 관리자 계정이 아닙니다. (${userEmail})`);
+        return;
+      }
+      const adminUser = createGoogleAdminPosUser(
+        userEmail,
+        googleUser.displayName,
+        googleUser.uid
+      );
+      onLoginSuccess(adminUser);
     } catch (err: any) {
       console.error('Google Admin Login failed', err);
-      setError(err?.message || '구글 로그인에 실패했습니다. 다시 시도해 주세요.');
+      triggerLoginError(err?.message || '구글 로그인에 실패했습니다. 다시 시도해 주세요.');
     } finally {
       setIsGoogleLoading(false);
     }
@@ -75,52 +90,74 @@ export function PosLoginModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-primary/90 backdrop-blur-xl overflow-y-auto select-none">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={POS_MODAL_BACKDROP_TRANSITION}
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-primary/90 backdrop-blur-xl overflow-y-auto select-none"
+    >
       <motion.div
-        initial={{ scale: 0.96, opacity: 0, y: 12 }}
+        initial={{ scale: 0.96, opacity: 0, y: 10 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="bg-[#0a1120] border border-white/10 w-full max-w-sm sm:max-w-md max-h-[95vh] overflow-y-auto custom-scrollbar rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col relative"
+        exit={{ scale: 0.96, opacity: 0, y: 8 }}
+        transition={POS_MODAL_PANEL_TRANSITION}
+        className="w-full max-w-sm sm:max-w-md"
       >
-        {isSwitchMode && onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="absolute right-5 top-5 p-1.5 rounded-lg text-surface-dim hover:text-white hover:bg-white/5 transition-colors cursor-pointer z-10"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
+        <motion.div
+          key={shakeKey}
+          animate={shakeKey > 0 ? { x: [0, -8, 8, -5, 5, 0] } : undefined}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+          className="bg-[#0a1120] border border-white/10 w-full max-h-[95vh] overflow-y-auto custom-scrollbar rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col relative"
+        >
+          {isSwitchMode && onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="닫기"
+              className="absolute right-5 top-5 p-1.5 rounded-lg text-surface-dim hover:text-white hover:bg-white/5 transition-colors cursor-pointer z-10"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
 
-        {/* Editorial Header */}
-        <div className="mb-6">
-          <div className="flex items-center space-x-2.5 mb-3">
-            <img
-              src={`${import.meta.env.BASE_URL}logo.png`}
-              alt="KRHS"
-              className="w-5 h-auto brightness-0 invert opacity-90"
-            />
-            <span className="text-xs font-bold text-white/90 tracking-tight">
-              KRHS POS
-            </span>
+          {/* Editorial Header */}
+          <div className="mb-6">
+            <div className="flex items-center space-x-2.5 mb-3">
+              <img
+                src={`${import.meta.env.BASE_URL}logo.png`}
+                alt="KRHS"
+                className="w-5 h-auto brightness-0 invert opacity-90"
+              />
+              <span className="text-xs font-bold text-white/90 tracking-tight">
+                KRHS POS
+              </span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+              {isSwitchMode ? '근무자 계정 전환' : '매점 터미널 로그인'}
+            </h2>
+            <p className="text-xs text-surface-dim mt-1">
+              {isSwitchMode
+                ? `현재 담당: ${currentUserName || '미지정'} · 교대할 담당자 정보를 입력하세요.`
+                : '부여받은 담당자 아이디와 PIN 번호를 입력하세요.'}
+            </p>
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-            {isSwitchMode ? '근무자 계정 전환' : '매점 터미널 로그인'}
-          </h2>
-          <p className="text-xs text-surface-dim mt-1">
-            {isSwitchMode
-              ? `현재 담당: ${currentUserName || '미지정'} · 교대할 담당자 정보를 입력하세요.`
-              : '부여받은 담당자 아이디와 PIN 번호를 입력하세요.'}
-          </p>
-        </div>
 
-        {error && (
-          <div className="w-full bg-red-500/10 border border-red-500/25 text-red-200 text-xs rounded-xl p-3 mb-4 flex items-center space-x-2 shrink-0">
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
-            <span className="text-xs leading-snug">{error}</span>
-          </div>
-        )}
+          <AnimatePresence initial={false}>
+            {error && (
+              <motion.div
+                key="pos-login-error"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.14, ease: EASE_OUT_EXPO }}
+                className="w-full bg-red-500/10 border border-red-500/25 text-red-200 text-xs rounded-xl p-3 mb-4 flex items-center space-x-2 shrink-0"
+              >
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+                <span className="text-xs leading-snug">{error}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
         <form onSubmit={handleSubmit} className="w-full flex flex-col space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -250,7 +287,8 @@ export function PosLoginModal({
             )}
           </div>
         </form>
+        </motion.div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }

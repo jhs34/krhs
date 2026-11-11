@@ -17,6 +17,7 @@ service cloud.firestore {
     function isAdmin() { 
       // Primary admin email: jhs34.kr@gmail.com (with backwards compatibility for hoya100304@gmail.com)
       return isSignedIn() && 
+             request.auth.token.email_verified == true &&
              (request.auth.token.email == 'jhs34.kr@gmail.com' || request.auth.token.email == 'hoya100304@gmail.com'); 
     }
 
@@ -102,6 +103,53 @@ service cloud.firestore {
              data.color is string && data.color.size() <= 50;
     }
 
+    // POS Validation Helpers (supports Korean IDs & PIN-based staff operations while blocking malformed payloads)
+    function isValidPosDocId(id) {
+      return id is string && id.size() > 0 && id.size() <= 200;
+    }
+
+    function isValidPosCategory(data) {
+      return data.keys().hasAll(['name']) &&
+             data.keys().size() <= 6 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100;
+    }
+
+    function isValidPosItem(data) {
+      return data.keys().hasAll(['name', 'price']) &&
+             data.keys().size() <= 20 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+             (data.price is int || data.price is float) && data.price >= 0;
+    }
+
+    function isValidPosOrder(data) {
+      return data.keys().hasAll(['totalAmount', 'paymentMethod', 'items']) &&
+             data.keys().size() <= 30 &&
+             (data.totalAmount is int || data.totalAmount is float) && data.totalAmount >= 0 &&
+             data.paymentMethod in ['CASH', 'TRANSFER'] &&
+             data.items is list && data.items.size() <= 200;
+    }
+
+    function isValidPosSettlement(data) {
+      return data.keys().hasAll(['status']) &&
+             data.keys().size() <= 25 &&
+             data.status in ['OPEN', 'CLOSED'];
+    }
+
+    function isValidPosPreset(data) {
+      return data.keys().hasAll(['name', 'categories', 'items']) &&
+             data.keys().size() <= 15 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+             (data.keys().hasAny(['description']) ? (data.description is string && data.description.size() <= 1000) : true) &&
+             data.categories is list && data.categories.size() <= 100 &&
+             data.items is list && data.items.size() <= 500;
+    }
+
+    function isValidPosLog(data) {
+      return data.keys().hasAll(['action']) &&
+             data.keys().size() <= 20 &&
+             data.action is string && data.action.size() > 0 && data.action.size() <= 50;
+    }
+
     // Notice Collection
     match /notices/{noticeId} {
       allow read: if true; // Public access to notices
@@ -159,37 +207,50 @@ service cloud.firestore {
 
     // POS Categories Collection
     match /categories/{categoryId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if isValidPosDocId(categoryId) && isValidPosCategory(incoming());
+      allow delete: if isValidPosDocId(categoryId);
     }
 
-    // POS Items & Inventory Collection
+    // POS Items & Inventory Collection (individual item delete restricted in UI to Admin; preset replacement supported)
     match /items/{itemId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if isValidPosDocId(itemId) && isValidPosItem(incoming());
+      allow delete: if isValidPosDocId(itemId);
     }
 
-    // POS Gifticons Collection
+    // POS Gifticons Collection (deprecated — restricted to verified Google Admin)
     match /gifticons/{gifticonId} {
-      allow read, write: if true;
+      allow read, write: if isAdmin();
     }
 
-    // POS Orders Collection
+    // POS Orders Collection (permanent delete restricted to verified Google Admin)
     match /orders/{orderId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if isValidPosDocId(orderId) && isValidPosOrder(incoming());
+      allow delete: if isAdmin() && isValidPosDocId(orderId);
     }
 
     // POS Daily Settlements Collection
     match /settlements/{sessionId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if isValidPosDocId(sessionId) && isValidPosSettlement(incoming());
+      allow delete: if isValidPosDocId(sessionId);
     }
 
-    // POS Presets Collection
+    // POS Presets Collection (create & update allowed for POS staff with schema validation; delete restricted to verified Google Admin)
     match /pos_presets/{presetId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if isValidPosDocId(presetId) && isValidPosPreset(incoming());
+      allow delete: if isAdmin() && isValidPosDocId(presetId);
     }
 
-    // POS Audit & Activity Logs Collection
+    // POS Audit & Activity Logs Collection (append-only for staff; deletion restricted to verified Google Admin)
     match /pos_logs/{logId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if isValidPosDocId(logId) && isValidPosLog(incoming());
+      allow update: if false;
+      allow delete: if isAdmin() && isValidPosDocId(logId);
     }
   }
 }

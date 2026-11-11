@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Bell, FileText, Download, Archive, Trash, Search, X } from 'lucide-react';
+import { FileText, Download, Archive, Search, X, ExternalLink } from 'lucide-react';
 import { AcademicEvent } from '../types';
 import { Notice, SchoolDocument } from '../services/firestore';
+import { EASE_OUT_EXPO, NAV_SPRING_TRANSITION, PORTAL_HEADER_TRANSITION } from '../utils/motion';
 
 interface ArchivePageProps {
   events: AcademicEvent[];
@@ -79,52 +80,52 @@ export function ArchivePage({
   return (
     <div className="max-w-7xl w-full mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 flex flex-col space-y-6 sm:space-y-12">
       <motion.div 
-        initial={{ opacity: 0, y: 40, filter: 'blur(10px)' }}
-        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-        transition={{ duration: 0.8 }}
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={PORTAL_HEADER_TRANSITION}
       >
-        <h2 className="font-sans font-bold text-4xl md:text-5xl text-white tracking-tighter mb-4">
+        <h2 className="font-sans font-bold text-2xl sm:text-3xl md:text-5xl text-white tracking-tighter mb-2.5 sm:mb-3.5 leading-[1.2] md:leading-[1.15]">
           보관함
         </h2>
-        <p className="text-surface-dim font-medium text-lg leading-relaxed max-w-2xl">
+        <p className="text-surface-dim font-medium text-sm sm:text-base md:text-lg leading-relaxed max-w-2xl break-keep">
           오래되거나 유효기간이 완료된 학사정보 보관소입니다. 여기에 보관된 항목은 보관 일자로부터 <span className="text-white font-semibold underline decoration-secondary">1년 동안 임시 보관</span>된 후 영구 삭제되며, 일반 검색 데이터 및 각 메뉴 목록에서 제외됩니다.
         </p>
       </motion.div>
 
       {/* Tab Selectors and Search Bar */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-white/10 pb-2">
-        <div className="flex shrink-0 space-x-6 md:space-x-8 overflow-x-auto scrollbar-none">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6 border-b border-white/10 pb-2">
+        <div className="flex shrink-0 space-x-5 sm:space-x-6 md:space-x-8 overflow-x-auto scrollbar-hide">
           <button
             onClick={() => setActiveSubTab('events')}
-            className={`pb-4 text-sm md:text-base font-bold transition-all relative ${
+            className={`pb-3.5 sm:pb-4 text-xs sm:text-sm md:text-base font-bold transition-colors relative whitespace-nowrap shrink-0 cursor-pointer ${
               activeSubTab === 'events' ? 'text-white' : 'text-surface-dim hover:text-white'
             }`}
           >
             <span>보관된 일정 ({archivedEvents.length})</span>
             {activeSubTab === 'events' && (
-              <motion.div layoutId="archive-subtab-line" className="absolute bottom-0 left-0 right-0 h-0.5 bg-secondary-fixed-dim" />
+              <motion.div layoutId="archive-subtab-line" transition={NAV_SPRING_TRANSITION} className="absolute bottom-0 left-0 right-0 h-0.5 bg-secondary-fixed-dim" />
             )}
           </button>
           <button
             onClick={() => setActiveSubTab('notices')}
-            className={`pb-4 text-sm md:text-base font-bold transition-all relative ${
+            className={`pb-3.5 sm:pb-4 text-xs sm:text-sm md:text-base font-bold transition-colors relative whitespace-nowrap shrink-0 cursor-pointer ${
               activeSubTab === 'notices' ? 'text-white' : 'text-surface-dim hover:text-white'
             }`}
           >
             <span>보관된 공지사항 ({archivedNotices.length})</span>
             {activeSubTab === 'notices' && (
-              <motion.div layoutId="archive-subtab-line" className="absolute bottom-0 left-0 right-0 h-0.5 bg-secondary-fixed-dim" />
+              <motion.div layoutId="archive-subtab-line" transition={NAV_SPRING_TRANSITION} className="absolute bottom-0 left-0 right-0 h-0.5 bg-secondary-fixed-dim" />
             )}
           </button>
           <button
             onClick={() => setActiveSubTab('documents')}
-            className={`pb-4 text-sm md:text-base font-bold transition-all relative ${
+            className={`pb-3.5 sm:pb-4 text-xs sm:text-sm md:text-base font-bold transition-colors relative whitespace-nowrap shrink-0 cursor-pointer ${
               activeSubTab === 'documents' ? 'text-white' : 'text-surface-dim hover:text-white'
             }`}
           >
             <span>보관된 자료실 ({archivedDocuments.length})</span>
             {activeSubTab === 'documents' && (
-              <motion.div layoutId="archive-subtab-line" className="absolute bottom-0 left-0 right-0 h-0.5 bg-secondary-fixed-dim" />
+              <motion.div layoutId="archive-subtab-line" transition={NAV_SPRING_TRANSITION} className="absolute bottom-0 left-0 right-0 h-0.5 bg-secondary-fixed-dim" />
             )}
           </button>
         </div>
@@ -139,26 +140,34 @@ export function ArchivePage({
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-[#0a1120] border border-white/5 group-hover:border-white/10 focus:border-secondary-fixed-dim/50 text-white rounded-full pl-11 pr-11 py-2 text-sm outline-none transition-all placeholder:text-surface-dim/50 font-sans"
           />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-surface-dim hover:text-white transition-colors cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+          <AnimatePresence>
+            {searchQuery && (
+              <motion.button
+                key="clear-archive-search"
+                type="button"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.14 }}
+                onClick={() => setSearchQuery('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-surface-dim hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
       <div>
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={false}>
           {activeSubTab === 'events' && (
             <motion.div
               key="archived-events"
-              initial={{ opacity: 0, y: 15 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.3 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18, ease: EASE_OUT_EXPO }}
               className="grid grid-cols-1 md:grid-cols-2 gap-6"
             >
               {archivedEvents.length > 0 ? archivedEvents.map(event => {
@@ -172,7 +181,7 @@ export function ArchivePage({
                     <div className="flex items-center gap-2 mb-4 flex-wrap">
                       <span className="text-xs font-space font-bold text-white tracking-widest uppercase bg-black/40 px-2.5 py-1 rounded">
                         {format(event.date, 'yyyy-MM-dd')}
-                        {event.endDate && event.date.getTime() !== event.endDate.getTime() && (
+                        {event.endDate && format(event.date, 'yyyy-MM-dd') !== format(event.endDate, 'yyyy-MM-dd') && (
                           ` ~ ${format(event.endDate, 'yyyy-MM-dd')}`
                         )}
                       </span>
@@ -223,10 +232,10 @@ export function ArchivePage({
           {activeSubTab === 'notices' && (
             <motion.div
               key="archived-notices"
-              initial={{ opacity: 0, y: 15 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.3 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18, ease: EASE_OUT_EXPO }}
               className="bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-6 md:p-8"
             >
               <ul className="space-y-6">
@@ -287,10 +296,10 @@ export function ArchivePage({
           {activeSubTab === 'documents' && (
             <motion.div
               key="archived-documents"
-              initial={{ opacity: 0, y: 15 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.3 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18, ease: EASE_OUT_EXPO }}
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
             >
               {archivedDocuments.length > 0 ? archivedDocuments.map(doc => {
@@ -343,8 +352,20 @@ export function ArchivePage({
                             className="flex items-center justify-between text-xs text-surface-dim hover:text-white transition-colors bg-white/5 px-2.5 py-1.5 rounded-lg"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <span className="truncate font-space">{doc.fileName}</span>
+                            <span className="truncate font-space">{doc.fileName || '첨부파일'}</span>
                             <Download className="w-3.5 h-3.5 shrink-0 opacity-50" />
+                          </a>
+                        )}
+                        {doc.link && (
+                          <a
+                            href={doc.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-between text-xs text-secondary-fixed-dim hover:text-white transition-colors bg-secondary/10 border border-secondary/20 px-2.5 py-1.5 rounded-lg"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span className="truncate font-medium mr-2">참고 링크 바로가기</span>
+                            <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-75" />
                           </a>
                         )}
                       </div>

@@ -56,8 +56,12 @@ export function getStoredPosUser(): PosUser | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const user = JSON.parse(raw) as PosUser;
-    // If Admin user (e.g. Google Admin), valid
+    // If Admin user (e.g. Google Admin), verify email against allowlist
     if (user.role === 'admin') {
+      if (!isGoogleAdminEmail(user.username)) {
+        localStorage.removeItem(STORAGE_KEY);
+        return null;
+      }
       return user;
     }
     // Check if user matches student operator accounts (including legacy pos-XXXX id)
@@ -94,6 +98,9 @@ export function createGoogleAdminPosUser(
   uid?: string
 ): PosUser {
   const cleanEmail = email.toLowerCase().trim();
+  if (!isGoogleAdminEmail(cleanEmail)) {
+    throw new Error('승인된 관리자 구글 계정이 아닙니다.');
+  }
   const name =
     displayName ||
     (cleanEmail === 'jhs34.kr@gmail.com' ? '관리자 (jhs34)' : cleanEmail.split('@')[0]);

@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Home, Boxes, Power, ReceiptText, ChevronDown, LogOut, WifiOff, Volume2, VolumeX, ShieldCheck, Maximize, Minimize, Calculator, Ticket } from 'lucide-react';
+import { Home, Boxes, Power, ReceiptText, ChevronDown, LogOut, WifiOff, Volume2, VolumeX, ShieldCheck, Maximize, Minimize, Calculator } from 'lucide-react';
 import { format } from 'date-fns';
+import { AnimatePresence, motion } from 'motion/react';
 import { PosUser } from '../../types/pos';
 import { useFullscreen } from '../../utils/useFullscreen';
+import { POS_DROPDOWN_TRANSITION, POS_BUMP_TRANSITION } from '../../utils/motion';
 
 interface PosHeaderProps {
   user: PosUser;
@@ -77,9 +79,15 @@ export function PosHeader({
         <div className="hidden sm:flex items-center space-x-2 text-xs text-surface-dim pl-2.5 border-l border-white/10">
           <span>담당: <strong className="text-white font-semibold">{user.name}</strong></span>
           <span aria-hidden="true" className="hidden lg:inline">·</span>
-          <span className="hidden lg:inline font-mono tabular-nums text-white/80">
+          <motion.span
+            key={totalSalesToday}
+            initial={{ scale: 1.05, opacity: 0.85 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={POS_BUMP_TRANSITION}
+            className="hidden lg:inline-block font-mono tabular-nums text-white/80"
+          >
             당일 {totalSalesToday.toLocaleString()}원
-          </span>
+          </motion.span>
           <span aria-hidden="true" className="hidden xl:inline">·</span>
           <span className="hidden xl:inline font-mono tabular-nums text-surface-dim">
             {format(currentTime, 'HH:mm:ss')}
@@ -187,71 +195,79 @@ export function PosHeader({
             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`} />
           </button>
 
-          {isMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-52 bg-[#0a1120] border border-white/15 rounded-2xl shadow-2xl p-1.5 z-[100] backdrop-blur-xl">
-              <div className="px-3 py-2 border-b border-white/5 text-[11px] font-space text-surface-dim flex items-center justify-between">
-                <span>담당: {user.name}</span>
-              </div>
+          <AnimatePresence>
+            {isMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, scale: 0.96 }}
+                transition={POS_DROPDOWN_TRANSITION}
+                className="absolute right-0 top-full mt-2 w-52 bg-[#0a1120] border border-white/15 rounded-2xl shadow-2xl p-1.5 z-[100] backdrop-blur-xl origin-top-right"
+              >
+                <div className="px-3 py-2 border-b border-white/5 text-[11px] font-space text-surface-dim flex items-center justify-between">
+                  <span>담당: {user.name}</span>
+                </div>
 
-              <div className="py-1 space-y-0.5">
-                {onOpenProductManager && (
+                <div className="py-1 space-y-0.5">
+                  {onOpenProductManager && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onOpenProductManager();
+                      }}
+                      className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-white/90 hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
+                    >
+                      <Boxes className="w-4 h-4 text-surface-dim shrink-0" />
+                      <span>상품 및 재고 관리</span>
+                    </button>
+                  )}
+
+                  {onOpenSettlement && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onOpenSettlement();
+                      }}
+                      className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-white/90 hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
+                    >
+                      <Calculator className="w-4 h-4 text-surface-dim shrink-0" />
+                      <span>마감 정산 및 시재</span>
+                    </button>
+                  )}
+
+                  {onOpenAuditLog && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onOpenAuditLog();
+                      }}
+                      className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-white/90 hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-surface-dim shrink-0" />
+                      <span>감사 로그</span>
+                    </button>
+                  )}
+
+                  <div className="h-[1px] bg-white/5 my-1" />
+
                   <button
                     type="button"
                     onClick={() => {
                       setIsMenuOpen(false);
-                      onOpenProductManager();
+                      onExitToPortal();
                     }}
-                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-white/90 hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
+                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-surface-dim hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
                   >
-                    <Boxes className="w-4 h-4 text-surface-dim shrink-0" />
-                    <span>상품 및 재고 관리</span>
+                    <Home className="w-4 h-4 text-surface-dim shrink-0" />
+                    <span>학교 포털 메인으로</span>
                   </button>
-                )}
-
-                {onOpenSettlement && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      onOpenSettlement();
-                    }}
-                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-white/90 hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
-                  >
-                    <Calculator className="w-4 h-4 text-surface-dim shrink-0" />
-                    <span>마감 정산 및 시재</span>
-                  </button>
-                )}
-
-                {onOpenAuditLog && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      onOpenAuditLog();
-                    }}
-                    className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-white/90 hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
-                  >
-                    <ShieldCheck className="w-4 h-4 text-surface-dim shrink-0" />
-                    <span>감사 로그</span>
-                  </button>
-                )}
-
-                <div className="h-[1px] bg-white/5 my-1" />
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    onExitToPortal();
-                  }}
-                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-surface-dim hover:text-white hover:bg-white/5 transition-colors text-left cursor-pointer"
-                >
-                  <Home className="w-4 h-4 text-surface-dim shrink-0" />
-                  <span>학교 포털 메인으로</span>
-                </button>
-              </div>
-            </div>
-          )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Primary Action: End Shift / Return to Hub */}

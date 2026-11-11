@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, startOfDay } from 'date-fns';
+import { useState, useMemo } from 'react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns';
 import { ChevronLeft, ChevronRight, X, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AcademicEvent } from '../types';
+import { EASE_OUT_EXPO, MODAL_BACKDROP_TRANSITION, MODAL_PANEL_TRANSITION } from '../utils/motion';
 
 interface CalendarProps {
   currentDate: Date;
@@ -56,6 +57,7 @@ export function Calendar({
 
   const [direction, setDirection] = useState(0);
   const [popupDate, setPopupDate] = useState<Date | null>(null);
+  const activeEvents = useMemo(() => events.filter(e => !e.isArchived), [events]);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);
@@ -89,7 +91,7 @@ export function Calendar({
       const weekDateStrings = week.map(d => format(d, 'yyyy-MM-dd'));
 
       // Filter events intersecting with this week using pure ISO dates list
-      const weekEvents = events.filter(e => {
+      const weekEvents = activeEvents.filter(e => {
         const eStartStr = format(e.date, 'yyyy-MM-dd');
         const eEndStr = e.endDate ? format(e.endDate, 'yyyy-MM-dd') : eStartStr;
         return eStartStr <= wEndStr && eEndStr >= wStartStr;
@@ -190,9 +192,9 @@ export function Calendar({
         getHiddenCount
       };
     });
-  }, [days, events]);
+  }, [days, activeEvents]);
 
-  const popupDateEvents = popupDate ? events.filter(e => {
+  const popupDateEvents = popupDate ? activeEvents.filter(e => {
     const eStartStr = format(e.date, 'yyyy-MM-dd');
     const eEndStr = e.endDate ? format(e.endDate, 'yyyy-MM-dd') : eStartStr;
     const targetStr = format(popupDate, 'yyyy-MM-dd');
@@ -203,30 +205,40 @@ export function Calendar({
     <>
       <div className="bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-4 md:p-5 lg:p-6 relative">
         <div className="flex justify-between items-center mb-3 md:mb-5">
-        <h3 className="font-sans font-bold text-lg md:text-xl lg:text-2xl text-white tracking-tight">
-          {format(currentDate, 'yyyy년 M월')}
-        </h3>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.h3
+            key={format(monthStart, 'yyyy-MM')}
+            initial={{ opacity: 0, y: direction >= 0 ? 6 : -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: direction >= 0 ? -6 : 6 }}
+            transition={{ duration: 0.16, ease: EASE_OUT_EXPO }}
+            className="font-sans font-bold text-lg md:text-xl lg:text-2xl text-white tracking-tight tabular-nums"
+          >
+            {format(currentDate, 'yyyy년 M월')}
+          </motion.h3>
+        </AnimatePresence>
         <div className="flex space-x-1 md:space-x-2 items-center">
           <button
             onClick={() => {
               const today = new Date();
+              setDirection(today >= currentDate ? 1 : -1);
               onDateChange(today);
               onSelectDate(today);
               setPopupDate(null);
             }}
-            className="px-3 md:px-4 h-8 md:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xs md:text-sm font-bold text-white hover:bg-white/10 transition-colors mr-1 md:mr-2"
+            className="px-3 md:px-4 h-8 md:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xs md:text-sm font-bold text-white hover:bg-white/10 active:scale-95 transition-all mr-1 md:mr-2 cursor-pointer"
           >
             오늘
           </button>
           <button 
             onClick={prevMonth}
-            className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-colors"
+            className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
           </button>
           <button 
             onClick={nextMonth}
-            className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-colors"
+            className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
           >
             <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
           </button>
@@ -247,7 +259,7 @@ export function Calendar({
       </div>
 
       <div>
-        <AnimatePresence mode="wait" custom={direction}>
+        <AnimatePresence mode="wait" initial={false} custom={direction}>
           <motion.div
             key={monthStart.toISOString()}
             custom={direction}
@@ -255,7 +267,7 @@ export function Calendar({
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.2, ease: EASE_OUT_EXPO }}
             className="flex flex-col space-y-1.5 md:space-y-2.5"
           >
             {weeksData.map(({ week, weekEvents, positionedEvents, maxSlot, maxVisibleSlots, weekHiddenCounts, getHiddenCount }, weekIdx) => {
@@ -269,7 +281,7 @@ export function Calendar({
                         const hiddenCount = getHiddenCount(day);
 
                         const dayStr = format(day, 'yyyy-MM-dd');
-                        const dayEvents = events.filter(e => {
+                        const dayEvents = activeEvents.filter(e => {
                           const eStartStr = format(e.date, 'yyyy-MM-dd');
                           const eEndStr = e.endDate ? format(e.endDate, 'yyyy-MM-dd') : eStartStr;
                           return dayStr >= eStartStr && dayStr <= eEndStr;
@@ -398,13 +410,15 @@ export function Calendar({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={MODAL_BACKDROP_TRANSITION}
             onClick={() => setPopupDate(null)}
             className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
           >
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
+              initial={{ scale: 0.96, y: 8, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.96, y: 6, opacity: 0 }}
+              transition={MODAL_PANEL_TRANSITION}
               onClick={e => e.stopPropagation()}
               className="bg-[#0a1120] border border-white/10 w-full max-w-sm max-h-[85%] rounded-3xl overflow-hidden flex flex-col shadow-2xl"
             >
@@ -469,7 +483,7 @@ export function Calendar({
                         <span className="text-white font-bold">{event.title}</span>
                       </div>
                       <span className="text-surface-dim text-sm pl-[22px] leading-relaxed whitespace-pre-wrap">{event.description}</span>
-                      {event.endDate && event.date.getTime() !== event.endDate.getTime() && (
+                      {event.endDate && format(event.date, 'yyyy-MM-dd') !== format(event.endDate, 'yyyy-MM-dd') && (
                         <span className="text-xs font-space text-surface-dim/60 pl-[22px] mt-2 bg-white/5 w-fit px-2 py-0.5 rounded">
                           {format(event.date, 'MMM d')} ~ {format(event.endDate, 'MMM d')}
                         </span>

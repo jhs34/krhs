@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Check } from 'lucide-react';
 import { motion } from 'motion/react';
 import { CartItem } from '../../types/pos';
+import { POS_MODAL_BACKDROP_TRANSITION, POS_MODAL_PANEL_TRANSITION, POS_BUMP_TRANSITION } from '../../utils/motion';
 
 interface PosKeypadModalProps {
   cartItem: CartItem;
@@ -48,12 +49,19 @@ export function PosKeypadModal({ cartItem, onConfirm, onClose }: PosKeypadModalP
   };
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto" onClick={onClose}>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={POS_MODAL_BACKDROP_TRANSITION}
+      className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto"
+      onClick={onClose}
+    >
       <motion.div
-        initial={{ scale: 0.96, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.96, opacity: 0 }}
-        transition={{ duration: 0.16, ease: 'easeOut' }}
+        initial={{ scale: 0.96, opacity: 0, y: 6 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.96, opacity: 0, y: 6 }}
+        transition={POS_MODAL_PANEL_TRANSITION}
         onClick={e => e.stopPropagation()}
         className="bg-[#0a1120] border border-white/10 w-full max-w-sm max-h-[95vh] overflow-y-auto custom-scrollbar rounded-2xl p-5 sm:p-6 shadow-2xl flex flex-col relative"
       >
@@ -80,10 +88,16 @@ export function PosKeypadModal({ cartItem, onConfirm, onClose }: PosKeypadModalP
           </div>
 
           <div className="text-right shrink-0">
-            <div className="text-3xl sm:text-4xl font-black tracking-tight font-mono tabular-nums text-white leading-none">
+            <motion.div
+              key={valStr}
+              initial={{ scale: 1.08 }}
+              animate={{ scale: 1 }}
+              transition={POS_BUMP_TRANSITION}
+              className="text-3xl sm:text-4xl font-black tracking-tight font-mono tabular-nums text-white leading-none origin-right"
+            >
               {valStr}
               <span className="text-sm font-normal text-surface-dim ml-1">개</span>
-            </div>
+            </motion.div>
           </div>
         </div>
 
@@ -136,6 +150,6 @@ export function PosKeypadModal({ cartItem, onConfirm, onClose }: PosKeypadModalP
           <span>수량 적용</span>
         </button>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }

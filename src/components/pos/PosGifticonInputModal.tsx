@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { X, Delete, RotateCcw, Check } from 'lucide-react';
+import { POS_MODAL_BACKDROP_TRANSITION, POS_MODAL_PANEL_TRANSITION, POS_BUMP_TRANSITION } from '../../utils/motion';
 
 interface PosGifticonInputModalProps {
   isOpen: boolean;
@@ -89,20 +90,25 @@ export const PosGifticonInputModal: React.FC<PosGifticonInputModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, handleDigit, handleBackspace, handleClear, handleConfirm, onClose]);
 
-  if (!isOpen) return null;
-
   const finalPayableAmount = Math.max(0, originalTotalAmount - inputValue);
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-[260] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md select-none">
-        <motion.div
-          initial={{ scale: 0.96, opacity: 0, y: 8 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.96, opacity: 0, y: 8 }}
-          transition={{ duration: 0.15 }}
-          className="bg-[#0a1120] border border-white/10 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-        >
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={POS_MODAL_BACKDROP_TRANSITION}
+      onClick={onClose}
+      className="fixed inset-0 z-[260] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md select-none"
+    >
+      <motion.div
+        initial={{ scale: 0.96, opacity: 0, y: 8 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.96, opacity: 0, y: 8 }}
+        transition={POS_MODAL_PANEL_TRANSITION}
+        onClick={e => e.stopPropagation()}
+        className="bg-[#0a1120] border border-white/10 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+      >
           {/* Header */}
           <div className="px-5 py-3.5 border-b border-white/10 flex items-center justify-between">
             <h3 className="text-sm sm:text-base font-bold text-white">할인 적용</h3>
@@ -130,15 +136,21 @@ export const PosGifticonInputModal: React.FC<PosGifticonInputModalProps> = ({
               <div className="pt-2 border-t border-white/10 flex items-center justify-between">
                 <span className="text-xs font-bold text-purple-300">적용 금액</span>
                 <div className="flex items-center space-x-2">
-                  <span className="text-xl font-black font-mono tabular-nums text-purple-300 tracking-tight">
+                  <motion.span
+                    key={inputValue}
+                    initial={{ scale: 1.07 }}
+                    animate={{ scale: 1 }}
+                    transition={POS_BUMP_TRANSITION}
+                    className="text-xl font-black font-mono tabular-nums text-purple-300 tracking-tight inline-block origin-right"
+                  >
                     {inputValue > 0 ? `-${inputValue.toLocaleString()}` : '0'}
                     <span className="text-xs font-normal text-purple-300/70 ml-0.5">원</span>
-                  </span>
+                  </motion.span>
                   {inputValue > 0 && (
                     <button
                       type="button"
                       onClick={handleClear}
-                      className="p-1 rounded-md bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+                      className="p-1 rounded-md bg-white/5 hover:bg-white/10 active:scale-90 text-surface-dim hover:text-white transition-all cursor-pointer"
                       title="초기화"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
@@ -149,10 +161,16 @@ export const PosGifticonInputModal: React.FC<PosGifticonInputModalProps> = ({
 
               <div className="pt-2 border-t border-white/10 flex items-baseline justify-between">
                 <span className="text-xs font-bold text-surface-dim">적용 후 금액</span>
-                <span className="text-lg font-black font-mono tabular-nums text-secondary-container">
+                <motion.span
+                  key={finalPayableAmount}
+                  initial={{ scale: 1.05 }}
+                  animate={{ scale: 1 }}
+                  transition={POS_BUMP_TRANSITION}
+                  className="text-lg font-black font-mono tabular-nums text-secondary-container inline-block origin-right"
+                >
                   {finalPayableAmount.toLocaleString()}
                   <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
-                </span>
+                </motion.span>
               </div>
             </div>
 
@@ -211,8 +229,7 @@ export const PosGifticonInputModal: React.FC<PosGifticonInputModalProps> = ({
               <span>적용</span>
             </button>
           </div>
-        </motion.div>
-      </div>
-    </AnimatePresence>
+      </motion.div>
+    </motion.div>
   );
 };

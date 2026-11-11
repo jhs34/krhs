@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { Star, Search, ShoppingBag, Settings2, X, SlidersHorizontal, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PosCategory, PosItem, CartItem } from '../../types/pos';
+import { POS_TAB_SPRING, POS_BUMP_TRANSITION, EASE_OUT_EXPO } from '../../utils/motion';
 
 export type MenuCardDensity = 'compact' | 'standard' | 'large';
 
@@ -429,9 +430,15 @@ export function PosMenuGrid({
               {isSoldOut ? '판매중 전환...' : '품절 전환...'}
             </span>
           ) : inCartCount > 0 ? (
-            <span className="text-xs font-bold font-mono tabular-nums text-secondary-container whitespace-nowrap">
+            <motion.span
+              key={inCartCount}
+              initial={{ scale: 1.16, opacity: 0.85 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={POS_BUMP_TRANSITION}
+              className="text-xs font-bold font-mono tabular-nums text-secondary-container whitespace-nowrap inline-block"
+            >
               {inCartCount}개 선택
-            </span>
+            </motion.span>
           ) : null}
         </div>
 
@@ -472,25 +479,32 @@ export function PosMenuGrid({
           <button
             type="button"
             onClick={() => setSelectedCategoryId('all')}
-            className={`h-full flex items-center text-xs sm:text-sm whitespace-nowrap border-t-2 border-t-transparent border-b-2 transition-colors shrink-0 cursor-pointer ${
+            className={`relative h-full flex items-center text-xs sm:text-sm whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
               selectedCategoryId === 'all'
-                ? 'border-b-secondary-container text-white font-bold'
-                : 'border-b-transparent text-surface-dim hover:text-white font-medium'
+                ? 'text-white font-bold'
+                : 'text-surface-dim hover:text-white font-medium'
             }`}
           >
             <span>전체</span>
             <span className="ml-1 text-[11px] font-mono tabular-nums text-surface-dim/70">
               {items.filter(i => i.isActive).length}
             </span>
+            {selectedCategoryId === 'all' && (
+              <motion.span
+                layoutId="pos-category-underline"
+                transition={POS_TAB_SPRING}
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-secondary-container rounded-full"
+              />
+            )}
           </button>
 
           <button
             type="button"
             onClick={() => setSelectedCategoryId('favorites')}
-            className={`h-full flex items-center space-x-1 text-xs sm:text-sm whitespace-nowrap border-t-2 border-t-transparent border-b-2 transition-colors shrink-0 cursor-pointer ${
+            className={`relative h-full flex items-center space-x-1 text-xs sm:text-sm whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
               selectedCategoryId === 'favorites'
-                ? 'border-b-amber-400 text-white font-bold'
-                : 'border-b-transparent text-surface-dim hover:text-white font-medium'
+                ? 'text-white font-bold'
+                : 'text-surface-dim hover:text-white font-medium'
             }`}
           >
             <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
@@ -498,6 +512,13 @@ export function PosMenuGrid({
             <span className="text-[11px] font-mono tabular-nums text-surface-dim/70">
               {items.filter(i => i.isActive && i.isFavorite).length}
             </span>
+            {selectedCategoryId === 'favorites' && (
+              <motion.span
+                layoutId="pos-category-underline"
+                transition={POS_TAB_SPRING}
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-400 rounded-full"
+              />
+            )}
           </button>
 
           {categories.map(cat => {
@@ -510,16 +531,23 @@ export function PosMenuGrid({
                 key={cat.name}
                 type="button"
                 onClick={() => setSelectedCategoryId(cat.name)}
-                className={`h-full flex items-center text-xs sm:text-sm whitespace-nowrap border-t-2 border-t-transparent border-b-2 transition-colors shrink-0 cursor-pointer ${
+                className={`relative h-full flex items-center text-xs sm:text-sm whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
                   isSelected
-                    ? 'border-b-secondary-container text-white font-bold'
-                    : 'border-b-transparent text-surface-dim hover:text-white font-medium'
+                    ? 'text-white font-bold'
+                    : 'text-surface-dim hover:text-white font-medium'
                 }`}
               >
                 <span>{cat.name}</span>
                 <span className="ml-1 text-[11px] font-mono tabular-nums text-surface-dim/70">
                   {count}
                 </span>
+                {isSelected && (
+                  <motion.span
+                    layoutId="pos-category-underline"
+                    transition={POS_TAB_SPRING}
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-secondary-container rounded-full"
+                  />
+                )}
               </button>
             );
           })}
@@ -656,39 +684,47 @@ export function PosMenuGrid({
           density === 'compact' ? 'p-3 sm:p-4 pb-36 sm:pb-28' : 'p-4 sm:p-6 pb-36 sm:pb-28'
         }`}
       >
-        {filteredItems.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-surface-dim py-12">
-            <ShoppingBag className="w-9 h-9 mb-2.5 text-white/15" strokeWidth={1.5} />
-            <p className="text-sm font-bold text-white/70">해당 조건의 품목이 없습니다.</p>
-            <p className="text-xs text-surface-dim mt-1">다른 카테고리를 선택하거나 검색어를 변경해보세요.</p>
-          </div>
-        ) : categorySections && categorySections.length > 0 ? (
-          <div className="space-y-8">
-            {categorySections.map(section => (
-              <div key={section.categoryId} className="space-y-3">
-                {/* Clean Editorial Section Header (No vertical pill bar or rounded-full chip) */}
-                <div className="flex items-baseline justify-between border-b border-white/5 pb-2">
-                  <div className="flex items-baseline space-x-2">
-                    <h2 className="text-sm sm:text-base font-bold text-white tracking-tight">
-                      {section.categoryName}
-                    </h2>
-                    <span className="text-xs font-mono tabular-nums text-surface-dim">
-                      {section.items.length}종
-                    </span>
+        <motion.div
+          key={selectedCategoryId}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.13, ease: EASE_OUT_EXPO }}
+          className={filteredItems.length === 0 ? 'h-full' : ''}
+        >
+          {filteredItems.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-surface-dim py-12">
+              <ShoppingBag className="w-9 h-9 mb-2.5 text-white/15" strokeWidth={1.5} />
+              <p className="text-sm font-bold text-white/70">해당 조건의 품목이 없습니다.</p>
+              <p className="text-xs text-surface-dim mt-1">다른 카테고리를 선택하거나 검색어를 변경해보세요.</p>
+            </div>
+          ) : categorySections && categorySections.length > 0 ? (
+            <div className="space-y-8">
+              {categorySections.map(section => (
+                <div key={section.categoryId} className="space-y-3">
+                  {/* Clean Editorial Section Header (No vertical pill bar or rounded-full chip) */}
+                  <div className="flex items-baseline justify-between border-b border-white/5 pb-2">
+                    <div className="flex items-baseline space-x-2">
+                      <h2 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                        {section.categoryName}
+                      </h2>
+                      <span className="text-xs font-mono tabular-nums text-surface-dim">
+                        {section.items.length}종
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className={gridLayoutClass}>
+                    {section.items.map(item => renderItemCard(item))}
                   </div>
                 </div>
-
-                <div className={gridLayoutClass}>
-                  {section.items.map(item => renderItemCard(item))}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className={gridLayoutClass}>
-            {filteredItems.map(item => renderItemCard(item))}
-          </div>
-        )}
+              ))}
+            </div>
+          ) : (
+            <div className={gridLayoutClass}>
+              {filteredItems.map(item => renderItemCard(item))}
+            </div>
+          )}
+        </motion.div>
       </div>
     </div>
   );

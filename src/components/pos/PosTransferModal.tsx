@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Building2, Check, Ticket, X, User } from 'lucide-react';
+import { POS_MODAL_BACKDROP_TRANSITION, POS_MODAL_PANEL_TRANSITION } from '../../utils/motion';
 
 interface PosTransferModalProps {
   totalAmount: number;
@@ -30,12 +31,21 @@ export const PosTransferModal: React.FC<PosTransferModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md select-none">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={POS_MODAL_BACKDROP_TRANSITION}
+      onClick={onClose}
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md select-none"
+    >
       <motion.form
         onSubmit={handleSubmit}
-        initial={{ scale: 0.96, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.96, opacity: 0 }}
+        initial={{ scale: 0.96, opacity: 0, y: 6 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.96, opacity: 0, y: 6 }}
+        transition={POS_MODAL_PANEL_TRANSITION}
+        onClick={e => e.stopPropagation()}
         className="bg-[#0a1120] border border-white/10 w-full max-w-sm rounded-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
       >
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
@@ -138,13 +148,13 @@ export const PosTransferModal: React.FC<PosTransferModalProps> = ({
           </button>
           <button
             type="submit"
-            className="py-2.5 rounded-xl bg-secondary hover:bg-secondary/90 text-white text-xs sm:text-sm font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+            className="py-2.5 rounded-xl bg-secondary hover:bg-secondary/90 active:scale-[0.98] text-white text-xs sm:text-sm font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
           >
             <Check className="w-4 h-4" />
             <span>이체 확인 완료</span>
           </button>
         </div>
       </motion.form>
-    </div>
+    </motion.div>
   );
 };

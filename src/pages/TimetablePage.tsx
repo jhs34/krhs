@@ -19,6 +19,7 @@ import { DEPARTMENTS, GRADES, getDefaultTimetable } from '../data/timetableTempl
 import { SUBJECT_THEMES, hexToRgba } from '../data/subjectThemes';
 import { subscribeToTimetableMemos, saveTimetableMemo, deleteTimetableMemo, subscribeToTimetableTemplates } from '../services/firestore';
 import { TimetableMemo, ClassTimetable } from '../types';
+import { EASE_OUT_EXPO, MODAL_BACKDROP_TRANSITION, MODAL_PANEL_TRANSITION, NAV_SPRING_TRANSITION, PORTAL_CARD_TRANSITION, PORTAL_HEADER_TRANSITION } from '../utils/motion';
 
 interface TimetablePageProps {
   isAdmin: boolean;
@@ -26,17 +27,22 @@ interface TimetablePageProps {
 
 export { SUBJECT_THEMES, hexToRgba };
 
+type TimetableTransitionMode = 'forward' | 'backward' | 'filter';
+
 const slideVariants = {
-  enter: (dir: 'forward' | 'backward') => ({
-    x: dir === 'forward' ? 30 : -30,
+  enter: (dir: TimetableTransitionMode) => ({
+    x: dir === 'filter' ? 0 : dir === 'forward' ? 22 : -22,
+    y: dir === 'filter' ? 6 : 0,
     opacity: 0,
   }),
   center: {
     x: 0,
+    y: 0,
     opacity: 1,
   },
-  exit: (dir: 'forward' | 'backward') => ({
-    x: dir === 'forward' ? -30 : 30,
+  exit: (dir: TimetableTransitionMode) => ({
+    x: dir === 'filter' ? 0 : dir === 'forward' ? -22 : 22,
+    y: dir === 'filter' ? -4 : 0,
     opacity: 0,
   }),
 };
@@ -81,7 +87,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
     memo: string;
   } | null>(null);
 
-  const [animationDirection, setAnimationDirection] = useState<'forward' | 'backward'>('forward');
+  const [animationDirection, setAnimationDirection] = useState<TimetableTransitionMode>('filter');
 
   const toggleMemo = (dayIdx: number, periodNum: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -331,28 +337,28 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 40, filter: 'blur(10px)' }}
-      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-      transition={{ duration: 0.8, ease: 'easeOut' }}
-      className="max-w-7xl w-full mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32"
-    >
+    <div className="max-w-7xl w-full mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32">
       
       {/* 1. Header Section */}
-      <div className="text-center md:text-left mb-4 md:mb-5">
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={PORTAL_HEADER_TRANSITION}
+        className="text-center md:text-left mb-4 md:mb-5"
+      >
         <h1 className="text-xl sm:text-2xl md:text-3xl font-sans font-black tracking-tight text-white mb-1 leading-tight">
           주간 학급별 시간표
         </h1>
         <p className="text-xs sm:text-sm text-surface-dim leading-normal font-sans max-w-2xl mx-auto md:mx-0 break-keep">
           한국철도고등학교 학과 및 반별 주간 수업 일정표를 조회하고, 실시간 수행평가 일정과 주간 특이사항 메모를 확인하세요.
         </p>
-      </div>
+      </motion.div>
 
       {/* 2. Filters & Selection Card */}
       <motion.div 
-        initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
-        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-        transition={{ duration: 0.6, delay: 0.15, ease: 'easeOut' }}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...PORTAL_CARD_TRANSITION, delay: 0.03 }}
         className="glass-panel-dark border-white/5 p-3.5 sm:p-4 rounded-xl shadow-lg mb-4"
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -361,19 +367,33 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
           <div className="flex flex-col space-y-1">
             <label className="text-xs font-bold text-surface-dim pl-1">학년</label>
             <div className="grid grid-cols-3 bg-white/5 p-1 rounded-xl border border-white/5" id="grade-selector">
-              {GRADES.map(g => (
-                <button
-                  key={g}
-                  onClick={() => setSelectedGrade(g)}
-                  className={`py-1.5 rounded-lg text-xs font-bold transition-all text-center ${
-                    selectedGrade === g 
-                      ? 'bg-white/10 text-white shadow-sm' 
-                      : 'text-surface-dim hover:text-white'
-                  }`}
-                >
-                  {g}학년
-                </button>
-              ))}
+              {GRADES.map(g => {
+                const isActive = selectedGrade === g;
+                return (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => {
+                      if (selectedGrade !== g) {
+                        setAnimationDirection('filter');
+                        setSelectedGrade(g);
+                      }
+                    }}
+                    className={`relative py-1.5 rounded-lg text-xs font-bold transition-colors text-center cursor-pointer ${
+                      isActive ? 'text-white' : 'text-surface-dim hover:text-white'
+                    }`}
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="timetable-grade-pill"
+                        transition={NAV_SPRING_TRANSITION}
+                        className="absolute inset-0 bg-white/15 rounded-lg shadow-sm border border-white/10"
+                      />
+                    )}
+                    <span className="relative z-10">{g}학년</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -381,22 +401,34 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
           <div className="flex flex-col space-y-1">
             <label className="text-xs font-bold text-surface-dim pl-1 font-sans">학과</label>
             <div className="grid grid-cols-3 bg-white/5 p-1 rounded-xl border border-white/5" id="dept-selector">
-              {DEPARTMENTS.map(dept => (
-                <button
-                  key={dept.id}
-                  onClick={() => {
-                    setSelectedDept(dept.id);
-                  }}
-                  className={`py-1.5 rounded-lg text-xs font-bold transition-all text-center px-1 truncate ${
-                    selectedDept === dept.id 
-                      ? 'bg-white/10 text-white shadow-sm' 
-                      : 'text-surface-dim hover:text-white'
-                  }`}
-                  title={dept.name}
-                >
-                  {dept.name.replace('철도', '')}
-                </button>
-              ))}
+              {DEPARTMENTS.map(dept => {
+                const isActive = selectedDept === dept.id;
+                return (
+                  <button
+                    key={dept.id}
+                    type="button"
+                    onClick={() => {
+                      if (selectedDept !== dept.id) {
+                        setAnimationDirection('filter');
+                        setSelectedDept(dept.id);
+                      }
+                    }}
+                    className={`relative py-1.5 rounded-lg text-xs font-bold transition-colors text-center px-1 truncate cursor-pointer ${
+                      isActive ? 'text-white' : 'text-surface-dim hover:text-white'
+                    }`}
+                    title={dept.name}
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="timetable-dept-pill"
+                        transition={NAV_SPRING_TRANSITION}
+                        className="absolute inset-0 bg-white/15 rounded-lg shadow-sm border border-white/10"
+                      />
+                    )}
+                    <span className="relative z-10">{dept.name.replace('철도', '')}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -407,20 +439,34 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
               {[1, 2].map(c => {
                 const totalClasses = DEPARTMENTS.find(d => d.id === selectedDept)?.classes || [1];
                 const isAvailable = totalClasses.includes(c);
+                const isActive = isAvailable && selectedClass === c;
                 return (
                   <button
                     key={c}
+                    type="button"
                     disabled={!isAvailable}
-                    onClick={() => setSelectedClass(c)}
-                    className={`py-1.5 rounded-lg text-xs font-bold transition-all text-center ${
+                    onClick={() => {
+                      if (isAvailable && selectedClass !== c) {
+                        setAnimationDirection('filter');
+                        setSelectedClass(c);
+                      }
+                    }}
+                    className={`relative py-1.5 rounded-lg text-xs font-bold transition-colors text-center ${
                       !isAvailable 
                         ? 'opacity-25 cursor-not-allowed text-white/20'
-                        : selectedClass === c 
-                          ? 'bg-white/10 text-white shadow-sm' 
-                          : 'text-surface-dim hover:text-white'
+                        : isActive 
+                          ? 'text-white cursor-pointer' 
+                          : 'text-surface-dim hover:text-white cursor-pointer'
                     }`}
                   >
-                    {c}반
+                    {isActive && (
+                      <motion.div
+                        layoutId="timetable-class-pill"
+                        transition={NAV_SPRING_TRANSITION}
+                        className="absolute inset-0 bg-white/15 rounded-lg shadow-sm border border-white/10"
+                      />
+                    )}
+                    <span className="relative z-10">{c}반</span>
                   </button>
                 );
               })}
@@ -432,14 +478,14 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
 
       {/* 3. Week Navigation & Range */}
       <motion.div 
-        initial={{ opacity: 0, y: 15, filter: 'blur(6px)' }}
-        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-        transition={{ duration: 0.6, delay: 0.25, ease: 'easeOut' }}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...PORTAL_CARD_TRANSITION, delay: 0.06 }}
         className="flex flex-col sm:flex-row items-center justify-between gap-2.5 py-2 px-2 mb-4"
       >
         <div className="flex items-center space-x-2">
           <Calendar className="w-5 h-5 text-secondary-fixed shrink-0" />
-          <span className="text-sm md:text-base font-bold text-white font-space">
+          <span className="text-sm md:text-base font-bold text-white font-space tabular-nums">
             {formatWeekRangeString()}
           </span>
         </div>
@@ -447,7 +493,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
         <div className="flex items-center space-x-2">
           <button
             onClick={handlePrevWeek}
-            className="p-1.5 sm:p-2 rounded-lg border border-white/5 bg-white/5 text-surface-dim hover:text-white hover:bg-white/10 transition-colors shadow-md"
+            className="p-1.5 sm:p-2 rounded-lg border border-white/5 bg-white/5 text-surface-dim hover:text-white hover:bg-white/10 active:scale-95 transition-all shadow-md cursor-pointer"
             title="이전 주"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
@@ -455,14 +501,14 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
           
           <button
             onClick={handleResetToToday}
-            className="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-white/5 bg-white/5 text-white hover:bg-white/10 transition-colors shadow-md"
+            className="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-white/5 bg-white/5 text-white hover:bg-white/10 active:scale-95 transition-all shadow-md cursor-pointer"
           >
             오늘이 속한 주
           </button>
 
           <button
             onClick={handleNextWeek}
-            className="p-1.5 sm:p-2 rounded-lg border border-white/5 bg-white/5 text-surface-dim hover:text-white hover:bg-white/10 transition-colors shadow-md"
+            className="p-1.5 sm:p-2 rounded-lg border border-white/5 bg-white/5 text-surface-dim hover:text-white hover:bg-white/10 active:scale-95 transition-all shadow-md cursor-pointer"
             title="다음 주"
           >
             <ChevronRight className="w-3.5 h-3.5" />
@@ -476,7 +522,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
+          transition={{ duration: 0.25, delay: 0.08 }}
           className="text-center text-xs text-surface-dim/60 mb-2 flex items-center justify-center space-x-1.5 select-none px-2 leading-relaxed"
         >
           <Info className="w-3.5 h-3.5 text-secondary-fixed shrink-0" />
@@ -485,9 +531,9 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
       )}
 
       <motion.div 
-        initial={{ opacity: 0, y: 25, filter: 'blur(8px)' }}
-        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-        transition={{ duration: 0.7, delay: 0.35, ease: 'easeOut' }}
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...PORTAL_CARD_TRANSITION, delay: 0.08 }}
         className="w-full rounded-2xl border border-white/5 shadow-2xl bg-white/[0.01] overflow-hidden"
       >
         {isTimetableEmpty ? (
@@ -503,13 +549,13 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
         ) : (
           <AnimatePresence mode="wait" initial={false} custom={animationDirection}>
             <motion.div
-              key={weekStartKey}
+              key={`${selectedGrade}_${selectedDept}_${selectedClass}_${weekStartKey}`}
               custom={animationDirection}
               variants={slideVariants}
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{ duration: 0.22, ease: 'easeInOut' }}
+              transition={{ duration: 0.18, ease: EASE_OUT_EXPO }}
               className="w-full min-w-0 grid grid-cols-5 divide-x divide-white/5 bg-primary-dark"
             >
           
@@ -693,9 +739,9 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
 
       {/* 5. Custom Weekly Info description cards */}
       <motion.div 
-        initial={{ opacity: 0, y: 20, filter: 'blur(6px)' }}
-        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-        transition={{ duration: 0.6, delay: 0.4, ease: 'easeOut' }}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...PORTAL_CARD_TRANSITION, delay: 0.1 }}
         className="mt-5 p-3.5 sm:p-4 rounded-xl border border-white/5 bg-white/[0.01] flex items-start space-x-3 text-surface-dim"
       >
         <Info className="w-4 h-4 text-secondary-fixed shrink-0 mt-0.5" />
@@ -715,21 +761,23 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
       {/* 6. Admin Dialog / Popups */}
       <AnimatePresence>
         {isEditModalOpen && editingSlot && (
-          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+          <div key="timetable-edit-memo-modal" className="fixed inset-0 z-[150] flex items-center justify-center p-4">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={MODAL_BACKDROP_TRANSITION}
               onClick={() => setIsEditModalOpen(false)}
-              className="absolute inset-0 bg-black/70 backdrop-blur-xs"
+              className="absolute inset-0 bg-black/65 backdrop-blur-sm"
             />
 
             {/* Modal Body */}
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
+              initial={{ scale: 0.96, y: 8, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.96, y: 6, opacity: 0 }}
+              transition={MODAL_PANEL_TRANSITION}
               className="relative w-full max-w-md glass-panel border-white/10 rounded-xl sm:rounded-2xl md:rounded-3xl shadow-2xl p-4 sm:p-5 md:p-6 overflow-y-auto max-h-[90vh] bg-[#0d121f] scrollbar-thin scrollbar-thumb-white/10"
             >
               <div className="border-b border-white/5 pb-3 mb-3">
@@ -856,23 +904,27 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
             </motion.div>
           </div>
         )}
+      </AnimatePresence>
 
+      <AnimatePresence>
         {viewingMemo && (
-          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+          <div key="timetable-view-memo-modal" className="fixed inset-0 z-[150] flex items-center justify-center p-4">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={MODAL_BACKDROP_TRANSITION}
               onClick={() => setViewingMemo(null)}
-              className="absolute inset-0 bg-black/70 backdrop-blur-xs"
+              className="absolute inset-0 bg-black/65 backdrop-blur-sm"
             />
 
             {/* Modal Body */}
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
+              initial={{ scale: 0.96, y: 8, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.96, y: 6, opacity: 0 }}
+              transition={MODAL_PANEL_TRANSITION}
               className="relative w-full max-w-sm glass-panel border-amber-500/20 rounded-2xl shadow-2xl p-6 overflow-hidden bg-[#111624]"
             >
               <div className="border-b border-white/5 pb-4 mb-4">
@@ -923,7 +975,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                 <button
                   type="button"
                   onClick={() => setViewingMemo(null)}
-                  className="px-4 py-2 border border-white/5 hover:border-white/10 bg-white/5 rounded-xl text-xs font-bold text-surface-dim hover:text-white transition-all shadow-md w-full sm:w-auto"
+                  className="px-4 py-2 border border-white/5 hover:border-white/10 bg-white/5 rounded-xl text-xs font-bold text-surface-dim hover:text-white transition-all shadow-md w-full sm:w-auto cursor-pointer"
                 >
                   닫기
                 </button>
@@ -932,6 +984,6 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
           </div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }

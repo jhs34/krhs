@@ -3,12 +3,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Notice, FirestoreEvent, SchoolDocument, addNotice, updateNotice, deleteNotice, addEvent, updateEvent, deleteEvent, addDocument, updateDocument, deleteDocument, subscribeToTimetableTemplates, saveTimetableTemplate } from '../services/firestore';
 import { auth, logout, refreshUserProfile, deleteCurrentAccount, loginWithGoogle, getDisplayUserEmail } from '../firebase';
 import { format } from 'date-fns';
-import { Edit2, Trash2, Sparkles, RefreshCw, LogOut, UserX, ArrowRightLeft, AlertTriangle } from 'lucide-react';
-import { SUBJECT_THEMES } from '../data/subjectThemes';
+import { Edit2, Trash2, RefreshCw, LogOut, UserX, ArrowRightLeft, AlertTriangle, Plus, X, Link as LinkIcon, Paperclip } from 'lucide-react';
 
 import { SiteInfo, updateSiteInfo } from '../services/firestore';
 import { DEPARTMENTS, GRADES, getDefaultTimetable } from '../data/timetableTemplates';
 import { ClassTimetable, TimetableTemplate } from '../types';
+import { EASE_OUT_EXPO, MODAL_BACKDROP_TRANSITION, MODAL_PANEL_TRANSITION, NAV_SPRING_TRANSITION } from '../utils/motion';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -31,7 +31,7 @@ export function AdminPanel({
   initialEditItem = null,
   initialEventDate = null
 }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'notices' | 'events' | 'documents' | 'siteInfo' | 'defaultTimetables' | 'cleanup'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'notices' | 'events' | 'documents' | 'siteInfo' | 'defaultTimetables'>(initialTab);
   
   // Default Timetables tab states
   const [templateGrade, setTemplateGrade] = useState<number>(1);
@@ -102,6 +102,8 @@ export function AdminPanel({
   const [isHoliday, setIsHoliday] = useState(false);
   const [isArchived, setIsArchived] = useState(false);
   const [validUntil, setValidUntil] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState<Array<{ name: string; url: string }>>([]);
   
   const presetColors = [
     '#ef4444', // red
@@ -116,9 +118,6 @@ export function AdminPanel({
   ];
   
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
-  
-  // Cleanup tab states
-  const [cleanupStatus, setCleanupStatus] = useState<{ loading: boolean; message: string | null; error: boolean }>({ loading: false, message: null, error: false });
 
   // Reset form when tab changes
   useEffect(() => {
@@ -136,30 +135,93 @@ export function AdminPanel({
     setIsHoliday(false);
     setIsArchived(false);
     setValidUntil('');
+    setLinkUrl('');
+    setAttachedFiles([]);
   };
 
-  const safeParseDate = (dString: string | undefined | null) => {
+  const safeParseDate = (dString: string | Date | undefined | null) => {
     if (!dString) return format(new Date(), 'yyyy-MM-dd');
-    const d = new Date(dString);
+    if (typeof dString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dString.trim())) {
+      return dString.trim();
+    }
+    const d = dString instanceof Date ? dString : new Date(dString);
     return isNaN(d.getTime()) ? format(new Date(), 'yyyy-MM-dd') : format(d, 'yyyy-MM-dd');
+  };
+
+  const dateInputToIso = (ymd: string) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(ymd.trim())) {
+      const [y, m, d] = ymd.trim().split('-').map(Number);
+      return new Date(y, m - 1, d, 12, 0, 0, 0).toISOString();
+    }
+    const parsed = new Date(ymd);
+    return isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+  };
+
+  const normalizeExternalUrl = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+    if (/^https?:\/\//i.test(trimmed)) return trimmed.slice(0, 2000);
+    return `https://${trimmed}`.slice(0, 2000);
+  };
+
+  const deriveFileNameFromUrl = (url: string, index: number) => {
+    try {
+      const parsed = new URL(url);
+      const lastSegment = decodeURIComponent(parsed.pathname.split('/').filter(Boolean).pop() || '');
+      if (lastSegment && lastSegment.length <= 120) return lastSegment;
+    } catch {
+      // fallback below
+    }
+    return `첨부파일_${index + 1}`;
+  };
+
+  const handleAddAttachmentRow = () => {
+    if (attachedFiles.length >= 10) return;
+    setAttachedFiles(prev => [...prev, { name: '', url: '' }]);
+  };
+
+  const handleUpdateAttachmentRow = (idx: number, field: 'name' | 'url', value: string) => {
+    setAttachedFiles(prev => prev.map((row, i) => (i === idx ? { ...row, [field]: value } : row)));
+  };
+
+  const handleRemoveAttachmentRow = (idx: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handleEdit = (item: any, type: 'notice' | 'event' | 'document') => {
     setEditingId(item.id);
-    setTitle(item.title);
-    setIsArchived(item.isArchived || false);
+    setTitle(item.title || '');
+    setIsArchived(Boolean(item.isArchived));
     if (type === 'event') {
-      setContent(item.description);
+      setContent(item.description || '');
       setDate(safeParseDate(item.date));
       setEndDate(safeParseDate(item.endDate || item.date));
       setEventColor(item.color || '#64ffda');
-      setIsHoliday(item.isHoliday || false);
+      setIsHoliday(Boolean(item.isHoliday));
+      setLinkUrl('');
+      setAttachedFiles([]);
     } else if (type === 'notice') {
-      setContent(item.content);
+      setContent(item.content || '');
       setDate(safeParseDate(item.date));
       setValidUntil(item.validUntil ? safeParseDate(item.validUntil) : '');
+      setLinkUrl(item.link || '');
+      if (Array.isArray(item.files) && item.files.length > 0) {
+        setAttachedFiles(item.files.map((f: any) => ({ name: f.name || '', url: f.url || '' })));
+      } else if (item.fileUrl) {
+        setAttachedFiles([{ name: item.fileName || '첨부파일', url: item.fileUrl }]);
+      } else {
+        setAttachedFiles([]);
+      }
     } else if (type === 'document') {
-      setContent(item.description);
+      setContent(item.description || '');
+      setLinkUrl(item.link || '');
+      if (Array.isArray(item.files) && item.files.length > 0) {
+        setAttachedFiles(item.files.map((f: any) => ({ name: f.name || '', url: f.url || '' })));
+      } else if (item.fileUrl) {
+        setAttachedFiles([{ name: item.fileName || '첨부파일', url: item.fileUrl }]);
+      } else {
+        setAttachedFiles([]);
+      }
     }
   };
 
@@ -259,23 +321,38 @@ export function AdminPanel({
     if (activeTab === 'documents' && !title) return;
 
     try {
+      const sanitizedFiles = attachedFiles
+        .map((f, idx) => {
+          const normalizedUrl = normalizeExternalUrl(f.url);
+          if (!normalizedUrl) return null;
+          const cleanName = (f.name.trim() || deriveFileNameFromUrl(normalizedUrl, idx)).slice(0, 500);
+          return { name: cleanName, url: normalizedUrl };
+        })
+        .filter((f): f is { name: string; url: string } => f !== null)
+        .slice(0, 10);
+      const normalizedLink = normalizeExternalUrl(linkUrl);
+
       if (activeTab === 'notices') {
         const payload: Omit<Notice, 'id' | 'createdAt'> = {
-          title,
-          content,
-          date: new Date(date).toISOString(),
+          title: title.trim().slice(0, 200),
+          content: content.slice(0, 10000),
+          date: dateInputToIso(date),
           isArchived,
           archivedAt: isArchived ? (notices.find(n => n.id === editingId)?.archivedAt || new Date().toISOString()) : '',
-          validUntil: validUntil ? new Date(validUntil).toISOString() : '',
+          validUntil: validUntil ? dateInputToIso(validUntil) : '',
+          link: normalizedLink,
+          files: sanitizedFiles,
+          fileUrl: sanitizedFiles[0]?.url || '',
+          fileName: sanitizedFiles[0]?.name || '',
         };
         if (editingId) await updateNotice(editingId, payload);
         else await addNotice(payload);
       } else if (activeTab === 'events') {
         const payload: Omit<FirestoreEvent, 'id' | 'createdAt'> = {
-          title,
-          description: content,
-          date: new Date(date).toISOString(),
-          endDate: new Date(endDate).toISOString(),
+          title: title.trim().slice(0, 200),
+          description: content.slice(0, 1000),
+          date: dateInputToIso(date),
+          endDate: dateInputToIso(endDate),
           color: eventColor,
           isHoliday,
           isArchived,
@@ -285,8 +362,12 @@ export function AdminPanel({
         else await addEvent(payload);
       } else if (activeTab === 'documents') {
         const payload: Omit<SchoolDocument, 'id' | 'createdAt'> = {
-          title,
-          description: content,
+          title: title.trim().slice(0, 200),
+          description: content.slice(0, 10000),
+          link: normalizedLink,
+          files: sanitizedFiles,
+          fileUrl: sanitizedFiles[0]?.url || '',
+          fileName: sanitizedFiles[0]?.name || '',
           isArchived,
           archivedAt: isArchived ? (documents.find(d => d.id === editingId)?.archivedAt || new Date().toISOString()) : '',
         };
@@ -294,7 +375,7 @@ export function AdminPanel({
         else await addDocument(payload);
       } else if (activeTab === 'siteInfo') {
         const idToSave = editingId || 'announcements';
-        await updateSiteInfo(idToSave, content);
+        await updateSiteInfo(idToSave, content.slice(0, 10000));
       }
       if (activeTab !== 'siteInfo') resetForm();
       setNotification({ message: '성공적으로 저장되었습니다.', type: 'success' });
@@ -351,23 +432,39 @@ export function AdminPanel({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={MODAL_BACKDROP_TRANSITION}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <motion.div 
-        initial={{ scale: 0.95, opacity: 0, filter: 'blur(10px)' }}
-        animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
-        exit={{ scale: 0.95, opacity: 0, filter: 'blur(10px)' }}
-        transition={{ duration: 0.25, ease: 'easeOut' }}
+        initial={{ scale: 0.97, y: 10, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={{ scale: 0.97, y: 8, opacity: 0 }}
+        transition={MODAL_PANEL_TRANSITION}
         onClick={e => e.stopPropagation()}
         className="bg-[#0a1120] border border-white/10 w-full max-w-4xl h-[88vh] max-h-[840px] min-h-[520px] rounded-2xl md:rounded-3xl overflow-hidden flex flex-col relative shadow-2xl"
       >
-        {notification && (
-          <div className={`absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-xs md:text-sm font-bold shadow-lg z-50 flex items-center space-x-2 transition-all ${
-            notification.type === 'success' ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'
-          }`}>
-            <span>{notification.message}</span>
-            <button onClick={() => setNotification(null)} className="opacity-80 hover:opacity-100 ml-2">&times;</button>
-          </div>
-        )}
+        <AnimatePresence>
+          {notification && (
+            <motion.div
+              key={`${notification.type}-${notification.message}`}
+              initial={{ opacity: 0, y: -12, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.96 }}
+              transition={{ duration: 0.18, ease: EASE_OUT_EXPO }}
+              className={`absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-xs md:text-sm font-bold shadow-lg z-50 flex items-center space-x-2 ${
+                notification.type === 'success' ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'
+              }`}
+            >
+              <span>{notification.message}</span>
+              <button onClick={() => setNotification(null)} className="opacity-80 hover:opacity-100 ml-2 cursor-pointer">&times;</button>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div className="flex items-center justify-between p-4 md:p-6 border-b border-white/10 shrink-0">
           <div>
             <div className="flex items-center space-x-2">
@@ -421,7 +518,6 @@ export function AdminPanel({
               { id: 'documents', label: '자료실 관리' },
               { id: 'siteInfo', label: '기타 정보 관리', onSelect: () => setEditingId('announcements') },
               { id: 'defaultTimetables', label: '기본 시간표 관리' },
-              { id: 'cleanup', label: '시스템 데이터 정리' },
             ].map(tab => {
               const isActive = activeTab === tab.id;
               return (
@@ -451,73 +547,16 @@ export function AdminPanel({
 
           {/* Content */}
           <div className="flex-1 flex flex-col overflow-y-auto p-3 md:p-6 bg-black/20 custom-scrollbar">
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={activeTab}
-                initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }}
-                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: EASE_OUT_EXPO }}
                 className="flex-1 flex flex-col"
               >
-            {activeTab === 'cleanup' ? (
-              <div className="flex flex-col space-y-6">
-                <div className="bg-white/5 border border-white/5 p-4 rounded-xl space-y-4">
-                  <h3 className="text-base md:text-lg font-bold text-white">대규모 백그라운드 데이터 정리</h3>
-                  <p className="text-sm text-surface-dim leading-relaxed">
-                    시스템 성능 유지를 위해 오래된 데이터를 백엔드 서버(Node.js)를 통해 일괄 삭제합니다.<br/><br/>
-                    - 삭제 대상: 1년(365일)이 지난 보관함 데이터(하이라이트 제외)<br/>
-                    - 주의: 이 작업은 서버 백그라운드에서 실행되며 복구할 수 없습니다.
-                  </p>
-                  
-                  {cleanupStatus.message && (
-                    <div className={`p-3 rounded-lg text-sm font-medium ${cleanupStatus.error ? 'bg-red-500/20 text-red-200' : 'bg-green-500/20 text-green-200'}`}>
-                      {cleanupStatus.message}
-                    </div>
-                  )}
-
-                  {!cleanupStatus.loading && cleanupStatus.message === null && (
-                    <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-lg">
-                      <p className="text-xs text-red-300 font-medium">정말 삭제하시겠습니까? 삭제 후에는 데이터를 복구할 수 없습니다.</p>
-                    </div>
-                  )}
-                  
-                  <button
-                    disabled={cleanupStatus.loading}
-                    onClick={async () => {
-                      setCleanupStatus({ loading: true, message: null, error: false });
-                      try {
-                        const res = await fetch('/api/admin/cleanup', { method: 'POST' });
-                        const data = await res.json();
-                        if (data.success) {
-                          setCleanupStatus({ 
-                            loading: false, 
-                            message: `데이터 정리가 완료되었습니다. (보관함: ${data.details.archivesDeleted}건 삭제)`, 
-                            error: false 
-                          });
-                        } else {
-                          setCleanupStatus({ 
-                            loading: false, 
-                            message: `정리 실패: ${data.error}`, 
-                            error: true 
-                          });
-                        }
-                      } catch (err) {
-                        setCleanupStatus({ 
-                          loading: false, 
-                          message: '정리 중 서버 오류가 발생했습니다. (자세한 내용은 콘솔 확인)', 
-                          error: true 
-                        });
-                        console.error(err);
-                      }
-                    }}
-                    className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-bold transition-colors"
-                  >
-                    {cleanupStatus.loading ? '처리 중...' : '지금 데이터 정리 실행'}
-                  </button>
-                </div>
-              </div>
-            ) : activeTab === 'defaultTimetables' ? (
+            {activeTab === 'defaultTimetables' ? (
               <div className="flex flex-col space-y-6">
                 <div className="bg-white/5 border border-white/5 p-4 rounded-xl space-y-4">
                   <h3 className="text-base md:text-lg font-bold text-white">학급별 기본 반복 시간표 관리</h3>
@@ -574,20 +613,28 @@ export function AdminPanel({
 
                 {/* Day navigation tabs */}
                 <div className="flex space-x-1.5 bg-white/5 p-1 rounded-xl border border-white/5 overflow-x-auto select-none shrink-0 scrollbar-hide">
-                  {['월요일', '화요일', '수요일', '목요일', '금요일'].map((dayName, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setTemplateDay(idx)}
-                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap px-2 ${
-                        templateDay === idx
-                          ? 'bg-white/10 text-white shadow-sm'
-                          : 'text-surface-dim hover:text-white'
-                      }`}
-                    >
-                      {dayName}
-                    </button>
-                  ))}
+                  {['월요일', '화요일', '수요일', '목요일', '금요일'].map((dayName, idx) => {
+                    const isDayActive = templateDay === idx;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setTemplateDay(idx)}
+                        className={`relative flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors text-center whitespace-nowrap px-2 cursor-pointer ${
+                          isDayActive ? 'text-white' : 'text-surface-dim hover:text-white'
+                        }`}
+                      >
+                        {isDayActive && (
+                          <motion.div
+                            layoutId="admin-timetable-day-pill"
+                            transition={NAV_SPRING_TRANSITION}
+                            className="absolute inset-0 bg-white/15 rounded-lg shadow-sm border border-white/10"
+                          />
+                        )}
+                        <span className="relative z-10">{dayName}</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Slot editor grid */}
@@ -686,6 +733,7 @@ export function AdminPanel({
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
+                    maxLength={200}
                     required
                     className="bg-black/40 border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors"
                   />
@@ -779,7 +827,7 @@ export function AdminPanel({
                     className="w-4 h-4 rounded border-white/10 bg-black/40 text-secondary focus:ring-secondary/30 focus:ring-offset-0 focus:ring-2 outline-none cursor-pointer"
                   />
                   <label htmlFor="isArchived" className="text-xs md:text-sm text-white font-medium cursor-pointer select-none">
-                    보관함으로 이동 (체크 시 일반 검색 및 기존 목록에서 제외되며 보관함에 저징됨)
+                    보관함으로 이동 (체크 시 일반 검색 및 기존 목록에서 제외되며 보관함에 저장됨)
                   </label>
                 </div>
               )}
@@ -789,15 +837,94 @@ export function AdminPanel({
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
+                  maxLength={activeTab === 'events' ? 1000 : 10000}
                   rows={activeTab === 'siteInfo' ? 8 : 3}
                   className="bg-black/40 border border-white/10 rounded-md md:rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors resize-none"
                 />
               </div>
 
+              {(activeTab === 'notices' || activeTab === 'documents') && (
+                <div className="space-y-3 pt-1">
+                  {/* External Reference Link */}
+                  <div className="flex flex-col space-y-1">
+                    <label className="text-[10px] md:text-xs text-surface-dim flex items-center gap-1.5">
+                      <LinkIcon className="w-3.5 h-3.5 text-secondary-fixed-dim" />
+                      <span>참고 링크 URL (선택사항)</span>
+                    </label>
+                    <input
+                      type="url"
+                      value={linkUrl}
+                      onChange={(e) => setLinkUrl(e.target.value)}
+                      maxLength={2000}
+                      placeholder="https://... (관련 안내 페이지, 설문 폼 등 외부 링크)"
+                      className="bg-black/40 border border-white/10 rounded-md md:rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors placeholder:text-surface-dim/40"
+                    />
+                  </div>
+
+                  {/* Multiple File Attachment Links */}
+                  <div className="p-3 bg-black/25 border border-white/10 rounded-xl space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-[11px] md:text-xs text-white font-semibold">
+                        <Paperclip className="w-3.5 h-3.5 text-secondary-fixed-dim shrink-0" />
+                        <span>첨부파일 다운로드 링크 ({attachedFiles.length}/10)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddAttachmentRow}
+                        disabled={attachedFiles.length >= 10}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] md:text-xs font-bold bg-white/10 hover:bg-white/15 text-white transition-colors disabled:opacity-40 cursor-pointer whitespace-nowrap shrink-0"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>파일 링크 추가</span>
+                      </button>
+                    </div>
+
+                    {attachedFiles.length === 0 ? (
+                      <p className="text-[11px] text-surface-dim/70 leading-relaxed">
+                        구글 드라이브, 한컴독스, 학교 홈페이지 등 다운로드/열람 가능한 파일 공유 URL을 최대 10개까지 등록할 수 있습니다.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {attachedFiles.map((fileRow, idx) => (
+                          <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-white/[0.03] p-2 rounded-lg border border-white/5">
+                            <input
+                              type="text"
+                              value={fileRow.name}
+                              onChange={(e) => handleUpdateAttachmentRow(idx, 'name', e.target.value)}
+                              maxLength={500}
+                              placeholder={`표시 파일명 (예: 가정통신문_${idx + 1}.pdf)`}
+                              className="sm:col-span-5 bg-black/40 border border-white/10 rounded-md px-2.5 py-1.5 text-white text-xs focus:border-secondary-fixed-dim outline-none transition-colors placeholder:text-surface-dim/40"
+                            />
+                            <div className="sm:col-span-7 flex items-center gap-1.5">
+                              <input
+                                type="url"
+                                value={fileRow.url}
+                                onChange={(e) => handleUpdateAttachmentRow(idx, 'url', e.target.value)}
+                                maxLength={2000}
+                                placeholder="https://drive.google.com/..."
+                                className="flex-1 min-w-0 bg-black/40 border border-white/10 rounded-md px-2.5 py-1.5 text-white text-xs focus:border-secondary-fixed-dim outline-none transition-colors placeholder:text-surface-dim/40"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAttachmentRow(idx)}
+                                title="첨부 항목 제거"
+                                className="p-1.5 rounded-md bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors shrink-0 cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="pt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-lg font-bold text-sm text-white transition-colors bg-secondary hover:bg-secondary/80 w-full sm:w-auto text-center"
+                  className="px-6 py-2.5 rounded-lg font-bold text-sm text-white transition-colors bg-secondary hover:bg-secondary/80 w-full sm:w-auto text-center cursor-pointer"
                 >
                   {activeTab === 'siteInfo' ? '저장하기' : editingId ? '수정 완료' : '추가하기'}
                 </button>
@@ -806,7 +933,7 @@ export function AdminPanel({
                   <button
                     type="button"
                     onClick={() => triggerDeleteConfirm(editingId, activeTab)}
-                    className="px-4 py-2.5 rounded-lg font-bold text-sm text-red-400 border border-red-500/30 hover:bg-red-500/10 hover:border-red-500/50 transition-colors flex items-center justify-center space-x-1.5 w-full sm:w-auto"
+                    className="px-4 py-2.5 rounded-lg font-bold text-sm text-red-400 border border-red-500/30 hover:bg-red-500/10 hover:border-red-500/50 transition-colors flex items-center justify-center space-x-1.5 w-full sm:w-auto cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                     <span>이 항목 삭제하기</span>
@@ -817,59 +944,152 @@ export function AdminPanel({
 
             {(activeTab !== 'siteInfo') && (
               <div className="shrink-0 pr-0 md:pr-2">
-                <h3 className="text-base md:text-lg font-bold text-white mb-3 md:mb-4">
-                  등록된 {activeTab === 'notices' ? '공지사항' : activeTab === 'events' ? '학사일정' : '자료실'} 목록
-                </h3>
+                <div className="flex items-center justify-between mb-3 md:mb-4 gap-2">
+                  <h3 className="text-base md:text-lg font-bold text-white">
+                    등록된 {activeTab === 'notices' ? '공지사항' : activeTab === 'events' ? '학사일정' : '자료실'} 목록
+                  </h3>
+                  <span className="text-xs font-mono text-surface-dim tabular-nums">
+                    {(() => {
+                      const list = activeTab === 'notices' ? notices : activeTab === 'events' ? events : documents;
+                      const archivedCount = list.filter(item => item.isArchived).length;
+                      return `게시 ${list.length - archivedCount} · 보관 ${archivedCount}`;
+                    })()}
+                  </span>
+                </div>
                 <ul className="space-y-3">
-                {activeTab === 'notices' && notices.map(notice => (
-                  <li key={notice.id} className="bg-white/5 border border-white/5 p-4 rounded-xl flex items-center justify-between">
-                    <div className="flex-1 min-w-0 mr-4">
-                      <div className="text-sm font-bold text-white mb-1 truncate">{notice.title}</div>
-                      <div className="text-xs text-surface-dim">{safeParseDate(notice.date)}</div>
-                    </div>
-                    <div className="flex items-center space-x-2 shrink-0">
-                      <button onClick={() => handleEdit(notice, 'notice')} className="text-surface-dim hover:text-white p-2 bg-white/5 rounded-lg">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => triggerDeleteConfirm(notice.id, 'notices')} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </li>
-                ))}
+                {activeTab === 'notices' && notices.map(notice => {
+                  const fileCount = notice.files?.length ? notice.files.length : (notice.fileUrl ? 1 : 0);
+                  return (
+                    <li
+                      key={notice.id}
+                      className={`border p-4 rounded-xl flex items-center justify-between transition-colors ${
+                        notice.isArchived
+                          ? 'bg-white/[0.02] border-amber-500/20 opacity-80'
+                          : 'bg-white/5 border-white/5'
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0 mr-4">
+                        <div className="flex items-center gap-2 mb-1 min-w-0">
+                          {notice.isArchived && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 whitespace-nowrap">
+                              보관됨
+                            </span>
+                          )}
+                          <span className="text-sm font-bold text-white truncate">{notice.title}</span>
+                        </div>
+                        <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs text-surface-dim">
+                          <span className="tabular-nums">{safeParseDate(notice.date)}</span>
+                          {notice.validUntil && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span className="tabular-nums">유효기한 {safeParseDate(notice.validUntil)}</span>
+                            </>
+                          )}
+                          {fileCount > 0 && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span>첨부 {fileCount}건</span>
+                            </>
+                          )}
+                          {notice.link && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span>참고 링크</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 shrink-0">
+                        <button onClick={() => handleEdit(notice, 'notice')} className="text-surface-dim hover:text-white p-2 bg-white/5 rounded-lg cursor-pointer" title="수정">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => triggerDeleteConfirm(notice.id, 'notices')} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg cursor-pointer" title="삭제">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
                 {activeTab === 'events' && events.map(event => (
-                  <li key={event.id} className="bg-white/5 border border-white/5 p-4 rounded-xl flex items-center justify-between">
+                  <li
+                    key={event.id}
+                    className={`border p-4 rounded-xl flex items-center justify-between transition-colors ${
+                      event.isArchived
+                        ? 'bg-white/[0.02] border-amber-500/20 opacity-80'
+                        : 'bg-white/5 border-white/5'
+                    }`}
+                  >
                     <div className="w-3 h-3 rounded-full mr-3 shrink-0" style={{ backgroundColor: event.color || '#64ffda' }} />
                     <div className="flex-1 min-w-0 mr-4">
-                      <div className="text-sm font-bold text-white mb-1 truncate">{event.title}</div>
-                      <div className="text-xs text-surface-dim">
+                      <div className="flex items-center gap-2 mb-1 min-w-0">
+                        {event.isArchived && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 whitespace-nowrap">
+                            보관됨
+                          </span>
+                        )}
+                        {event.isHoliday && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/15 text-red-300 border border-red-500/30 shrink-0 whitespace-nowrap">
+                            공휴일
+                          </span>
+                        )}
+                        <span className="text-sm font-bold text-white truncate">{event.title}</span>
+                      </div>
+                      <div className="text-xs text-surface-dim tabular-nums">
                         {safeParseDate(event.date)} {event.endDate && safeParseDate(event.endDate) !== safeParseDate(event.date) ? `~ ${safeParseDate(event.endDate)}` : ''}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2 shrink-0">
-                      <button onClick={() => handleEdit(event, 'event')} className="text-surface-dim hover:text-white p-2 bg-white/5 rounded-lg">
+                      <button onClick={() => handleEdit(event, 'event')} className="text-surface-dim hover:text-white p-2 bg-white/5 rounded-lg cursor-pointer" title="수정">
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => triggerDeleteConfirm(event.id, 'events')} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg">
+                      <button onClick={() => triggerDeleteConfirm(event.id, 'events')} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg cursor-pointer" title="삭제">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </li>
                 ))}
                 {activeTab === 'documents' && documents.map(doc => {
-                  const fileCount = doc.files ? doc.files.length : (doc.fileName ? 1 : 0);
-                  const displayFileName = fileCount > 1 ? `${doc.files![0].name} 외 ${fileCount - 1}건` : (doc.files && fileCount === 1 ? doc.files[0].name : doc.fileName);
+                  const fileCount = doc.files?.length ? doc.files.length : (doc.fileName || doc.fileUrl ? 1 : 0);
+                  const displayFileName = fileCount > 1
+                    ? `${doc.files![0].name} 외 ${fileCount - 1}건`
+                    : (doc.files && fileCount === 1 ? doc.files[0].name : (doc.fileName || (doc.fileUrl ? '첨부파일 1건' : '')));
                   return (
-                    <li key={doc.id} className="bg-white/5 border border-white/5 p-4 rounded-xl flex items-center justify-between">
+                    <li
+                      key={doc.id}
+                      className={`border p-4 rounded-xl flex items-center justify-between transition-colors ${
+                        doc.isArchived
+                          ? 'bg-white/[0.02] border-amber-500/20 opacity-80'
+                          : 'bg-white/5 border-white/5'
+                      }`}
+                    >
                       <div className="flex-1 min-w-0 mr-4">
-                        <div className="text-sm font-bold text-white mb-1 truncate">{doc.title}</div>
-                        <div className="text-xs text-surface-dim truncate">{displayFileName}</div>
+                        <div className="flex items-center gap-2 mb-1 min-w-0">
+                          {doc.isArchived && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 whitespace-nowrap">
+                              보관됨
+                            </span>
+                          )}
+                          <span className="text-sm font-bold text-white truncate">{doc.title}</span>
+                        </div>
+                        <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs text-surface-dim truncate">
+                          {displayFileName ? (
+                            <span className="truncate">{displayFileName}</span>
+                          ) : (
+                            <span className="text-surface-dim/60">첨부파일 없음</span>
+                          )}
+                          {doc.link && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span className="shrink-0">참고 링크 포함</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center space-x-2 shrink-0">
-                        <button onClick={() => handleEdit(doc, 'document')} className="text-surface-dim hover:text-white p-2 bg-white/5 rounded-lg">
+                        <button onClick={() => handleEdit(doc, 'document')} className="text-surface-dim hover:text-white p-2 bg-white/5 rounded-lg cursor-pointer" title="수정">
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button onClick={() => triggerDeleteConfirm(doc.id, 'documents')} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg">
+                        <button onClick={() => triggerDeleteConfirm(doc.id, 'documents')} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg cursor-pointer" title="삭제">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -887,111 +1107,145 @@ export function AdminPanel({
         </div>
 
         {/* Logout / Account Management Modal */}
-        {showLogoutConfirm && (
-          <div className="absolute inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md rounded-3xl">
-            <div className="bg-[#0a1120] border border-white/20 w-full max-w-md p-6 rounded-2xl flex flex-col items-center shadow-2xl relative">
-              <div className="w-12 h-12 rounded-2xl bg-secondary/15 border border-secondary/30 flex items-center justify-center mb-3 text-secondary">
-                <LogOut className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg md:text-xl font-black text-white mb-1 text-center">계정 관리 및 로그아웃</h3>
-              <p className="text-xs text-surface-dim mb-4 text-center">
-                현재 접속: <span className="text-secondary font-bold font-mono">{getDisplayUserEmail(auth.currentUser?.email) || '알 수 없음'}</span>
-              </p>
+        <AnimatePresence>
+          {showLogoutConfirm && (
+            <motion.div
+              key="admin-logout-confirm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={MODAL_BACKDROP_TRANSITION}
+              onClick={() => setShowLogoutConfirm(false)}
+              className="absolute inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md rounded-3xl"
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 8, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.95, y: 6, opacity: 0 }}
+                transition={MODAL_PANEL_TRANSITION}
+                onClick={e => e.stopPropagation()}
+                className="bg-[#0a1120] border border-white/20 w-full max-w-md p-6 rounded-2xl flex flex-col items-center shadow-2xl relative"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-secondary/15 border border-secondary/30 flex items-center justify-center mb-3 text-secondary">
+                  <LogOut className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg md:text-xl font-black text-white mb-1 text-center">계정 관리 및 로그아웃</h3>
+                <p className="text-xs text-surface-dim mb-4 text-center">
+                  현재 접속: <span className="text-secondary font-bold font-mono">{getDisplayUserEmail(auth.currentUser?.email) || '알 수 없음'}</span>
+                </p>
 
-              <div className="w-full flex flex-col space-y-2.5 mb-4">
-                {/* Switch Google Account */}
-                <button
-                  type="button"
-                  onClick={handleSwitchAccount}
-                  className="w-full py-3 px-4 rounded-xl text-xs md:text-sm font-bold bg-secondary hover:bg-secondary/90 text-white flex items-center justify-between transition-all shadow-md shadow-secondary/20 cursor-pointer"
-                >
-                  <div className="flex items-center space-x-2">
-                    <ArrowRightLeft className="w-4 h-4" />
-                    <span>다른 구글 계정으로 전환 (추천)</span>
-                  </div>
-                  <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full font-normal">계정 선택창 열기</span>
-                </button>
-
-                {/* Normal Logout */}
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-bold bg-white/10 hover:bg-white/15 text-white flex items-center justify-between transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center space-x-2">
-                    <LogOut className="w-4 h-4 text-surface-dim" />
-                    <span>단순 로그아웃</span>
-                  </div>
-                  <span className="text-[10px] text-surface-dim font-normal">세션 종료</span>
-                </button>
-
-                {/* Permanent Firebase Account Delete */}
-                <div className="pt-2 border-t border-white/10 flex flex-col space-y-1.5">
-                  <div className="flex items-center space-x-1.5 text-[11px] text-red-400 font-bold">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    <span>파이어베이스 계정 완전 삭제</span>
-                  </div>
-                  <p className="text-[10px] text-surface-dim leading-relaxed">
-                    현재 구글 계정 정보를 Firebase 인증 시스템에서 완전히 삭제합니다. 삭제 후 새 계정으로 언제든지 다시 로그인할 수 있습니다.
-                  </p>
+                <div className="w-full flex flex-col space-y-2.5 mb-4">
+                  {/* Switch Google Account */}
                   <button
                     type="button"
-                    disabled={isDeletingAccount}
-                    onClick={handleDeleteCurrentAccount}
-                    className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 hover:text-red-200 flex items-center justify-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    onClick={handleSwitchAccount}
+                    className="w-full py-3 px-4 rounded-xl text-xs md:text-sm font-bold bg-secondary hover:bg-secondary/90 active:scale-[0.99] text-white flex items-center justify-between transition-all shadow-md shadow-secondary/20 cursor-pointer"
                   >
-                    <UserX className="w-3.5 h-3.5" />
-                    <span>{isDeletingAccount ? '삭제 진행 중...' : '현재 계정 Firebase에서 영구 삭제'}</span>
+                    <div className="flex items-center space-x-2">
+                      <ArrowRightLeft className="w-4 h-4" />
+                      <span>다른 구글 계정으로 전환 (추천)</span>
+                    </div>
+                    <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full font-normal">계정 선택창 열기</span>
                   </button>
-                </div>
-              </div>
 
-              <button 
-                type="button"
-                onClick={() => setShowLogoutConfirm(false)}
-                className="w-full py-2.5 rounded-xl font-bold text-xs bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
-              >
-                취소하고 돌아가기
-              </button>
-            </div>
-          </div>
-        )}
+                  {/* Normal Logout */}
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-bold bg-white/10 hover:bg-white/15 active:scale-[0.99] text-white flex items-center justify-between transition-all cursor-pointer"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <LogOut className="w-4 h-4 text-surface-dim" />
+                      <span>단순 로그아웃</span>
+                    </div>
+                    <span className="text-[10px] text-surface-dim font-normal">세션 종료</span>
+                  </button>
+
+                  {/* Permanent Firebase Account Delete */}
+                  <div className="pt-2 border-t border-white/10 flex flex-col space-y-1.5">
+                    <div className="flex items-center space-x-1.5 text-[11px] text-red-400 font-bold">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>파이어베이스 계정 완전 삭제</span>
+                    </div>
+                    <p className="text-[10px] text-surface-dim leading-relaxed">
+                      현재 구글 계정 정보를 Firebase 인증 시스템에서 완전히 삭제합니다. 삭제 후 새 계정으로 언제든지 다시 로그인할 수 있습니다.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={isDeletingAccount}
+                      onClick={handleDeleteCurrentAccount}
+                      className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 hover:text-red-200 flex items-center justify-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <UserX className="w-3.5 h-3.5" />
+                      <span>{isDeletingAccount ? '삭제 진행 중...' : '현재 계정 Firebase에서 영구 삭제'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <button 
+                  type="button"
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="w-full py-2.5 rounded-xl font-bold text-xs bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+                >
+                  취소하고 돌아가기
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Custom Delete Confirmation Modal */}
-        {deleteTarget && (
-          <div className="absolute inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md rounded-2xl md:rounded-3xl">
-            <div className="bg-[#0a1120] border border-white/20 w-full max-w-md p-6 rounded-2xl flex flex-col items-center shadow-2xl relative">
-              <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4 text-red-500">
-                <Trash2 className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg md:text-xl font-bold text-white mb-2 text-center">정말 삭제하시겠습니까?</h3>
-              <div className="w-full bg-white/5 border border-white/5 rounded-xl p-3 mb-4 text-center">
-                <p className="text-xs text-surface-dim mb-0.5">삭제 대상 이름</p>
-                <p className="text-sm text-white font-bold truncate">{deleteTarget.title}</p>
-              </div>
-              <p className="text-xs md:text-sm text-surface-dim mb-6 text-center">
-                이 작업은 되돌릴 수 없으며, 해당 데이터가 데이터베이스에서 영구적으로 완전히 삭제됩니다.
-              </p>
-              <div className="flex w-full space-x-3">
-                <button 
-                  type="button"
-                  onClick={() => setDeleteTarget(null)}
-                  className="flex-1 py-2.5 md:py-3 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/20 text-white transition-colors"
-                >
-                  취소
-                </button>
-                <button 
-                  type="button"
-                  onClick={executeDelete}
-                  className="flex-1 py-2.5 md:py-3 rounded-xl font-bold text-sm bg-red-600/90 hover:bg-red-600 text-white transition-colors shadow-lg shadow-red-900/20"
-                >
-                  삭제하기
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {deleteTarget && (
+            <motion.div
+              key="admin-delete-confirm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={MODAL_BACKDROP_TRANSITION}
+              onClick={() => setDeleteTarget(null)}
+              className="absolute inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md rounded-2xl md:rounded-3xl"
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 8, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.95, y: 6, opacity: 0 }}
+                transition={MODAL_PANEL_TRANSITION}
+                onClick={e => e.stopPropagation()}
+                className="bg-[#0a1120] border border-white/20 w-full max-w-md p-6 rounded-2xl flex flex-col items-center shadow-2xl relative"
+              >
+                <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4 text-red-500">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg md:text-xl font-bold text-white mb-2 text-center">정말 삭제하시겠습니까?</h3>
+                <div className="w-full bg-white/5 border border-white/5 rounded-xl p-3 mb-4 text-center">
+                  <p className="text-xs text-surface-dim mb-0.5">삭제 대상 이름</p>
+                  <p className="text-sm text-white font-bold truncate">{deleteTarget.title}</p>
+                </div>
+                <p className="text-xs md:text-sm text-surface-dim mb-6 text-center">
+                  이 작업은 되돌릴 수 없으며, 해당 데이터가 데이터베이스에서 영구적으로 완전히 삭제됩니다.
+                </p>
+                <div className="flex w-full space-x-3">
+                  <button 
+                    type="button"
+                    onClick={() => setDeleteTarget(null)}
+                    className="flex-1 py-2.5 md:py-3 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                  >
+                    취소
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={executeDelete}
+                    className="flex-1 py-2.5 md:py-3 rounded-xl font-bold text-sm bg-red-600/90 hover:bg-red-600 active:scale-[0.98] text-white transition-all shadow-lg shadow-red-900/20 cursor-pointer"
+                  >
+                    삭제하기
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }

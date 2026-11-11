@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Store, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
+import { PORTAL_CARD_TRANSITION, PORTAL_HEADER_TRANSITION } from '../utils/motion';
 
 export function ToolHubPage() {
   const tools = [
@@ -8,7 +9,7 @@ export function ToolHubPage() {
       id: 'pos',
       title: '매점 POS 터미널',
       subtitle: '상품 결제 · 재고 관리 · 일일 마감 정산',
-      description: '태블릿 및 데스크톱 터치 기반 상품 결제(현금·계좌이체), 실시간 재고 연동, 기프티콘 할인 및 마감 정산 통합 시스템입니다.',
+      description: '태블릿 및 데스크톱 터치 기반 상품 결제(현금·계좌이체), 실시간 재고 연동, 직접 할인 적용 및 마감 정산 통합 시스템입니다.',
       icon: Store,
       path: '/tool/pos',
     },
@@ -18,9 +19,9 @@ export function ToolHubPage() {
     <div className="max-w-7xl w-full mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 flex flex-col space-y-12 sm:space-y-16">
       {/* Section 1: Editorial Header matching Dashboard.tsx */}
       <motion.div
-        initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
-        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-        transition={{ duration: 0.7 }}
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={PORTAL_HEADER_TRANSITION}
         className="flex flex-col md:flex-row md:items-end justify-between border-b border-surface/10 pb-10 sm:pb-12 gap-6"
       >
         <div>
@@ -41,14 +42,14 @@ export function ToolHubPage() {
           return (
             <motion.div
               key={tool.id}
-              initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ duration: 0.5, delay: idx * 0.1 }}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...PORTAL_CARD_TRANSITION, delay: 0.04 + idx * 0.05 }}
               className="lg:col-span-8"
             >
               <Link
                 to={tool.path}
-                className="group block p-6 sm:p-8 md:p-10 rounded-3xl bg-[#0a1120] border border-white/5 hover:border-white/15 transition-all duration-300 flex flex-col justify-between h-full"
+                className="group block p-6 sm:p-8 md:p-10 rounded-3xl bg-[#0a1120] border border-white/5 hover:border-white/15 active:scale-[0.995] transition-all duration-200 flex flex-col justify-between h-full"
               >
                 <div>
                   <div className="flex items-center justify-between mb-6">
@@ -81,9 +82,9 @@ export function ToolHubPage() {
         })}
 
         <motion.div
-          initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          transition={{ duration: 0.5, delay: 0.15 }}
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...PORTAL_CARD_TRANSITION, delay: 0.08 }}
           className="lg:col-span-4 flex flex-col justify-between p-6 sm:p-8 rounded-3xl border border-white/5 bg-white/[0.01]"
         >
           <div>

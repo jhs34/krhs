@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Banknote, Check, RotateCcw, Ticket, X, User } from 'lucide-react';
+import { POS_MODAL_BACKDROP_TRANSITION, POS_MODAL_PANEL_TRANSITION, POS_BUMP_TRANSITION } from '../../utils/motion';
 
 interface PosCashModalProps {
   totalAmount: number; // 할인 차감 후 실결제 금액
@@ -48,11 +49,20 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md select-none">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={POS_MODAL_BACKDROP_TRANSITION}
+      onClick={onClose}
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md select-none"
+    >
       <motion.div
-        initial={{ scale: 0.96, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.96, opacity: 0 }}
+        initial={{ scale: 0.96, opacity: 0, y: 6 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.96, opacity: 0, y: 6 }}
+        transition={POS_MODAL_PANEL_TRANSITION}
+        onClick={e => e.stopPropagation()}
         className="bg-[#0a1120] border border-white/10 w-full max-w-md rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto"
       >
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
@@ -119,14 +129,20 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-surface-dim">받은 현금</span>
             <div className="flex items-center space-x-2">
-              <span className="text-lg font-bold font-mono tabular-nums text-emerald-400">
+              <motion.span
+                key={effectiveReceived}
+                initial={{ scale: 1.07 }}
+                animate={{ scale: 1 }}
+                transition={POS_BUMP_TRANSITION}
+                className="text-lg font-bold font-mono tabular-nums text-emerald-400 inline-block origin-right"
+              >
                 {effectiveReceived.toLocaleString()}원
-              </span>
+              </motion.span>
               {cashReceived > 0 && (
                 <button
                   type="button"
                   onClick={() => setCashReceived(0)}
-                  className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+                  className="p-1 rounded-lg bg-white/5 hover:bg-white/10 active:scale-90 text-surface-dim hover:text-white transition-all cursor-pointer"
                   title="초기화"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -137,15 +153,19 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
 
           <div className="pt-2.5 border-t border-white/10 flex items-center justify-between">
             <span className="text-xs font-bold text-surface-dim">거스름돈</span>
-            <span
-              className={`text-xl font-black font-mono tabular-nums ${
+            <motion.span
+              key={changeAmount}
+              initial={{ scale: 1.07 }}
+              animate={{ scale: 1 }}
+              transition={POS_BUMP_TRANSITION}
+              className={`text-xl font-black font-mono tabular-nums inline-block origin-right ${
                 isInsufficient ? 'text-rose-400' : 'text-amber-300'
               }`}
             >
               {isInsufficient
                 ? `${Math.abs(changeAmount).toLocaleString()}원 부족`
                 : `${changeAmount.toLocaleString()}원`}
-            </span>
+            </motion.span>
           </div>
         </div>
 
@@ -157,7 +177,7 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
                 key={amt}
                 type="button"
                 onClick={() => handleAddCash(amt)}
-                className="py-2.5 px-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/15 border border-white/10 font-mono tabular-nums text-xs sm:text-sm font-bold text-white transition-colors cursor-pointer"
+                className="py-2.5 px-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/15 active:scale-95 border border-white/10 font-mono tabular-nums text-xs sm:text-sm font-bold text-white transition-all cursor-pointer"
               >
                 +{amt.toLocaleString()}
               </button>
@@ -165,7 +185,7 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
             <button
               type="button"
               onClick={handleExactAmount}
-              className="py-2.5 px-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs sm:text-sm font-bold text-emerald-300 transition-colors cursor-pointer"
+              className="py-2.5 px-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 border border-emerald-500/30 text-xs sm:text-sm font-bold text-emerald-300 transition-all cursor-pointer"
             >
               정액 수납
             </button>
@@ -202,13 +222,13 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
             type="button"
             disabled={isInsufficient}
             onClick={handleConfirm}
-            className="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:pointer-events-none text-white text-xs sm:text-sm font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+            className="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-white text-xs sm:text-sm font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
           >
             <Check className="w-4 h-4" />
             <span>현금 결제 완료</span>
           </button>
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 };
