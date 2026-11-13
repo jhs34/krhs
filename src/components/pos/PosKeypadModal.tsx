@@ -93,7 +93,7 @@ export function PosKeypadModal({ cartItem, onConfirm, onClose }: PosKeypadModalP
               initial={{ scale: 1.08 }}
               animate={{ scale: 1 }}
               transition={POS_BUMP_TRANSITION}
-              className="text-3xl sm:text-4xl font-black tracking-tight font-mono tabular-nums text-white leading-none origin-right"
+              className="text-3xl sm:text-4xl font-bold tracking-tight font-mono tabular-nums text-white leading-none origin-right"
             >
               {valStr}
               <span className="text-sm font-normal text-surface-dim ml-1">개</span>
@@ -108,7 +108,7 @@ export function PosKeypadModal({ cartItem, onConfirm, onClose }: PosKeypadModalP
               key={n}
               type="button"
               onClick={() => handleAddPreset(n)}
-              className="py-2 rounded-lg text-xs font-bold font-mono tabular-nums bg-white/[0.03] hover:bg-white/[0.08] text-secondary-container border border-white/5 active:scale-95 transition-all cursor-pointer"
+              className="py-2 rounded-lg text-xs font-bold font-mono tabular-nums bg-white/[0.03] hover:bg-white/[0.08] text-secondary-container border border-white/5 active:scale-95 transition-[background-color,transform] cursor-pointer"
             >
               +{n}
             </button>
@@ -126,7 +126,7 @@ export function PosKeypadModal({ cartItem, onConfirm, onClose }: PosKeypadModalP
                 else if (btn === '⌫') handleBackspace();
                 else handleDigit(btn);
               }}
-              className={`py-3 rounded-lg text-lg font-bold font-mono tabular-nums transition-all active:scale-95 cursor-pointer ${
+              className={`py-3 rounded-lg text-lg font-bold font-mono tabular-nums transition-[background-color,color,transform] active:scale-95 cursor-pointer ${
                 btn === 'C'
                   ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20'
                   : btn === '⌫'
@@ -144,7 +144,7 @@ export function PosKeypadModal({ cartItem, onConfirm, onClose }: PosKeypadModalP
           type="button"
           disabled={currentCount <= 0}
           onClick={handleSave}
-          className="w-full mt-1 py-3.5 rounded-xl font-bold text-sm text-white bg-secondary hover:bg-secondary/90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center space-x-2 cursor-pointer"
+          className="w-full mt-1 py-3.5 rounded-xl font-bold text-sm text-white bg-secondary hover:bg-secondary/90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed transition-[background-color,transform] flex items-center justify-center space-x-2 cursor-pointer"
         >
           <Check className="w-4 h-4" />
           <span>수량 적용</span>

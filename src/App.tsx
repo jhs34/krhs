@@ -31,12 +31,20 @@ function getEndOfLocalDayMs(input: Date | string): number {
   return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 23, 59, 59, 999).getTime();
 }
 
-function HeroSection() {
+interface HeroSectionProps {
+  upcomingEvents: AcademicEvent[];
+  onSelectEvent: (event: AcademicEvent) => void;
+}
+
+function HeroSection({ upcomingEvents, onSelectEvent }: HeroSectionProps) {
   const { isFullscreen, toggleFullscreen } = useFullscreen();
+  const nextEvent = upcomingEvents[0] || null;
+  const formatHeroDate = (d: Date) =>
+    `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 
   return (
-    <section className="relative w-full h-[100dvh] flex flex-col justify-between overflow-hidden">
-      {/* Blurred Background with Overlays */}
+    <section className="relative w-full min-h-[100dvh] flex flex-col justify-between overflow-hidden">
+      {/* Blurred Background with Overlays (Intentionally Preserved) */}
       <div className="absolute inset-0 z-0 bg-[#0f172a]">
         <div 
           className="absolute inset-0 bg-cover bg-center opacity-70"
@@ -45,87 +53,112 @@ function HeroSection() {
         <div className="absolute inset-0 bg-[#001f3f]/70 mix-blend-multiply"></div>
         <div className="absolute inset-0 bg-primary/60"></div>
         {/* Subtle curved glow at the bottom matching the image */}
-        <div className="absolute bottom-0 left-0 right-0 h-[60%] bg-gradient-to-t from-[#000613] via-[#000613]/80 to-transparent"></div>
+        <div className="absolute bottom-0 left-0 right-0 h-[60%] bg-gradient-to-t from-[#040812] via-[#040812]/80 to-transparent"></div>
         <div className="absolute -bottom-[20%] -left-[10%] w-[120%] h-[50%] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-secondary/10 via-transparent to-transparent rounded-[100%] blur-[100px]"></div>
       </div>
 
-      {/* Top Header - Logo & Fullscreen Action */}
-      <header className="relative z-50 w-full pt-8 sm:pt-10 px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 max-w-7xl w-full mx-auto flex items-center justify-between">
+      {/* Top Header - Single Brand Lockup & Quiet Fullscreen Action */}
+      <header className="relative z-50 w-full pt-7 sm:pt-9 px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 max-w-7xl mx-auto flex items-center justify-between gap-6">
         <motion.div 
-          initial={{ opacity: 0, y: -12 }}
+          initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, ease: EASE_OUT_EXPO }}
-          className="flex items-center space-x-3 md:space-x-4"
+          transition={{ duration: 0.35, ease: EASE_OUT_EXPO }}
+          className="flex items-center space-x-3 shrink-0"
         >
           <img 
             src={`${import.meta.env.BASE_URL}logo.png`} 
             alt="한국철도고등학교 로고" 
-            className="w-8 md:w-10 h-auto drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)] brightness-0 invert"
+            className="w-7 md:w-8 h-auto brightness-0 invert opacity-95 block shrink-0"
           />
-          <div className="flex items-center space-x-2.5 md:space-x-4">
-            <span className="font-sans font-bold text-xl md:text-2xl text-white tracking-tighter drop-shadow-md">한국철도고등학교</span>
-            <span className="font-space font-medium text-[13px] text-white/85 tracking-[0.2em] uppercase hidden sm:block">KOREA RAILROAD HIGH SCHOOL</span>
-          </div>
+          <span className="inline-flex items-center font-sans font-semibold text-[22px] leading-none text-white tracking-tight whitespace-nowrap">
+            한국철도고등학교
+          </span>
         </motion.div>
 
-        {/* Hero Fullscreen Toggle Button */}
         <motion.button
           type="button"
           onClick={toggleFullscreen}
           title={isFullscreen ? '전체화면 종료 (ESC)' : '전체화면 모드 전환'}
-          initial={{ opacity: 0, y: -12 }}
+          initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, delay: 0.06, ease: EASE_OUT_EXPO }}
-          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white/90 hover:text-white border border-white/20 backdrop-blur-md text-xs font-medium transition-all cursor-pointer shadow-sm"
+          transition={{ duration: 0.35, delay: 0.04, ease: EASE_OUT_EXPO }}
+          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] active:scale-[0.98] text-white/85 hover:text-white border border-white/10 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap shrink-0"
           aria-label={isFullscreen ? '전체화면 종료' : '전체화면 모드'}
         >
           {isFullscreen ? (
-            <Minimize className="w-3.5 h-3.5 text-secondary shrink-0" />
+            <Minimize className="w-3.5 h-3.5 text-surface-dim shrink-0" />
           ) : (
-            <Maximize className="w-3.5 h-3.5 text-secondary shrink-0" />
+            <Maximize className="w-3.5 h-3.5 text-surface-dim shrink-0" />
           )}
           <span className="hidden sm:inline font-sans">{isFullscreen ? '전체화면 종료' : '전체화면'}</span>
         </motion.button>
       </header>
 
-      {/* Center Text Editorial Style */}
-      <div className="relative z-10 flex flex-col items-center justify-center flex-grow px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 max-w-7xl w-full mx-auto">
+      {/* Main Hero Content - Left-Aligned Institutional Composition */}
+      <div className="relative z-10 flex flex-col justify-center flex-grow px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 max-w-7xl w-full mx-auto py-12">
         <motion.div 
-          initial={{ opacity: 0, y: 18 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55, delay: 0.1, ease: EASE_OUT_EXPO }}
-          className="text-center"
+          transition={{ duration: 0.4, delay: 0.06, ease: EASE_OUT_EXPO }}
+          className="max-w-3xl"
         >
-          <h2 className="text-white/80 font-space font-semibold text-[10px] sm:text-xs md:text-sm tracking-[0.2em] sm:tracking-[0.3em] mb-3 sm:mb-4 uppercase drop-shadow-md leading-relaxed px-2">
-            Korea Railroad High School
-          </h2>
-          <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black text-white tracking-tighter leading-[1.35] md:leading-[1.1] font-sans drop-shadow-2xl mb-6 md:mb-8 break-keep">
-            한국철도고등학교<br />
-            <span className="block mt-2 sm:mt-4 text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-b from-white to-blue-200 text-transparent bg-clip-text">방문을 환영합니다.</span>
-          </h1>
-          <p className="text-sm sm:text-base md:text-lg text-white/70 font-medium max-w-2xl mx-auto tracking-tight leading-relaxed break-keep px-4">
-            KRHS Portal
+          <p className="text-xs sm:text-sm text-white/65 font-medium mb-3">
+            학사 안내 포털
           </p>
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-semibold text-white tracking-tight leading-[1.15] font-sans mb-5 break-keep [text-wrap:balance]">
+            학사일정과 주간 시간표,<br />
+            학교 공지를 한곳에서
+          </h1>
+          <p className="text-sm sm:text-base md:text-lg text-white/70 font-normal max-w-xl leading-relaxed break-keep mb-8">
+            재학생과 교직원을 위한 한국철도고등학교 통합 학사 안내 화면입니다. 학급별 시간표와 수행평가 메모, 배부 문서를 바로 조회할 수 있습니다.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                document.getElementById('dashboard')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="h-11 px-5 rounded-lg bg-white text-[#040812] hover:bg-white/90 active:scale-[0.98] text-sm font-semibold transition-colors inline-flex items-center space-x-2 cursor-pointer"
+            >
+              <span>대시보드 바로가기</span>
+              <ArrowDown className="w-4 h-4" strokeWidth={1.75} />
+            </button>
+            <a
+              href="#/timetable"
+              className="h-11 px-5 rounded-lg bg-white/[0.07] hover:bg-white/[0.12] active:scale-[0.98] text-white border border-white/15 text-sm font-medium transition-colors inline-flex items-center cursor-pointer"
+            >
+              주간 시간표 조회
+            </a>
+          </div>
         </motion.div>
       </div>
 
-      {/* Scroll Indicator */}
-      <motion.div 
-        onClick={() => {
-          document.getElementById('dashboard')?.scrollIntoView({ behavior: 'smooth' });
-        }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.8 }}
-        transition={{ duration: 0.5, delay: 0.35 }}
-        className="relative z-10 flex flex-col items-center pb-12 group cursor-pointer hover:opacity-100 transition-opacity"
+      {/* Bottom Live Summary Strip */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.14, ease: EASE_OUT_EXPO }}
+        className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 pb-8 sm:pb-10"
       >
-        <span className="text-white text-xs font-medium mb-4 tracking-tight font-sans">아래로 스크롤하여 더보기</span>
-        <motion.div 
-          animate={{ y: [0, 7, 0] }} 
-          transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-        >
-          <ArrowDown className="w-5 h-5 text-white" strokeWidth={2} />
-        </motion.div>
+        <div className="pt-5 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm text-white/70">
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-1 min-w-0">
+            <span className="text-white/50 shrink-0">다음 학사일정</span>
+            {nextEvent ? (
+              <button
+                type="button"
+                onClick={() => onSelectEvent(nextEvent)}
+                className="inline-flex items-center gap-2 text-left text-white hover:text-secondary-container transition-colors truncate cursor-pointer"
+              >
+                <span className="font-mono tabular-nums text-white/75 shrink-0">{formatHeroDate(nextEvent.date)}</span>
+                <span aria-hidden="true" className="text-white/30">·</span>
+                <span className="font-medium truncate">{nextEvent.title}</span>
+              </button>
+            ) : (
+              <span className="text-white/60">예정된 일정 없음</span>
+            )}
+          </div>
+        </div>
       </motion.div>
     </section>
   );
@@ -248,7 +281,7 @@ function AppContent() {
             description: event.description || '',
             date: event.date.toISOString(),
             endDate: event.endDate ? event.endDate.toISOString() : event.date.toISOString(),
-            color: event.color || '#64ffda',
+            color: event.color || '#3b82f6',
             isHoliday: event.isHoliday || false,
             isArchived: true,
             archivedAt: new Date().toISOString()
@@ -392,7 +425,12 @@ function AppContent() {
   return (
     <div className="min-h-screen flex flex-col relative selection:bg-secondary selection:text-white bg-background">
 
-      {isHome && <HeroSection />}
+      {isHome && (
+        <HeroSection
+          upcomingEvents={upcomingEvents}
+          onSelectEvent={(ev) => handleItemClick(ev, 'event')}
+        />
+      )}
       
       <Navigation 
         isAdmin={isAdmin}
@@ -476,16 +514,16 @@ function AppContent() {
         </AnimatePresence>
       </main>
 
-      <footer className="relative z-50 bg-[#050a14] py-8 md:py-12 border-t border-white/5">
-        <div className="max-w-7xl w-full mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 flex flex-col md:flex-row justify-between items-center text-surface-dim text-xs md:text-sm font-sans gap-4 md:gap-0">
-           <div className="flex items-center space-x-2 md:space-x-3">
-             <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-5 md:w-6 opacity-100 brightness-0 invert border-white" />
-             <span>&copy; 2026 KOREA RAILROAD HIGH SCHOOL</span>
+      <footer className="relative z-50 bg-[#03060e] py-8 md:py-10 border-t border-white/[0.08]">
+        <div className="max-w-7xl w-full mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 flex flex-col md:flex-row justify-between items-center text-surface-dim text-xs sm:text-sm font-sans gap-4 md:gap-0">
+           <div className="flex items-center space-x-2.5">
+             <img src={`${import.meta.env.BASE_URL}logo.png`} alt="한국철도고등학교" className="w-5 h-auto opacity-85 brightness-0 invert" />
+             <span>&copy; 2026 한국철도고등학교</span>
            </div>
-           <div className="flex space-x-4 md:space-x-6 uppercase font-space tracking-wider md:tracking-widest text-[10px] md:text-xs">
-             <button onClick={() => setSiteInfoPopup({ title: '공지사항', content: getSiteInfoContent('announcements', '한국철도고등학교 학생들을 위한 지능형 학사 안내 터미널 관련 공지사항입니다.\n\n- (예시) 신규 업데이트가 있을 경우 여기에 안내됩니다.') })} className="hover:text-white transition-colors cursor-pointer text-left">공지사항</button>
-             <button onClick={() => setSiteInfoPopup({ title: '업데이트', content: getSiteInfoContent('updates', '시스템 업데이트 내역:\n\n- 디자인 리뉴얼\n- 메인 학사일정 바로가기 추가\n- 데이터베이스 연동 완료') })} className="hover:text-white transition-colors cursor-pointer text-left">업데이트</button>
-             <button onClick={() => setSiteInfoPopup({ title: '문의하기', content: getSiteInfoContent('contact', '개발자 연락처: jhs34.kr@gmail.com\n\n문의 사항이 있으시면 위 이메일로 연락주시기 바랍니다.') })} className="hover:text-white transition-colors cursor-pointer text-left">문의하기</button>
+           <div className="flex items-center space-x-5 text-xs sm:text-sm">
+             <button onClick={() => setSiteInfoPopup({ title: '공지사항', content: getSiteInfoContent('announcements', '한국철도고등학교 학사 안내 포털 관련 공지사항입니다.\n\n- 신규 안내 사항이 있을 경우 이곳에 게시됩니다.') })} className="hover:text-white transition-colors cursor-pointer text-left">공지사항</button>
+             <button onClick={() => setSiteInfoPopup({ title: '업데이트 내역', content: getSiteInfoContent('updates', '주요 변경 내역:\n\n- 학사일정 및 주간 시간표 조회 화면 개선\n- 공지사항 및 자료실 첨부파일 연동') })} className="hover:text-white transition-colors cursor-pointer text-left">업데이트 내역</button>
+             <button onClick={() => setSiteInfoPopup({ title: '문의하기', content: getSiteInfoContent('contact', '담당자 연락처: jhs34.kr@gmail.com\n\n문의 사항이 있으시면 위 이메일로 연락주시기 바랍니다.') })} className="hover:text-white transition-colors cursor-pointer text-left">문의하기</button>
            </div>
         </div>
       </footer>

@@ -90,14 +90,12 @@ export function Calendar({
       const wEndStr = format(week[6], 'yyyy-MM-dd');
       const weekDateStrings = week.map(d => format(d, 'yyyy-MM-dd'));
 
-      // Filter events intersecting with this week using pure ISO dates list
       const weekEvents = activeEvents.filter(e => {
         const eStartStr = format(e.date, 'yyyy-MM-dd');
         const eEndStr = e.endDate ? format(e.endDate, 'yyyy-MM-dd') : eStartStr;
         return eStartStr <= wEndStr && eEndStr >= wStartStr;
       });
 
-      // Sort: longer duration first, then earlier start time
       const sortedEvents = [...weekEvents].sort((a, b) => {
         const aStartStr = format(a.date, 'yyyy-MM-dd');
         const aEndStr = a.endDate ? format(a.endDate, 'yyyy-MM-dd') : aStartStr;
@@ -111,7 +109,6 @@ export function Calendar({
         return aStartStr.localeCompare(bStartStr);
       });
 
-      // Grid Slot Assignment
       const slots: (AcademicEvent | null)[][] = [];
       const positionedEvents: { event: AcademicEvent; startIdx: number; endIdx: number; slot: number }[] = [];
 
@@ -165,7 +162,7 @@ export function Calendar({
       });
 
       const maxSlot = positionedEvents.length > 0 ? Math.max(...positionedEvents.map(p => p.slot)) : -1;
-      const maxVisibleSlots = 2; // Show 2 layers of horizontal banner slots
+      const maxVisibleSlots = 2;
 
       const getHiddenCount = (day: Date) => {
         const dayStr = format(day, 'yyyy-MM-dd');
@@ -203,74 +200,76 @@ export function Calendar({
 
   return (
     <>
-      <div className="bg-[#0a1120] rounded-3xl border border-white/5 overflow-hidden p-4 md:p-5 lg:p-6 relative">
+      <div className="bg-[#0a1120] rounded-2xl border border-white/[0.08] overflow-hidden p-4 md:p-5 lg:p-6 relative">
         <div className="flex justify-between items-center mb-3 md:mb-5">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.h3
-            key={format(monthStart, 'yyyy-MM')}
-            initial={{ opacity: 0, y: direction >= 0 ? 6 : -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: direction >= 0 ? -6 : 6 }}
-            transition={{ duration: 0.16, ease: EASE_OUT_EXPO }}
-            className="font-sans font-bold text-lg md:text-xl lg:text-2xl text-white tracking-tight tabular-nums"
-          >
-            {format(currentDate, 'yyyy년 M월')}
-          </motion.h3>
-        </AnimatePresence>
-        <div className="flex space-x-1 md:space-x-2 items-center">
-          <button
-            onClick={() => {
-              const today = new Date();
-              setDirection(today >= currentDate ? 1 : -1);
-              onDateChange(today);
-              onSelectDate(today);
-              setPopupDate(null);
-            }}
-            className="px-3 md:px-4 h-8 md:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xs md:text-sm font-bold text-white hover:bg-white/10 active:scale-95 transition-all mr-1 md:mr-2 cursor-pointer"
-          >
-            오늘
-          </button>
-          <button 
-            onClick={prevMonth}
-            className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
-          >
-            <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
-          </button>
-          <button 
-            onClick={nextMonth}
-            className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
-          >
-            <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2 md:mb-3">
-        {weekDays.map((day, idx) => (
-          <div 
-            key={day} 
-            className={`text-center font-medium text-xs md:text-sm py-0.5 md:py-1 ${
-              idx === 0 ? 'text-red-400' : idx === 6 ? 'text-blue-400' : 'text-surface-dim'
-            }`}
-          >
-            {day}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.h3
+              key={format(monthStart, 'yyyy-MM')}
+              initial={{ opacity: 0, y: direction >= 0 ? 6 : -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: direction >= 0 ? -6 : 6 }}
+              transition={{ duration: 0.16, ease: EASE_OUT_EXPO }}
+              className="font-sans font-semibold text-lg md:text-xl lg:text-2xl text-white tracking-tight tabular-nums"
+            >
+              {format(currentDate, 'yyyy년 M월')}
+            </motion.h3>
+          </AnimatePresence>
+          <div className="flex space-x-1.5 md:space-x-2 items-center">
+            <button
+              onClick={() => {
+                const today = new Date();
+                setDirection(today >= currentDate ? 1 : -1);
+                onDateChange(today);
+                onSelectDate(today);
+                setPopupDate(null);
+              }}
+              className="px-3 md:px-3.5 h-8 md:h-9 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center text-xs md:text-sm font-semibold text-white hover:bg-white/[0.1] transition-colors mr-0.5 cursor-pointer whitespace-nowrap"
+            >
+              오늘
+            </button>
+            <button 
+              onClick={prevMonth}
+              className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center text-white hover:bg-white/[0.1] transition-colors cursor-pointer"
+              aria-label="이전 달"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={nextMonth}
+              className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center text-white hover:bg-white/[0.1] transition-colors cursor-pointer"
+              aria-label="다음 달"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
-        ))}
-      </div>
+        </div>
 
-      <div>
-        <AnimatePresence mode="wait" initial={false} custom={direction}>
-          <motion.div
-            key={monthStart.toISOString()}
-            custom={direction}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration: 0.2, ease: EASE_OUT_EXPO }}
-            className="flex flex-col space-y-1.5 md:space-y-2.5"
-          >
-            {weeksData.map(({ week, weekEvents, positionedEvents, maxSlot, maxVisibleSlots, weekHiddenCounts, getHiddenCount }, weekIdx) => {
+        <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2 md:mb-3">
+          {weekDays.map((day, idx) => (
+            <div 
+              key={day} 
+              className={`text-center font-medium text-xs md:text-sm py-0.5 md:py-1 ${
+                idx === 0 ? 'text-red-400' : idx === 6 ? 'text-blue-400' : 'text-surface-dim'
+              }`}
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+
+        <div>
+          <AnimatePresence mode="wait" initial={false} custom={direction}>
+            <motion.div
+              key={monthStart.toISOString()}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.2, ease: EASE_OUT_EXPO }}
+              className="flex flex-col space-y-1.5 md:space-y-2"
+            >
+              {weeksData.map(({ week, positionedEvents, maxSlot, maxVisibleSlots, getHiddenCount }, weekIdx) => {
                 return (
                   <div key={weekIdx} className="relative w-full">
                     {/* Background Grid Cells */}
@@ -307,18 +306,18 @@ export function Calendar({
                               setPopupDate(day);
                             }}
                             className={`
-                              min-h-[58px] sm:min-h-[64px] md:min-h-[82px] lg:min-h-[94px] xl:min-h-[105px] p-0.5 md:p-1.5 rounded-[4px] md:rounded-lg border flex flex-col items-center md:items-start justify-start cursor-pointer transition-all relative
+                              min-h-[62px] sm:min-h-[68px] md:min-h-[84px] lg:min-h-[96px] xl:min-h-[106px] p-1 md:p-1.5 rounded-md md:rounded-lg border flex flex-col items-center md:items-start justify-start cursor-pointer transition-colors relative
                               ${!isCurrentMonth ? 'opacity-30' : 'opacity-100'}
                               ${isSelected 
-                                ? 'border-white bg-white/10 text-white shadow-md shadow-white/5' 
-                                : 'border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/20 text-white'
+                                ? 'border-white/60 bg-white/[0.09] text-white' 
+                                : 'border-white/[0.06] bg-white/[0.025] hover:bg-white/[0.06] hover:border-white/[0.16] text-white'
                               }
                             `}
                           >
                             <div className="w-full flex items-center justify-between shrink-0 mb-1 px-0.5">
-                              <span className={`text-[8px] sm:text-[10px] md:text-xs font-space shrink-0 px-1 sm:px-1.5 py-[1px] md:py-0.5 rounded-full ${
+                              <span className={`text-[10px] sm:text-xs font-mono tabular-nums shrink-0 px-1.5 py-0.5 rounded-md ${
                                 isSelected 
-                                  ? 'bg-white text-black font-extrabold' 
+                                  ? 'bg-white text-black font-bold' 
                                   : `${dateColorClass} font-medium`
                               }`}>
                                 {format(day, 'd')}
@@ -331,8 +330,8 @@ export function Calendar({
                                     onSelectDate(day);
                                     setPopupDate(day);
                                   }}
-                                  className="pointer-events-auto h-[13px] sm:h-[15px] md:h-[17px] px-1 sm:px-1.5 rounded bg-zinc-700/80 hover:bg-zinc-600 border border-zinc-500/40 text-white font-bold font-sans text-[7px] sm:text-[8px] md:text-[9px] leading-none flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm cursor-pointer select-none"
-                                  title={`${hiddenCount}개의 일정이 더 있습니다 (클릭 시 확인)`}
+                                  className="pointer-events-auto h-4 sm:h-[18px] px-1 sm:px-1.5 rounded bg-white/[0.12] hover:bg-white/[0.2] text-white font-semibold font-mono tabular-nums text-[9px] sm:text-[10px] leading-none flex items-center justify-center transition-colors cursor-pointer select-none"
+                                  title={`${hiddenCount}개의 일정이 더 있습니다`}
                                 >
                                   +{hiddenCount}
                                 </span>
@@ -344,7 +343,7 @@ export function Calendar({
                     </div>
 
                     {/* Continuous Overlay Banner Grid Layer */}
-                    <div className="absolute inset-x-0 top-6 sm:top-[28px] md:top-8 lg:top-[38px] xl:top-[42px] bottom-0.5 md:bottom-1 pointer-events-none flex flex-col space-y-[2px] md:space-y-1 overflow-hidden select-none">
+                    <div className="absolute inset-x-0 top-6 sm:top-7 md:top-8 lg:top-9 bottom-0.5 md:bottom-1 pointer-events-none flex flex-col space-y-0.5 md:space-y-1 overflow-hidden select-none">
                       {Array.from({ length: Math.min(maxVisibleSlots, maxSlot + 1) }).map((_, slotIdx) => {
                         const slotEvents = positionedEvents.filter(p => p.slot === slotIdx);
                         return (
@@ -369,9 +368,9 @@ export function Calendar({
                                     setPopupDate(event.date);
                                   }}
                                   className={`
-                                    pointer-events-auto h-[12px] sm:h-[15px] md:h-[18px] lg:h-[20px] shrink-0 flex items-center justify-start cursor-pointer transition-all select-none overflow-hidden hover:brightness-110 active:scale-[0.98] shadow-sm
-                                    ${isStartOfEvent ? 'rounded-l-sm pl-1 sm:pl-1.5 md:pl-2 ml-[3px] md:ml-[4px]' : 'rounded-l-none pl-1 md:pl-1.5'}
-                                    ${isEndOfEvent ? 'rounded-r-sm pr-1 sm:pr-1.5 md:pr-2 mr-[3px] md:mr-[4px]' : 'rounded-r-none pr-1 md:pr-1.5'}
+                                    pointer-events-auto h-[14px] sm:h-[16px] md:h-[19px] lg:h-[21px] shrink-0 flex items-center justify-start cursor-pointer transition-opacity select-none overflow-hidden hover:opacity-90
+                                    ${isStartOfEvent ? 'rounded-l pl-1 sm:pl-1.5 md:pl-2 ml-[3px] md:ml-[4px]' : 'rounded-l-none pl-1 md:pl-1.5'}
+                                    ${isEndOfEvent ? 'rounded-r pr-1 sm:pr-1.5 md:pr-2 mr-[3px] md:mr-[4px]' : 'rounded-r-none pr-1 md:pr-1.5'}
                                   `}
                                   style={{ 
                                     gridColumn: `${gridColStart} / ${gridColEnd}`,
@@ -382,9 +381,9 @@ export function Calendar({
                                 >
                                   <div className="w-full flex items-center min-w-0">
                                     {isMultiDay && isStartOfEvent && (
-                                      <div className={`w-0.5 h-0.5 sm:w-1 sm:h-1 md:w-1.5 md:h-1.5 rounded-full shrink-0 mr-1 md:mr-1.5 bg-current ${contrastClass}`} />
+                                      <div className={`w-1 h-1 rounded-full shrink-0 mr-1 bg-current ${contrastClass}`} />
                                     )}
-                                    <span className={`font-bold font-sans text-[6px] sm:text-[7.5px] md:text-[9.5px] leading-none truncate ${contrastClass} tracking-tighter`}>
+                                    <span className={`font-semibold font-sans text-[9px] sm:text-[10px] md:text-[11px] leading-none truncate ${contrastClass} tracking-tight`}>
                                       {event.title}
                                     </span>
                                   </div>
@@ -398,10 +397,10 @@ export function Calendar({
                   </div>
                 );
               })}
-          </motion.div>
-        </AnimatePresence>
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </div>
-    </div>
 
       {/* Date Detail Popup Modal */}
       <AnimatePresence>
@@ -420,12 +419,14 @@ export function Calendar({
               exit={{ scale: 0.96, y: 6, opacity: 0 }}
               transition={MODAL_PANEL_TRANSITION}
               onClick={e => e.stopPropagation()}
-              className="bg-[#0a1120] border border-white/10 w-full max-w-sm max-h-[85%] rounded-3xl overflow-hidden flex flex-col shadow-2xl"
+              className="bg-[#0a1120] border border-white/10 w-full max-w-sm max-h-[85%] rounded-2xl overflow-hidden flex flex-col shadow-2xl"
             >
-              <div className="p-5 border-b border-white/5 flex items-center justify-between shrink-0">
+              <div className="p-5 border-b border-white/[0.08] flex items-center justify-between shrink-0">
                 <div className="flex flex-col">
-                  <span className="text-white font-space text-xs font-bold tracking-widest uppercase mb-1">{format(popupDate, 'MMMM yyyy')}</span>
-                  <span className="text-white font-sans text-2xl font-bold">{format(popupDate, 'd일 EEEE')}</span>
+                  <span className="text-surface-dim font-mono tabular-nums text-xs mb-0.5">{format(popupDate, 'yyyy년 M월')}</span>
+                  <span className="text-white font-sans text-xl font-semibold">
+                    {format(popupDate, 'd일')} {weekDays[popupDate.getDay()]}요일
+                  </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   {isAdmin && (
@@ -437,20 +438,20 @@ export function Calendar({
                         }
                       }}
                       title="일정 추가"
-                      className="p-2 rounded-full bg-secondary-fixed-dim/10 border border-secondary-fixed-dim/20 text-white hover:bg-secondary-fixed-dim/20 transition-colors"
+                      className="p-2 rounded-lg bg-secondary/15 border border-secondary/30 text-white hover:bg-secondary/25 transition-colors cursor-pointer"
                     >
-                      <Plus className="w-5 h-5" />
+                      <Plus className="w-4 h-4" />
                     </button>
                   )}
-                  <button onClick={() => setPopupDate(null)} className="p-2 rounded-full bg-white/5 border border-white/10 text-surface-dim hover:text-white hover:bg-white/10 transition-colors">
-                    <X className="w-5 h-5" />
+                  <button onClick={() => setPopupDate(null)} className="p-2 rounded-lg bg-white/[0.05] border border-white/10 text-surface-dim hover:text-white hover:bg-white/[0.1] transition-colors cursor-pointer">
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-              <div className="p-5 overflow-y-auto custom-scrollbar flex-grow space-y-4">
+              <div className="p-5 overflow-y-auto custom-scrollbar flex-grow">
                 {popupDateEvents.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center py-12 px-4 border border-dashed border-white/10 rounded-2xl bg-white/[0.02]">
-                    <p className="text-surface-dim text-sm font-medium mb-4">등록된 학사일정이 없습니다.</p>
+                  <div className="h-full flex flex-col items-center justify-center text-center py-10 px-4">
+                    <p className="text-surface-dim text-sm mb-4">등록된 학사일정이 없습니다.</p>
                     {isAdmin && (
                       <button
                         onClick={() => {
@@ -459,7 +460,7 @@ export function Calendar({
                             setPopupDate(null);
                           }
                         }}
-                        className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex items-center space-x-1"
+                        className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-white/[0.06] border border-white/10 hover:bg-white/[0.12] transition-colors flex items-center space-x-1.5 cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>일정 등록</span>
@@ -467,29 +468,33 @@ export function Calendar({
                     )}
                   </div>
                 ) : (
-                  popupDateEvents.map(event => (
-                    <div 
-                      key={event.id} 
-                      className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col cursor-pointer hover:bg-white/10 transition-colors"
-                      onClick={() => {
-                        if (onItemClick) {
-                          setPopupDate(null);
-                          onItemClick(event, 'event');
-                        }
-                      }}
-                    >
-                      <div className="flex items-center mb-2">
-                        <div className="w-2.5 h-2.5 rounded-full mr-3 shadow-sm shrink-0" style={{ backgroundColor: event.color || 'rgba(255,255,255,0.5)' }} />
-                        <span className="text-white font-bold">{event.title}</span>
+                  <div className="divide-y divide-white/[0.06]">
+                    {popupDateEvents.map(event => (
+                      <div 
+                        key={event.id} 
+                        className="py-3.5 first:pt-0 last:pb-0 px-2 -mx-2 rounded-lg flex flex-col cursor-pointer hover:bg-white/[0.04] transition-colors"
+                        onClick={() => {
+                          if (onItemClick) {
+                            setPopupDate(null);
+                            onItemClick(event, 'event');
+                          }
+                        }}
+                      >
+                        <div className="flex items-center mb-1">
+                          <span className="w-2 h-2 rounded-full mr-2.5 shrink-0" style={{ backgroundColor: event.color || '#3b82f6' }} />
+                          <span className="text-white font-semibold text-sm sm:text-base">{event.title}</span>
+                        </div>
+                        {event.description && (
+                          <span className="text-surface-dim text-xs sm:text-sm pl-[18px] leading-relaxed whitespace-pre-wrap">{event.description}</span>
+                        )}
+                        {event.endDate && format(event.date, 'yyyy-MM-dd') !== format(event.endDate, 'yyyy-MM-dd') && (
+                          <span className="text-xs font-mono tabular-nums text-surface-dim/75 pl-[18px] mt-1">
+                            {format(event.date, 'yyyy.MM.dd')} ~ {format(event.endDate, 'MM.dd')}
+                          </span>
+                        )}
                       </div>
-                      <span className="text-surface-dim text-sm pl-[22px] leading-relaxed whitespace-pre-wrap">{event.description}</span>
-                      {event.endDate && format(event.date, 'yyyy-MM-dd') !== format(event.endDate, 'yyyy-MM-dd') && (
-                        <span className="text-xs font-space text-surface-dim/60 pl-[22px] mt-2 bg-white/5 w-fit px-2 py-0.5 rounded">
-                          {format(event.date, 'MMM d')} ~ {format(event.endDate, 'MMM d')}
-                        </span>
-                      )}
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
               </div>
             </motion.div>

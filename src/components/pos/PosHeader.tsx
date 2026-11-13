@@ -202,9 +202,9 @@ export function PosHeader({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 4, scale: 0.96 }}
                 transition={POS_DROPDOWN_TRANSITION}
-                className="absolute right-0 top-full mt-2 w-52 bg-[#0a1120] border border-white/15 rounded-2xl shadow-2xl p-1.5 z-[100] backdrop-blur-xl origin-top-right"
+                className="absolute right-0 top-full mt-2 w-52 bg-[#0f182b] border border-white/[0.12] rounded-xl shadow-2xl p-1.5 z-[100] origin-top-right"
               >
-                <div className="px-3 py-2 border-b border-white/5 text-[11px] font-space text-surface-dim flex items-center justify-between">
+                <div className="px-3 py-2 border-b border-white/[0.06] text-[11px] font-sans text-surface-dim flex items-center justify-between">
                   <span>담당: {user.name}</span>
                 </div>
 

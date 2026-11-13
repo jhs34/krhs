@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Banknote, Check, RotateCcw, Ticket, X, User } from 'lucide-react';
+import { RotateCcw, X } from 'lucide-react';
 import { POS_MODAL_BACKDROP_TRANSITION, POS_MODAL_PANEL_TRANSITION, POS_BUMP_TRANSITION } from '../../utils/motion';
 
 interface PosCashModalProps {
@@ -65,25 +65,21 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
         onClick={e => e.stopPropagation()}
         className="bg-[#0a1120] border border-white/10 w-full max-w-md rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto"
       >
-        <div className="flex items-center justify-between pb-3 border-b border-white/10">
-          <div className="flex items-center space-x-2.5">
-            <Banknote className="w-5 h-5 text-emerald-400 shrink-0" />
-            <div>
-              <h3 className="text-base font-bold text-white">현금 수납 및 거스름돈 계산</h3>
-              <p className="text-xs text-surface-dim">
-                금액을 선택하지 않고 완료하면 정액 수납 처리됩니다
-              </p>
-            </div>
+        <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/10">
+          <div>
+            <h3 className="text-base font-bold text-white">현금 수납</h3>
+            <p className="text-xs text-surface-dim mt-0.5">
+              금액을 선택하지 않고 완료하면 정액 수납 처리됩니다
+            </p>
           </div>
 
           {onOpenDiscountModal && (
             <button
               type="button"
               onClick={onOpenDiscountModal}
-              className="px-2.5 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 text-xs font-bold flex items-center space-x-1 transition-all cursor-pointer shrink-0"
+              className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-surface-dim hover:text-white text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer shrink-0"
             >
-              <Ticket className="w-3.5 h-3.5" />
-              <span>{discountAmount > 0 ? '할인 수정' : '할인 입력'}</span>
+              {discountAmount > 0 ? '할인 수정' : '할인 입력'}
             </button>
           )}
         </div>
@@ -99,9 +95,9 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-purple-300 font-bold">할인 적용 금액</span>
+                <span className="text-amber-300 font-bold">할인 적용 금액</span>
                 <div className="flex items-center space-x-1.5">
-                  <span className="font-mono tabular-nums text-purple-300 font-bold">
+                  <span className="font-mono tabular-nums text-amber-300 font-bold">
                     -{discountAmount.toLocaleString()}원
                   </span>
                   {onClearDiscount && (
@@ -134,7 +130,7 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
                 initial={{ scale: 1.07 }}
                 animate={{ scale: 1 }}
                 transition={POS_BUMP_TRANSITION}
-                className="text-lg font-bold font-mono tabular-nums text-emerald-400 inline-block origin-right"
+                className="text-lg font-bold font-mono tabular-nums text-white inline-block origin-right"
               >
                 {effectiveReceived.toLocaleString()}원
               </motion.span>
@@ -142,7 +138,7 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setCashReceived(0)}
-                  className="p-1 rounded-lg bg-white/5 hover:bg-white/10 active:scale-90 text-surface-dim hover:text-white transition-all cursor-pointer"
+                  className="p-1 rounded-lg bg-white/5 hover:bg-white/10 active:scale-90 text-surface-dim hover:text-white transition-[background-color,color,transform] cursor-pointer"
                   title="초기화"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -158,8 +154,8 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
               initial={{ scale: 1.07 }}
               animate={{ scale: 1 }}
               transition={POS_BUMP_TRANSITION}
-              className={`text-xl font-black font-mono tabular-nums inline-block origin-right ${
-                isInsufficient ? 'text-rose-400' : 'text-amber-300'
+              className={`text-xl font-bold font-mono tabular-nums inline-block origin-right ${
+                isInsufficient ? 'text-rose-400' : 'text-secondary-container'
               }`}
             >
               {isInsufficient
@@ -177,7 +173,7 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
                 key={amt}
                 type="button"
                 onClick={() => handleAddCash(amt)}
-                className="py-2.5 px-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/15 active:scale-95 border border-white/10 font-mono tabular-nums text-xs sm:text-sm font-bold text-white transition-all cursor-pointer"
+                className="py-2.5 px-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/15 active:scale-95 border border-white/10 font-mono tabular-nums text-xs sm:text-sm font-bold text-white transition-[background-color,transform] cursor-pointer"
               >
                 +{amt.toLocaleString()}
               </button>
@@ -185,7 +181,7 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
             <button
               type="button"
               onClick={handleExactAmount}
-              className="py-2.5 px-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 border border-emerald-500/30 text-xs sm:text-sm font-bold text-emerald-300 transition-all cursor-pointer"
+              className="py-2.5 px-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] active:scale-95 border border-white/15 text-xs sm:text-sm font-bold text-white whitespace-nowrap transition-[background-color,transform] cursor-pointer"
             >
               정액 수납
             </button>
@@ -197,16 +193,13 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
           <label className="block text-[11px] font-semibold text-surface-dim mb-1.5">
             주문자 이름 (선택)
           </label>
-          <div className="relative">
-            <User className="w-3.5 h-3.5 text-surface-dim absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={buyerName}
-              onChange={e => setBuyerName(e.target.value)}
-              placeholder="이름 입력 (생략 가능)"
-              className="w-full pl-8 pr-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 focus:border-emerald-500/50 focus:outline-none text-xs sm:text-sm text-white placeholder:text-surface-dim/50"
-            />
-          </div>
+          <input
+            type="text"
+            value={buyerName}
+            onChange={e => setBuyerName(e.target.value)}
+            placeholder="이름 입력 (생략 가능)"
+            className="w-full px-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 focus:border-secondary focus:outline-none text-xs sm:text-sm text-white placeholder:text-surface-dim/50"
+          />
         </div>
 
         {/* Actions */}
@@ -214,7 +207,7 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer"
+            className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs sm:text-sm font-bold whitespace-nowrap transition-colors cursor-pointer"
           >
             취소
           </button>
@@ -222,10 +215,9 @@ export const PosCashModal: React.FC<PosCashModalProps> = ({
             type="button"
             disabled={isInsufficient}
             onClick={handleConfirm}
-            className="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-white text-xs sm:text-sm font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+            className="py-2.5 rounded-xl bg-secondary hover:bg-secondary/90 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-white text-xs sm:text-sm font-bold whitespace-nowrap flex items-center justify-center transition-[background-color,transform] cursor-pointer"
           >
-            <Check className="w-4 h-4" />
-            <span>현금 결제 완료</span>
+            현금 결제 완료
           </button>
         </div>
       </motion.div>

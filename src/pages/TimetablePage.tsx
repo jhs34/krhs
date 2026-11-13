@@ -3,17 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   ChevronLeft, 
   ChevronRight, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Clock, 
-  BookOpen, 
-  User, 
-  AlertCircle, 
-  Save, 
-  Calendar,
-  Sparkles,
-  Info
+  Edit2
 } from 'lucide-react';
 import { DEPARTMENTS, GRADES, getDefaultTimetable } from '../data/timetableTemplates';
 import { SUBJECT_THEMES, hexToRgba } from '../data/subjectThemes';
@@ -55,17 +45,14 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
   const [selectedDept, setSelectedDept] = useState<string>('railway_machinery');
   const [selectedClass, setSelectedClass] = useState<number>(1);
 
-  // 2. Week Date States (Default to current system week containing June 20, 2026, or current date)
+  // 2. Week Date States
   const [currentDate, setCurrentDate] = useState<Date>(() => {
-    // Current local time has June 20, 2026
     const d = new Date();
-    // Guard against invalid Date object
     return isNaN(d.getTime()) ? new Date('2026-06-20') : d;
   });
 
   // 3. Timetable Memos State from Firestore
   const [memos, setMemos] = useState<TimetableMemo[]>([]);
-  const [expandedMemos, setExpandedMemos] = useState<{ [key: string]: boolean }>({});
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSlot, setEditingSlot] = useState<{
     dayOfWeek: number;
@@ -88,12 +75,6 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
   } | null>(null);
 
   const [animationDirection, setAnimationDirection] = useState<TimetableTransitionMode>('filter');
-
-  const toggleMemo = (dayIdx: number, periodNum: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const key = `${dayIdx}_${periodNum}`;
-    setExpandedMemos(prev => ({ ...prev, [key]: !prev[key] }));
-  };
 
   // Auto-lock class choice if the department only has 1 class
   useEffect(() => {
@@ -119,13 +100,10 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
     return () => unsubscribe();
   }, []);
 
-
-
   // Helper: Get Monday of a key date
   const getMonday = (d: Date): Date => {
     const date = new Date(d);
     const day = date.getDay();
-    // adjust if Sunday (day === 0)
     const diff = date.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(date.setDate(diff));
     monday.setHours(0, 0, 0, 0);
@@ -169,6 +147,13 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
     return `${yyyy}-${mm}-${dd}`;
   };
 
+  const formatDisplayDate = (date: Date): string => {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}.${mm}.${dd}`;
+  };
+
   const formatMonthDay = (date: Date): string => {
     const mm = String(date.getMonth() + 1).padStart(2, '0');
     const dd = String(date.getDate()).padStart(2, '0');
@@ -176,6 +161,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
   };
 
   const weekStartKey = formatDateKey(mondayDate);
+  const weekStartDisplay = formatDisplayDate(mondayDate);
 
   // Time Slot mapping
   const getPeriodTime = (dayOfWeek: number, period: number): string => {
@@ -304,10 +290,8 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
     const compositeId = `${selectedGrade}_${selectedDept}_${selectedClass}_${weekStartKey}_${editingSlot.dayOfWeek}_${editingSlot.period}`;
 
     if (memoInput.trim() === '' && !selectedColor) {
-      // Delete if both input and color are empty/cleared
       await deleteTimetableMemo(compositeId);
     } else {
-      // Save/Upsert safely without passing any undefined custom properties
       const dataToSave: any = {
         id: compositeId,
         grade: selectedGrade,
@@ -330,27 +314,21 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
     setSelectedColor('');
   };
 
-  // Delete memo immediately
-  const handleDeleteMemoDirectly = async (dayIdx: number, periodNum: number) => {
-    const compositeId = `${selectedGrade}_${selectedDept}_${selectedClass}_${weekStartKey}_${dayIdx}_${periodNum}`;
-    await deleteTimetableMemo(compositeId);
-  };
-
   return (
-    <div className="max-w-7xl w-full mx-auto px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32">
+    <div className="max-w-7xl w-full mx-auto px-3.5 sm:px-12 md:px-16 lg:px-24 xl:px-32">
       
       {/* 1. Header Section */}
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={PORTAL_HEADER_TRANSITION}
-        className="text-center md:text-left mb-4 md:mb-5"
+        className="mb-6 sm:mb-8"
       >
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-sans font-black tracking-tight text-white mb-1 leading-tight">
+        <h1 className="font-sans font-semibold text-2xl sm:text-3xl md:text-4xl tracking-tight text-white mb-2 leading-[1.2] text-balance">
           주간 학급별 시간표
         </h1>
-        <p className="text-xs sm:text-sm text-surface-dim leading-normal font-sans max-w-2xl mx-auto md:mx-0 break-keep">
-          한국철도고등학교 학과 및 반별 주간 수업 일정표를 조회하고, 실시간 수행평가 일정과 주간 특이사항 메모를 확인하세요.
+        <p className="text-sm sm:text-base text-surface-dim leading-relaxed font-sans max-w-2xl break-keep">
+          학과·반별 주간 수업 시간표 및 수행평가·변동 메모 조회
         </p>
       </motion.div>
 
@@ -359,14 +337,14 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...PORTAL_CARD_TRANSITION, delay: 0.03 }}
-        className="glass-panel-dark border-white/5 p-3.5 sm:p-4 rounded-xl shadow-lg mb-4"
+        className="bg-[#0a1120] border border-white/[0.08] p-4 sm:p-5 rounded-2xl mb-4"
       >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
           
           {/* Grade Select */}
-          <div className="flex flex-col space-y-1">
-            <label className="text-xs font-bold text-surface-dim pl-1">학년</label>
-            <div className="grid grid-cols-3 bg-white/5 p-1 rounded-xl border border-white/5" id="grade-selector">
+          <div className="flex flex-col space-y-1.5">
+            <label className="text-xs font-semibold text-surface-dim pl-0.5">학년</label>
+            <div className="grid grid-cols-3 bg-white/[0.04] p-1 rounded-xl border border-white/[0.06]" id="grade-selector">
               {GRADES.map(g => {
                 const isActive = selectedGrade === g;
                 return (
@@ -379,7 +357,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                         setSelectedGrade(g);
                       }
                     }}
-                    className={`relative py-1.5 rounded-lg text-xs font-bold transition-colors text-center cursor-pointer ${
+                    className={`relative py-1.5 rounded-lg text-xs font-semibold transition-colors text-center cursor-pointer whitespace-nowrap ${
                       isActive ? 'text-white' : 'text-surface-dim hover:text-white'
                     }`}
                   >
@@ -387,7 +365,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                       <motion.div
                         layoutId="timetable-grade-pill"
                         transition={NAV_SPRING_TRANSITION}
-                        className="absolute inset-0 bg-white/15 rounded-lg shadow-sm border border-white/10"
+                        className="absolute inset-0 bg-white/[0.14] rounded-lg border border-white/10"
                       />
                     )}
                     <span className="relative z-10">{g}학년</span>
@@ -398,9 +376,9 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
           </div>
 
           {/* Department Select */}
-          <div className="flex flex-col space-y-1">
-            <label className="text-xs font-bold text-surface-dim pl-1 font-sans">학과</label>
-            <div className="grid grid-cols-3 bg-white/5 p-1 rounded-xl border border-white/5" id="dept-selector">
+          <div className="flex flex-col space-y-1.5">
+            <label className="text-xs font-semibold text-surface-dim pl-0.5 font-sans">학과</label>
+            <div className="grid grid-cols-3 bg-white/[0.04] p-1 rounded-xl border border-white/[0.06]" id="dept-selector">
               {DEPARTMENTS.map(dept => {
                 const isActive = selectedDept === dept.id;
                 return (
@@ -413,7 +391,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                         setSelectedDept(dept.id);
                       }
                     }}
-                    className={`relative py-1.5 rounded-lg text-xs font-bold transition-colors text-center px-1 truncate cursor-pointer ${
+                    className={`relative py-1.5 rounded-lg text-xs font-semibold transition-colors text-center px-1 truncate cursor-pointer ${
                       isActive ? 'text-white' : 'text-surface-dim hover:text-white'
                     }`}
                     title={dept.name}
@@ -422,7 +400,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                       <motion.div
                         layoutId="timetable-dept-pill"
                         transition={NAV_SPRING_TRANSITION}
-                        className="absolute inset-0 bg-white/15 rounded-lg shadow-sm border border-white/10"
+                        className="absolute inset-0 bg-white/[0.14] rounded-lg border border-white/10"
                       />
                     )}
                     <span className="relative z-10">{dept.name.replace('철도', '')}</span>
@@ -433,9 +411,9 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
           </div>
 
           {/* Class Select */}
-          <div className="flex flex-col space-y-1">
-            <label className="text-xs font-bold text-surface-dim pl-1">배정 반</label>
-            <div className="grid grid-cols-2 bg-white/5 p-1 rounded-xl border border-white/5" id="class-selector">
+          <div className="flex flex-col space-y-1.5">
+            <label className="text-xs font-semibold text-surface-dim pl-0.5">배정 반</label>
+            <div className="grid grid-cols-2 bg-white/[0.04] p-1 rounded-xl border border-white/[0.06]" id="class-selector">
               {[1, 2].map(c => {
                 const totalClasses = DEPARTMENTS.find(d => d.id === selectedDept)?.classes || [1];
                 const isAvailable = totalClasses.includes(c);
@@ -451,7 +429,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                         setSelectedClass(c);
                       }
                     }}
-                    className={`relative py-1.5 rounded-lg text-xs font-bold transition-colors text-center ${
+                    className={`relative py-1.5 rounded-lg text-xs font-semibold transition-colors text-center whitespace-nowrap ${
                       !isAvailable 
                         ? 'opacity-25 cursor-not-allowed text-white/20'
                         : isActive 
@@ -463,7 +441,7 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                       <motion.div
                         layoutId="timetable-class-pill"
                         transition={NAV_SPRING_TRANSITION}
-                        className="absolute inset-0 bg-white/15 rounded-lg shadow-sm border border-white/10"
+                        className="absolute inset-0 bg-white/[0.14] rounded-lg border border-white/10"
                       />
                     )}
                     <span className="relative z-10">{c}반</span>
@@ -481,69 +459,50 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...PORTAL_CARD_TRANSITION, delay: 0.06 }}
-        className="flex flex-col sm:flex-row items-center justify-between gap-2.5 py-2 px-2 mb-4"
+        className="flex items-center justify-between gap-2 py-2 px-0.5 sm:px-1 mb-3"
       >
-        <div className="flex items-center space-x-2">
-          <Calendar className="w-5 h-5 text-secondary-fixed shrink-0" />
-          <span className="text-sm md:text-base font-bold text-white font-space tabular-nums">
-            {formatWeekRangeString()}
-          </span>
-        </div>
+        <span className="text-xs sm:text-sm md:text-base font-semibold text-white font-mono tabular-nums whitespace-nowrap">
+          {formatWeekRangeString()}
+        </span>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
           <button
             onClick={handlePrevWeek}
-            className="p-1.5 sm:p-2 rounded-lg border border-white/5 bg-white/5 text-surface-dim hover:text-white hover:bg-white/10 active:scale-95 transition-all shadow-md cursor-pointer"
+            className="p-2 rounded-lg border border-white/10 bg-white/[0.04] text-surface-dim hover:text-white hover:bg-white/[0.1] transition-colors cursor-pointer"
             title="이전 주"
           >
-            <ChevronLeft className="w-3.5 h-3.5" />
+            <ChevronLeft className="w-4 h-4" />
           </button>
           
           <button
             onClick={handleResetToToday}
-            className="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-white/5 bg-white/5 text-white hover:bg-white/10 active:scale-95 transition-all shadow-md cursor-pointer"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.1] transition-colors cursor-pointer whitespace-nowrap"
           >
-            오늘이 속한 주
+            이번 주
           </button>
 
           <button
             onClick={handleNextWeek}
-            className="p-1.5 sm:p-2 rounded-lg border border-white/5 bg-white/5 text-surface-dim hover:text-white hover:bg-white/10 active:scale-95 transition-all shadow-md cursor-pointer"
+            className="p-2 rounded-lg border border-white/10 bg-white/[0.04] text-surface-dim hover:text-white hover:bg-white/[0.1] transition-colors cursor-pointer"
             title="다음 주"
           >
-            <ChevronRight className="w-3.5 h-3.5" />
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </motion.div>
 
       {/* 4. Timetable Grid View */}
-      {/* Information indicator for smaller layouts */}
-      {!isTimetableEmpty && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.25, delay: 0.08 }}
-          className="text-center text-xs text-surface-dim/60 mb-2 flex items-center justify-center space-x-1.5 select-none px-2 leading-relaxed"
-        >
-          <Info className="w-3.5 h-3.5 text-secondary-fixed shrink-0" />
-          <span>요일별 시간표를 한눈에 볼 수 있습니다. 💡 (!) 표시된 과목을 누르면 상세 메모가 표시됩니다.</span>
-        </motion.div>
-      )}
-
       <motion.div 
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...PORTAL_CARD_TRANSITION, delay: 0.08 }}
-        className="w-full rounded-2xl border border-white/5 shadow-2xl bg-white/[0.01] overflow-hidden"
+        className="w-full rounded-2xl border border-white/[0.08] bg-[#0a1120] overflow-hidden"
       >
         {isTimetableEmpty ? (
-          <div className="flex flex-col items-center justify-center py-20 px-6 text-center bg-[#0d121f]/40 min-h-[380px]">
-            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-5 border border-white/10 text-secondary-fixed animate-pulse">
-              <Calendar className="w-8 h-8" />
-            </div>
-            <h3 className="text-lg font-bold text-white mb-2">곧 시간표가 등록될 예정입니다.</h3>
-            <p className="text-sm text-surface-dim/70 max-w-md break-keep leading-relaxed">
-              선택하신 학급의 시간표가 아직 등록되지 않았습니다. 시간표가 확정되는 대로 실시간으로 업데이트될 예정이오니 잠시만 기다려 주세요!
+          <div className="flex flex-col items-center justify-center py-20 px-6 text-center min-h-[360px]">
+            <h3 className="text-base sm:text-lg font-semibold text-white mb-1.5">기본 시간표 준비 중</h3>
+            <p className="text-sm text-surface-dim max-w-md break-keep leading-relaxed">
+              선택한 학급의 기본 시간표가 아직 등록되지 않았습니다. 학사 시간표 확정 후 반영됩니다.
             </p>
           </div>
         ) : (
@@ -556,50 +515,49 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
               animate="center"
               exit="exit"
               transition={{ duration: 0.18, ease: EASE_OUT_EXPO }}
-              className="w-full min-w-0 grid grid-cols-5 divide-x divide-white/5 bg-primary-dark"
+              className="w-full min-w-0 grid grid-cols-5 divide-x divide-white/[0.06] bg-[#0a1120]"
             >
           
           {/* Loop over Days 0 ~ 4 (Mon ~ Fri) */}
           {weekDays.map((dayDate, dayIdx) => {
             const dayName = dayOfWeekNames[dayIdx];
             const isToday = isCurrentDay(dayDate);
-            const totalPeriods = dayIdx === 4 ? 4 : 7; // Friday has 4 periods, Mon-Thu has 7
+            const totalPeriods = dayIdx === 4 ? 4 : 7;
 
             return (
-              <div key={dayIdx} className={`flex flex-col flex-1 pb-2 min-h-[500px] sm:min-h-[560px] md:min-h-[600px] ${isToday ? 'bg-[#00e5ff]/[0.02]' : ''}`}>
+              <div key={dayIdx} className={`flex flex-col flex-1 pb-2 min-h-[500px] sm:min-h-[560px] md:min-h-[600px] ${isToday ? 'bg-secondary/[0.04]' : ''}`}>
                 
                 {/* Column Day Header */}
-                <div className={`p-1.5 sm:p-2 sm:py-3 border-b border-white/5 flex flex-col items-center justify-center text-center sticky top-0 bg-primary-dark/95 backdrop-blur z-10 ${
-                  isToday ? 'border-b-secondary-fixed' : ''
+                <div className={`p-2 sm:py-3 border-b flex flex-col items-center justify-center text-center sticky top-0 bg-[#0a1120]/95 backdrop-blur z-10 ${
+                  isToday ? 'border-b-secondary-container' : 'border-b-white/[0.06]'
                 }`}>
-                  <span className={`text-[11px] sm:text-sm font-black mb-0.5 px-1 sm:px-2.5 py-0.5 rounded-full ${
-                    isToday ? 'bg-secondary/20 text-white font-extrabold border border-secondary/20' : 'text-surface-dim/90'
+                  <span className={`text-xs sm:text-sm mb-0.5 ${
+                    isToday ? 'text-secondary-container font-bold' : 'text-white/85 font-semibold'
                   }`}>
                     <span className="block sm:hidden">{dayName[0]}</span>
                     <span className="hidden sm:block">{dayName}요일</span>
                   </span>
-                  <span className={`text-[9px] sm:text-xs font-mono ${isToday ? 'text-white font-extrabold' : 'text-surface-dim/50 font-medium'}`}>
+                  <span className={`text-[10px] sm:text-xs font-mono tabular-nums ${isToday ? 'text-white font-semibold' : 'text-surface-dim/65'}`}>
                     {formatMonthDay(dayDate)}
                   </span>
                 </div>
 
                 {/* Day Period Cells */}
-                <div className="p-1 sm:p-1.5 md:p-2 space-y-1.5 sm:space-y-2 md:space-y-1.5 flex-grow">
+                <div className="px-0.5 py-1 sm:p-1.5 md:p-2 space-y-1 sm:space-y-2 md:space-y-1.5 flex-grow">
                   {Array.from({ length: 7 }, (_, pIdx) => {
                     const periodNum = pIdx + 1;
                     const isOutsideSchool = periodNum > totalPeriods;
                     
                     if (isOutsideSchool) {
-                      // Block for non-operating Friday afternoon slots
                       return (
                         <div 
                           key={periodNum}
-                          className="min-h-[66px] sm:min-h-[76px] md:min-h-[82px] rounded-xl border border-white/[0.02] bg-white/[0.01] flex flex-col items-center justify-center text-center p-1.5 sm:p-2 opacity-35 hover:opacity-50 transition-opacity"
+                          className="min-h-[64px] sm:min-h-[76px] md:min-h-[82px] rounded-lg sm:rounded-xl border border-white/[0.03] bg-white/[0.01] flex flex-col items-center justify-center text-center p-1 sm:p-2 opacity-40"
                         >
-                          <span className="text-[8px] sm:text-[10px] font-bold text-surface-dim/40 font-mono">
-                            {periodNum}교시<span className="hidden sm:inline"> | 후반</span>
+                          <span className="text-[10px] sm:text-[11px] font-medium text-surface-dim/60 font-mono tabular-nums">
+                            {periodNum}교시
                           </span>
-                          <span className="text-[9px] sm:text-[11px] font-bold text-surface-dim/30 mt-1 select-none text-center leading-tight">
+                          <span className="text-[10px] sm:text-xs text-surface-dim/50 mt-1 select-none text-center leading-tight">
                             {periodNum === 5 ? (
                               <>
                                 <span className="block sm:hidden">점심·귀가</span>
@@ -618,20 +576,15 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                       );
                     }
 
-                    // Active school cell details
                     const baseSlot = baseTimetable[dayIdx]?.[periodNum];
                     const customMemo = getMemoForSlot(dayIdx, periodNum);
                     const periodTime = getPeriodTime(dayIdx, periodNum);
-
-                    // Determine theme color hierarchy:
-                    // 1) customMemo color override, 2) none
                     const activeColor = customMemo?.color || '';
+                    const hasMemoText = Boolean(customMemo && customMemo.memo && customMemo.memo.trim() !== '');
 
-                    // Dynamically compile style for custom selected colors
                     const customStyle: React.CSSProperties = activeColor ? {
                       backgroundColor: hexToRgba(activeColor, 0.12),
                       borderColor: hexToRgba(activeColor, 0.35),
-                      boxShadow: `inset 0 0 12px ${hexToRgba(activeColor, 0.05)}, 0 4px 10px ${hexToRgba(activeColor, 0.1)}`,
                     } : {};
 
                     const hasColorTheme = !!activeColor;
@@ -639,8 +592,8 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                     return (
                       <div
                         key={periodNum}
-                        onClick={(e) => {
-                          if (customMemo && customMemo.memo && customMemo.memo.trim() !== '') {
+                        onClick={() => {
+                          if (hasMemoText && customMemo) {
                             setViewingMemo({
                               dayOfWeek: dayIdx,
                               period: periodNum,
@@ -648,29 +601,39 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                               teacher: baseSlot?.teacher || '',
                               memo: customMemo.memo
                             });
+                          } else if (isAdmin) {
+                            handleOpenEditMemo(dayIdx, periodNum, baseSlot?.subject || '수업 없음');
                           }
                         }}
-                        className={`group relative rounded-lg sm:rounded-xl border px-2 py-1.5 sm:px-2.5 sm:py-2 md:px-3 md:py-2.5 flex flex-col justify-between transition-all duration-200 min-h-[66px] sm:min-h-[76px] md:min-h-[82px] select-none ${
-                          customMemo && customMemo.memo && customMemo.memo.trim() !== ''
-                            ? !customMemo.color
-                              ? 'bg-[#1e1c16] border-amber-600/30 ring-1 ring-amber-500/20 shadow-md shadow-amber-950/10 cursor-pointer hover:bg-[#252219]' 
+                        className={`group relative rounded-lg sm:rounded-xl border px-1.5 py-1.5 sm:px-2.5 sm:py-2 md:px-3 md:py-2.5 flex flex-col justify-between transition-colors duration-150 min-h-[64px] sm:min-h-[76px] md:min-h-[82px] select-none ${
+                          hasMemoText
+                            ? !customMemo?.color
+                              ? 'bg-amber-500/[0.08] border-amber-500/30 cursor-pointer hover:bg-amber-500/[0.13]' 
                               : 'cursor-pointer hover:brightness-110'
                             : hasColorTheme
-                              ? 'hover:brightness-110 bg-opacity-25'
-                              : 'bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]'
+                              ? `${isAdmin ? 'cursor-pointer ' : ''}hover:brightness-110`
+                              : `${isAdmin ? 'cursor-pointer ' : ''}bg-white/[0.02] border-white/[0.06] hover:border-white/[0.14] hover:bg-white/[0.04]`
                         }`}
                         style={customStyle}
                       >
                         {/* Period & Time header */}
-                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-0.5 sm:pb-1 mb-1 shrink-0">
-                          <span className="text-[8.5px] sm:text-[10px] font-black text-white/55 tracking-wide font-sans bg-white/5 px-1 sm:px-1.5 py-0.5 rounded whitespace-nowrap shrink-0">
+                        <div className="flex items-center justify-between border-b border-white/[0.05] pb-0.5 sm:pb-1 mb-1 shrink-0">
+                          <span className="text-[10px] sm:text-[11px] font-semibold text-white/65 font-mono tabular-nums whitespace-nowrap shrink-0">
                             {periodNum}교시
                           </span>
                           
-                          <span className="hidden md:flex text-[9.5px] font-mono text-surface-dim/50 font-medium items-center space-x-1">
-                            <Clock className="w-2.5 h-2.5 text-surface-dim/30" />
-                            <span>{periodTime}</span>
+                          <span className="hidden md:inline text-[10px] font-mono tabular-nums text-surface-dim/60">
+                            {periodTime}
                           </span>
+
+                          {hasMemoText && (
+                            <span 
+                              title="클릭하여 주간 수행평가/메모 확인"
+                              className="md:hidden w-3.5 h-3.5 shrink-0 rounded-full bg-amber-500 flex items-center justify-center text-black font-bold text-[9px] leading-none"
+                            >
+                              !
+                            </span>
+                          )}
                         </div>
 
                         {/* Subject detail */}
@@ -678,44 +641,44 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                           <div className="flex flex-col text-left items-start w-full min-w-0">
                             <div className="flex items-center space-x-1 sm:space-x-1.5 w-full max-w-full min-w-0 mb-0.5 sm:mb-1">
                               <div className="marquee-container min-w-0 flex-1">
-                                <span className="text-white text-[10.5px] sm:text-[11.5px] md:text-xs font-black leading-tight font-sans marquee-text" title={baseSlot.subject}>
+                                <span className="text-white text-[11px] sm:text-xs md:text-sm font-semibold tracking-tight sm:tracking-normal leading-tight font-sans marquee-text" title={baseSlot.subject}>
                                   {baseSlot.subject}
                                 </span>
                               </div>
-                              {customMemo && customMemo.memo && customMemo.memo.trim() !== '' && (
+                              {hasMemoText && (
                                 <span 
                                   title="클릭하여 주간 수행평가/메모 확인"
-                                  className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 rounded-full bg-amber-500 flex items-center justify-center text-black font-black text-[8px] sm:text-[9px] shadow-[0_1px_3px_rgba(245,158,11,0.5)] animate-pulse"
+                                  className="hidden md:flex w-4 h-4 shrink-0 rounded-full bg-amber-500 items-center justify-center text-black font-bold text-[10px]"
                                 >
                                   !
                                 </span>
                               )}
                             </div>
                             {baseSlot.teacher && baseSlot.teacher.trim() ? (
-                              <span className="text-[9px] sm:text-[10px] text-surface-dim font-medium leading-tight truncate w-full block shrink-0">
+                              <span className="text-[10px] sm:text-[11px] text-surface-dim font-normal leading-tight truncate w-full block shrink-0">
                                 {baseSlot.teacher.trim()}<span className="hidden sm:inline"> 선생님</span>
                               </span>
                             ) : (
-                              <span className="text-[9px] sm:text-[10px] text-transparent select-none font-medium leading-tight truncate w-full block shrink-0" aria-hidden="true">
+                              <span className="text-[10px] sm:text-[11px] text-transparent select-none leading-tight truncate w-full block shrink-0" aria-hidden="true">
                                 -
                               </span>
                             )}
                           </div>
                         ) : (
                           <div className="flex flex-col w-full flex-1 justify-center items-start py-0.5">
-                            <span className="text-surface-dim/35 text-[9px] sm:text-[11px] leading-tight font-sans">일정 없음</span>
+                            <span className="text-surface-dim/40 text-[10px] sm:text-xs leading-tight font-sans">일정 없음</span>
                           </div>
                         )}
 
-                        {/* Hover Overlay Action Controls for Admin */}
+                        {/* Desktop-Only Hover Action Control for Admin */}
                         {isAdmin && (
-                          <div className="absolute right-1 bottom-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex space-x-1 bg-primary-dark/95 border border-white/5 rounded-lg p-0.5 shadow-lg">
+                          <div className="hidden md:flex absolute right-1.5 bottom-1.5 opacity-0 md:group-hover:opacity-100 transition-opacity space-x-1 bg-[#040812]/95 border border-white/10 rounded-lg p-0.5">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleOpenEditMemo(dayIdx, periodNum, baseSlot?.subject || '수업 없음');
                               }}
-                              className="p-1 rounded text-surface-dim hover:text-white hover:bg-white/5 transition-colors"
+                              className="p-1 rounded text-surface-dim hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                               title="메모 수정/등록"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
@@ -737,32 +700,27 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
         )}
       </motion.div>
 
-      {/* 5. Custom Weekly Info description cards */}
+      {/* 5. Weekly Memo Footnote */}
       <motion.div 
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...PORTAL_CARD_TRANSITION, delay: 0.1 }}
-        className="mt-5 p-3.5 sm:p-4 rounded-xl border border-white/5 bg-white/[0.01] flex items-start space-x-3 text-surface-dim"
+        className="mt-4 pt-3.5 border-t border-white/[0.06] text-xs text-surface-dim space-y-1 font-sans leading-relaxed px-1"
       >
-        <Info className="w-4 h-4 text-secondary-fixed shrink-0 mt-0.5" />
-        <div className="text-xs space-y-1 font-sans leading-relaxed">
-          <p className="font-bold text-white">수행평가 및 주간 변동사항 안내</p>
-          <p>
-            수행평가 및 변동사항이 등록된 교시는 과목명 옆에 <span className="text-amber-400 font-bold">!</span> 배지로 표시되며, 해당 교시를 누르면 상세 내용을 확인할 수 있습니다.
+        <p>
+          수행평가나 수업 변동사항이 등록된 교시는 과목명 옆에 <span className="text-amber-400 font-semibold">!</span> 표시가 나타나며, 해당 교시를 누르면 세부 내용을 확인할 수 있습니다.
+        </p>
+        {isAdmin && (
+          <p className="text-secondary-container font-medium">
+            관리자는 각 교시 칸을 선택하여 주차별 수행평가 및 메모를 등록·수정할 수 있습니다.
           </p>
-          {isAdmin && (
-            <p className="text-secondary-fixed font-medium pt-0.5">
-              * 관리자는 각 교시 우측 하단의 수정(연필) 버튼을 눌러 주차별 수행평가 및 메모를 등록할 수 있습니다.
-            </p>
-          )}
-        </div>
+        )}
       </motion.div>
 
       {/* 6. Admin Dialog / Popups */}
       <AnimatePresence>
         {isEditModalOpen && editingSlot && (
           <div key="timetable-edit-memo-modal" className="fixed inset-0 z-[150] flex items-center justify-center p-4">
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -772,49 +730,42 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
               className="absolute inset-0 bg-black/65 backdrop-blur-sm"
             />
 
-            {/* Modal Body */}
             <motion.div
               initial={{ scale: 0.96, y: 8, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.96, y: 6, opacity: 0 }}
               transition={MODAL_PANEL_TRANSITION}
-              className="relative w-full max-w-md glass-panel border-white/10 rounded-xl sm:rounded-2xl md:rounded-3xl shadow-2xl p-4 sm:p-5 md:p-6 overflow-y-auto max-h-[90vh] bg-[#0d121f] scrollbar-thin scrollbar-thumb-white/10"
+              className="relative w-full max-w-md border border-white/10 rounded-2xl shadow-2xl p-5 sm:p-6 overflow-y-auto max-h-[90vh] bg-[#0a1120] custom-scrollbar"
             >
-              <div className="border-b border-white/5 pb-3 mb-3">
-                <h3 className="text-base sm:text-lg font-bold text-white flex items-center space-x-2">
-                  <Edit2 className="w-4.5 h-4.5 text-[#00e5ff]" />
-                  <span>주간 수행평가 및 메모 등록</span>
+              <div className="pb-3.5 mb-4 border-b border-white/[0.08]">
+                <h3 className="text-base sm:text-lg font-semibold text-white">
+                  주간 수행평가 및 메모 등록
                 </h3>
-                <p className="text-[11px] sm:text-xs text-surface-dim mt-1">
-                  선택한 주차의 과목 하단에 메모를 게시합니다. 내용을 지우면 메모가 제거됩니다.
+                <p className="text-xs text-surface-dim mt-1">
+                  선택한 주차의 과목에 메모를 게시합니다. 내용을 비우고 저장하면 메모가 제거됩니다.
                 </p>
               </div>
 
-              {/* Informational Header */}
-              <div className="p-3 bg-white/5 border border-white/5 rounded-xl text-xs space-y-1 mb-3 leading-relaxed font-sans text-white/90">
-                <div>
-                  <span className="font-bold text-surface-dim mr-2 font-mono">대상 주차:</span>
-                  <span className="text-[#00e5ff] font-bold">{weekStartKey} 주간</span>
+              <div className="divide-y divide-white/[0.06] border-b border-white/[0.08] pb-3 mb-4 text-xs leading-relaxed font-sans">
+                <div className="flex items-center justify-between py-1.5 first:pt-0">
+                  <span className="text-surface-dim">대상 주차</span>
+                  <span className="text-secondary-container font-semibold font-mono tabular-nums">{weekStartDisplay} 주간</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2 pt-1 mt-1 border-t border-white/5">
-                  <div>
-                    <span className="font-bold text-surface-dim mr-1 font-mono">학급:</span>
-                    <span>{selectedGrade}학년 {DEPARTMENTS.find(d => d.id === selectedDept)?.name} {selectedClass}반</span>
-                  </div>
-                  <div>
-                    <span className="font-bold text-surface-dim mr-1 font-mono">시간:</span>
-                    <span>{dayOfWeekNames[editingSlot.dayOfWeek]}요일 {editingSlot.period}교시</span>
-                  </div>
+                <div className="flex items-center justify-between py-1.5">
+                  <span className="text-surface-dim">학급 · 교시</span>
+                  <span className="text-white/90">
+                    {selectedGrade}학년 {DEPARTMENTS.find(d => d.id === selectedDept)?.name} {selectedClass}반 · {dayOfWeekNames[editingSlot.dayOfWeek]}요일 {editingSlot.period}교시
+                  </span>
                 </div>
-                <div className="pt-1 mt-1 border-t border-white/5">
-                  <span className="font-bold text-surface-dim mr-2 font-mono">기준 과목:</span>
-                  <span className="text-white font-extrabold">{editingSlot.subject}</span>
+                <div className="flex items-center justify-between py-1.5 last:pb-0">
+                  <span className="text-surface-dim">기준 과목</span>
+                  <span className="text-white font-semibold">{editingSlot.subject}</span>
                 </div>
               </div>
 
-              <form onSubmit={handleSaveMemo} className="space-y-3">
+              <form onSubmit={handleSaveMemo} className="space-y-4">
                 <div className="flex flex-col space-y-1.5">
-                  <label className="text-xs font-bold text-surface-dim pl-1">메모 / 수행평가 내용</label>
+                  <label className="text-xs font-semibold text-surface-dim">메모 / 수행평가 내용</label>
                   <textarea
                     autoFocus
                     value={memoInput}
@@ -822,82 +773,73 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
                     placeholder="예: 영어 단어 수행평가 (1과 ~ 3과) 단어장 지참 필수"
                     rows={3}
                     maxLength={150}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-secondary-fixed focus:border-secondary-fixed transition-colors resize-none"
+                    className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-secondary-fixed-dim transition-colors resize-none"
                   />
-                  <div className="flex justify-between text-[11px] text-surface-dim pl-1">
-                    <span>* 구체적인 수행평가 정보를 적어주세요.</span>
-                    <span>{memoInput.length}/150자</span>
+                  <div className="flex justify-between text-[11px] text-surface-dim">
+                    <span>구체적인 수행평가 범위나 준비물을 입력해 주세요.</span>
+                    <span className="font-mono tabular-nums">{memoInput.length}/150자</span>
                   </div>
                 </div>
 
                 {/* Exception Theme Color Picker */}
-                <div className="flex flex-col space-y-2 pt-1">
-                  <label className="text-xs font-bold text-surface-dim pl-1 flex items-center space-x-1">
-                    <Sparkles className="w-3.5 h-3.5 text-secondary-fixed" />
-                    <span>시간표 개별 적용 테마 색상 (예외 지정)</span>
-                  </label>
-                  <div className="flex flex-col space-y-3 bg-white/5 p-3 rounded-xl border border-white/5">
-                    {/* Default Option */}
+                <div className="flex flex-col space-y-2.5 pt-1 border-t border-white/[0.08]">
+                  <div className="flex items-center justify-between pt-2">
+                    <label className="text-xs font-semibold text-surface-dim">
+                      셀 강조 색상 (선택)
+                    </label>
                     <button
                       type="button"
                       onClick={() => setSelectedColor('')}
-                      className={`w-full py-2 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center space-x-1.5 ${
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                         selectedColor === ''
-                          ? 'bg-white/15 text-white ring-1 ring-white/20 font-black'
-                          : 'text-surface-dim hover:text-white bg-white/5 hover:bg-white/10'
+                          ? 'bg-white/[0.14] text-white'
+                          : 'text-surface-dim hover:text-white bg-white/[0.04] hover:bg-white/[0.08]'
                       }`}
                     >
-                      <span>색상 미지정 (기본 테마)</span>
+                      기본 테마
                     </button>
-
-                    <div className="border-t border-white/5 pt-1" />
-
-                    {/* Palette Choices */}
-                    <div className="flex flex-wrap gap-2.5 justify-center">
-                      {Object.entries(SUBJECT_THEMES).filter(([key]) => key !== '제도').map(([key, theme]) => {
-                        const finalHex = theme.hex.toLowerCase();
-                        const isChosen = selectedColor.toLowerCase() === finalHex;
-                        return (
-                          <button
-                            key={key}
-                            type="button"
-                            onClick={() => setSelectedColor(finalHex)}
-                            className={`w-8 h-8 rounded-full transition-all relative flex items-center justify-center border hover:scale-110 active:scale-95 ${
-                              isChosen
-                                ? 'border-white scale-105 shadow-[0_0_8px_rgba(255,255,255,0.4)]'
-                                : 'border-white/10'
-                            }`}
-                            style={{ backgroundColor: finalHex }}
-                            title={`${theme.name} (${finalHex})`}
-                          >
-                            {isChosen && (
-                              <div className="w-2 h-2 bg-white rounded-full" />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
                   </div>
-                  <span className="text-[10px] text-surface-dim/70 pl-1">
-                    * 지정하지 않을 경우, 기본 테마가 적용되어 차분한 일반 셀 색상으로 유지됩니다.
-                  </span>
+
+                  <div className="flex flex-wrap gap-2.5 pt-0.5">
+                    {Object.entries(SUBJECT_THEMES).filter(([key]) => key !== '제도').map(([key, theme]) => {
+                      const finalHex = theme.hex.toLowerCase();
+                      const isChosen = selectedColor.toLowerCase() === finalHex;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setSelectedColor(finalHex)}
+                          className={`w-7 h-7 rounded-full transition-transform relative flex items-center justify-center border cursor-pointer ${
+                            isChosen
+                              ? 'border-white scale-110'
+                              : 'border-white/15 hover:scale-105'
+                          }`}
+                          style={{ backgroundColor: finalHex }}
+                          title={`${theme.name} (${finalHex})`}
+                        >
+                          {isChosen && (
+                            <div className="w-2 h-2 bg-white rounded-full" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-end space-x-2 border-t border-white/5 pt-4">
+                <div className="flex items-center justify-end space-x-2 border-t border-white/[0.08] pt-4">
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(false)}
-                    className="px-4 py-2 border border-white/5 hover:border-white/10 bg-white/5 rounded-xl text-xs font-bold text-surface-dim hover:text-white transition-all shadow-md"
+                    className="px-4 py-2 border border-white/10 bg-white/[0.04] hover:bg-white/[0.1] rounded-lg text-xs font-semibold text-surface-dim hover:text-white transition-colors cursor-pointer whitespace-nowrap"
                   >
                     취소
                   </button>
 
                   <button
                     type="submit"
-                    className="px-4.5 py-2 rounded-xl text-xs font-bold text-white bg-secondary/80 hover:bg-secondary border border-secondary/20 transition-all flex items-center space-x-1 shadow-md shadow-secondary/10"
+                    className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-secondary hover:bg-secondary/90 transition-colors cursor-pointer whitespace-nowrap"
                   >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>저장</span>
+                    저장
                   </button>
                 </div>
               </form>
@@ -909,7 +851,6 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
       <AnimatePresence>
         {viewingMemo && (
           <div key="timetable-view-memo-modal" className="fixed inset-0 z-[150] flex items-center justify-center p-4">
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -919,63 +860,66 @@ export default function TimetablePage({ isAdmin }: TimetablePageProps) {
               className="absolute inset-0 bg-black/65 backdrop-blur-sm"
             />
 
-            {/* Modal Body */}
             <motion.div
               initial={{ scale: 0.96, y: 8, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.96, y: 6, opacity: 0 }}
               transition={MODAL_PANEL_TRANSITION}
-              className="relative w-full max-w-sm glass-panel border-amber-500/20 rounded-2xl shadow-2xl p-6 overflow-hidden bg-[#111624]"
+              className="relative w-full max-w-sm border border-white/10 rounded-2xl shadow-2xl p-6 overflow-hidden bg-[#0a1120]"
             >
-              <div className="border-b border-white/5 pb-4 mb-4">
-                <span className="bg-amber-500 text-black font-extrabold text-[9px] px-1.5 py-0.5 rounded shadow-sm inline-block mb-1.5" style={{ fontFamily: 'Inter' }}>
-                  수행평가 / 주간 메모
-                </span>
-                <h3 className="text-base font-bold text-white flex items-center space-x-2">
-                  <AlertCircle className="w-4.5 h-4.5 text-amber-400" />
-                  <span>주간 일정 세부 내용</span>
+              <div className="border-b border-white/[0.08] pb-3.5 mb-3.5">
+                <div className="text-amber-400 font-semibold text-xs mb-1">
+                  수행평가 · 주간 메모
+                </div>
+                <h3 className="text-base sm:text-lg font-semibold text-white">
+                  {viewingMemo.subject}
+                  {viewingMemo.teacher && viewingMemo.teacher.trim() && (
+                    <span className="text-xs font-normal text-surface-dim ml-2">
+                      {viewingMemo.teacher.trim()} 선생님
+                    </span>
+                  )}
                 </h3>
               </div>
 
-              {/* Informational Header */}
-              <div className="p-3.5 bg-white/5 border border-white/5 rounded-xl text-xs space-y-1.5 mb-4 leading-relaxed font-sans text-white/90">
-                <div className="flex justify-between border-b border-white/[0.04] pb-1.5 mb-1">
-                  <span className="font-bold text-surface-dim font-mono">대상 주차:</span>
-                  <span className="text-[#00e5ff] font-bold">
-                    {weekStartKey} 주간 ({formatDateKey(weekDays[viewingMemo.dayOfWeek])})
+              <div className="divide-y divide-white/[0.06] border-b border-white/[0.08] pb-3 mb-4 text-xs leading-relaxed font-sans">
+                <div className="flex justify-between py-1.5 first:pt-0">
+                  <span className="text-surface-dim">대상 일자</span>
+                  <span className="text-secondary-container font-semibold font-mono tabular-nums">
+                    {formatDisplayDate(weekDays[viewingMemo.dayOfWeek])} ({dayOfWeekNames[viewingMemo.dayOfWeek]})
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <div>
-                    <span className="font-bold text-surface-dim mr-1 font-mono">상세정보:</span>
-                    <span>{selectedGrade}학년 {DEPARTMENTS.find(d => d.id === selectedDept)?.name} {selectedClass}반</span>
-                  </div>
-                  <div>
-                    <span className="font-bold text-surface-dim mr-1 font-mono">시간:</span>
-                    <span>{dayOfWeekNames[viewingMemo.dayOfWeek]}요일 {viewingMemo.period}교시</span>
-                  </div>
-                </div>
-                <div className="pt-2 mt-1 border-t border-white/5">
-                  <span className="font-bold text-surface-dim mr-2 font-mono">해당 교시:</span>
-                  <span className="text-[#00e5ff] font-extrabold">{viewingMemo.subject}</span>
-                  {viewingMemo.teacher && viewingMemo.teacher.trim() && (
-                    <span className="text-white/60 text-[11px] ml-1">({viewingMemo.teacher.trim()} 선생님)</span>
-                  )}
+                <div className="flex justify-between py-1.5 last:pb-0">
+                  <span className="text-surface-dim">학급 · 교시</span>
+                  <span className="text-white/90">
+                    {selectedGrade}학년 {DEPARTMENTS.find(d => d.id === selectedDept)?.name} {selectedClass}반 · {viewingMemo.period}교시
+                  </span>
                 </div>
               </div>
 
-              {/* Memo content block */}
-              <div className="bg-[#1e1a12] border border-amber-500/20 rounded-xl p-4 mb-4 select-text">
-                <div className="text-amber-200 text-xs font-semibold whitespace-pre-wrap leading-relaxed">
+              <div className="py-1 mb-5 select-text">
+                <p className="text-white text-sm whitespace-pre-wrap leading-relaxed">
                   {viewingMemo.memo}
-                </div>
+                </p>
               </div>
 
-              <div className="flex items-center justify-end border-t border-white/5 pt-4">
+              <div className="flex items-center justify-end gap-2 border-t border-white/[0.08] pt-4">
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const target = viewingMemo;
+                      setViewingMemo(null);
+                      handleOpenEditMemo(target.dayOfWeek, target.period, target.subject);
+                    }}
+                    className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-secondary hover:bg-secondary/90 transition-colors flex-1 sm:flex-none cursor-pointer whitespace-nowrap"
+                  >
+                    메모 수정
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setViewingMemo(null)}
-                  className="px-4 py-2 border border-white/5 hover:border-white/10 bg-white/5 rounded-xl text-xs font-bold text-surface-dim hover:text-white transition-all shadow-md w-full sm:w-auto cursor-pointer"
+                  className="px-4 py-2 border border-white/10 bg-white/[0.04] hover:bg-white/[0.1] rounded-lg text-xs font-semibold text-surface-dim hover:text-white transition-colors flex-1 sm:flex-none cursor-pointer whitespace-nowrap"
                 >
                   닫기
                 </button>

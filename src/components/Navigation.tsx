@@ -40,101 +40,110 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
   ];
 
   return (
-    <div id="dashboard" className="glass-panel-dark text-white sticky top-0 z-50 border-white/5 transition-all duration-300">
+    <div id="dashboard" className="glass-panel-dark text-white sticky top-0 z-50 transition-colors duration-200">
       <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-14 sm:h-16">
-          {/* Logo & Portal Title */}
-          <Link to="/" className="flex items-center space-x-2.5 shrink-0 mr-3 lg:mr-6">
-            <img src={`${import.meta.env.BASE_URL}logo.png`} className="w-[22px] sm:w-[26px] md:w-[28px] h-auto brightness-0 invert opacity-90 block shrink-0" alt="KRHS" />
-            <span className="font-sans font-bold tracking-tight text-white/95 text-base sm:text-lg md:text-xl">KRHS Portal</span>
+        <div className="flex justify-between items-center h-14 sm:h-16 gap-2 sm:gap-6">
+          {/* Brand Wordmark */}
+          <Link to="/" className="flex items-center space-x-2 sm:space-x-2.5 min-w-0 whitespace-nowrap">
+            <img
+              src={`${import.meta.env.BASE_URL}logo.png`}
+              className="w-[22px] sm:w-[25px] h-auto brightness-0 invert opacity-90 block shrink-0"
+              alt="KRHS"
+            />
+            <span className="font-sans font-semibold tracking-tight text-white text-[15px] sm:text-base lg:text-lg truncate">
+              한국철도고등학교 포털
+            </span>
           </Link>
 
           {/* Center/Right Nav Area */}
           <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4 min-w-0">
             {/* Desktop Navigation Links */}
-            <nav className="hidden md:flex flex-nowrap items-center space-x-3.5 lg:space-x-6 xl:space-x-7 min-w-0 pr-2 lg:pr-4 whitespace-nowrap">
+            <nav className="hidden md:flex flex-nowrap items-center space-x-4 lg:space-x-6 xl:space-x-7 min-w-0 pr-2 lg:pr-4 whitespace-nowrap">
               {navItems.map(item => {
                 const isActive = location.pathname === item.path;
                 return (
-                  <Link 
-                    key={item.path} 
-                    to={item.path} 
-                    className={`relative flex shrink-0 items-center text-xs lg:text-sm font-medium transition-colors duration-200 py-1.5 ${isActive ? 'text-white font-bold' : 'text-surface-dim hover:text-white'}`}
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`relative flex shrink-0 items-center text-xs lg:text-sm transition-colors duration-150 py-1.5 whitespace-nowrap ${
+                      isActive ? 'text-white font-semibold' : 'text-surface-dim hover:text-white font-normal'
+                    }`}
                   >
                     <span>{item.name}</span>
                     {isActive && (
                       <motion.span
                         layoutId="portal-nav-underline"
                         transition={NAV_SPRING_TRANSITION}
-                        className="absolute -bottom-1 left-0 right-0 h-[2px] rounded-full bg-secondary-fixed-dim"
+                        className="absolute -bottom-1 left-0 right-0 h-[2px] bg-secondary-container"
                       />
                     )}
                   </Link>
                 );
               })}
             </nav>
-            
-            <div className="shrink-0 md:border-l border-white/10 md:pl-3 lg:md:pl-4 flex items-center space-x-1.5 sm:space-x-2">
-              {/* Tool Dropdown Menu */}
-              <div className="relative" ref={toolDropdownRef}>
+
+            <div className="shrink-0 md:border-l border-white/10 md:pl-3 lg:pl-4 flex items-center space-x-1.5 sm:space-x-2">
+              {/* Tool Dropdown Menu (Desktop — Mobile uses the dedicated section inside the menu) */}
+              <div className="hidden md:block relative" ref={toolDropdownRef}>
                 <button
                   type="button"
                   onClick={() => setIsToolMenuOpen(prev => !prev)}
-                  className={`h-8 inline-flex items-center justify-center space-x-1 sm:space-x-1.5 text-xs lg:text-sm font-medium px-2.5 sm:px-3 rounded-full transition-all duration-200 border cursor-pointer ${
+                  className={`h-8 inline-flex items-center justify-center space-x-1.5 text-xs lg:text-sm font-medium px-2.5 rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap ${
                     isToolMenuOpen || location.pathname.startsWith('/tool')
-                      ? 'bg-white/15 text-white border-white/25 shadow-sm'
-                      : 'text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 border-white/10'
+                      ? 'bg-white/[0.1] text-white'
+                      : 'text-surface-dim hover:text-white hover:bg-white/[0.06]'
                   }`}
                 >
-                  <Wrench className="w-3.5 h-3.5 text-secondary shrink-0" />
+                  <Wrench className="w-3.5 h-3.5 text-surface-dim shrink-0" strokeWidth={1.75} />
                   <span>도구</span>
-                  <ChevronDown className={`w-3 h-3 text-surface-dim transition-transform duration-200 ${isToolMenuOpen ? 'rotate-180 text-white' : ''}`} />
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-surface-dim transition-transform duration-150 ${
+                      isToolMenuOpen ? 'rotate-180 text-white' : ''
+                    }`}
+                  />
                 </button>
 
-                {/* Dropdown Menu */}
                 <AnimatePresence>
                   {isToolMenuOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                      initial={{ opacity: 0, y: 6, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 4, scale: 0.97 }}
+                      exit={{ opacity: 0, y: 4, scale: 0.98 }}
                       transition={{ duration: 0.16, ease: EASE_OUT_EXPO }}
-                      className="fixed left-3.5 right-3.5 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 bg-[#0c1426] border border-white/15 rounded-2xl p-2 shadow-2xl z-50 overflow-hidden backdrop-blur-md origin-top-right"
+                      className="fixed left-3.5 right-3.5 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 bg-[#0f182b] border border-white/[0.12] rounded-xl p-1.5 shadow-2xl z-50 overflow-hidden origin-top-right"
                     >
-                      <div className="px-3 py-2 border-b border-white/5 flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-surface-dim">포털 도구함</span>
+                      <div className="px-2.5 py-1.5 border-b border-white/[0.06] flex items-center justify-between">
+                        <span className="text-xs font-medium text-surface-dim">교내 실무 도구</span>
                       </div>
 
-                      <div className="p-1 space-y-1">
+                      <div className="py-1">
                         <Link
                           to="/tool/pos"
                           onClick={() => setIsToolMenuOpen(false)}
-                          className="flex items-start space-x-3 p-2.5 rounded-xl hover:bg-white/10 transition-colors group"
+                          className="flex items-start space-x-3 p-2.5 rounded-lg hover:bg-white/[0.06] transition-colors group"
                         >
-                          <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-300 shrink-0 group-hover:scale-105 transition-transform">
-                            <Store className="w-5 h-5" />
+                          <div className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/10 flex items-center justify-center text-white shrink-0">
+                            <Store className="w-4 h-4" strokeWidth={1.75} />
                           </div>
                           <div className="flex-1 min-w-0 text-left">
-                            <div>
-                              <span className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
-                                매점 POS
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-surface-dim mt-0.5 leading-snug line-clamp-1">
-                              실시간 상품 결제, 재고 차감 및 정산
+                            <span className="text-xs font-semibold text-white group-hover:text-secondary-container transition-colors block">
+                              매점 POS 터미널
+                            </span>
+                            <p className="text-xs text-surface-dim mt-0.5 leading-snug line-clamp-1">
+                              상품 결제, 재고 관리 및 마감 정산
                             </p>
                           </div>
                         </Link>
                       </div>
 
-                      <div className="pt-1 mt-1 border-t border-white/5">
+                      <div className="pt-1 border-t border-white/[0.06]">
                         <Link
                           to="/tool"
                           onClick={() => setIsToolMenuOpen(false)}
-                          className="flex items-center justify-center space-x-1.5 py-2 px-3 rounded-lg text-[11px] font-medium text-surface-dim hover:text-white hover:bg-white/5 transition-colors"
+                          className="flex items-center justify-center space-x-1.5 py-2 px-3 rounded-lg text-xs font-medium text-surface-dim hover:text-white hover:bg-white/[0.05] transition-colors"
                         >
-                          <Boxes className="w-3.5 h-3.5" />
-                          <span>도구함 허브 전체보기</span>
+                          <Boxes className="w-3.5 h-3.5" strokeWidth={1.75} />
+                          <span>도구 목록 보기</span>
                         </Link>
                       </div>
                     </motion.div>
@@ -142,41 +151,41 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
                 </AnimatePresence>
               </div>
 
-              {/* Fullscreen Toggle Button */}
+              {/* Fullscreen Toggle Button (Desktop — Mobile uses the dedicated row inside the menu) */}
               <button
                 type="button"
                 onClick={toggleFullscreen}
                 title={isFullscreen ? '전체화면 종료 (ESC)' : '전체화면 모드 전환'}
-                className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 border cursor-pointer shrink-0 ${
+                className={`hidden md:flex items-center justify-center w-8 h-8 rounded-lg transition-colors duration-150 cursor-pointer shrink-0 ${
                   isFullscreen
-                    ? 'bg-secondary/25 text-secondary border-secondary/40 shadow-sm shadow-secondary/20'
-                    : 'text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 border-white/10'
+                    ? 'bg-secondary/20 text-secondary-container'
+                    : 'text-surface-dim hover:text-white hover:bg-white/[0.06]'
                 }`}
                 aria-label={isFullscreen ? '전체화면 종료' : '전체화면 모드'}
               >
                 {isFullscreen ? (
-                  <Minimize className="w-3.5 h-3.5" />
+                  <Minimize className="w-4 h-4" strokeWidth={1.75} />
                 ) : (
-                  <Maximize className="w-3.5 h-3.5" />
+                  <Maximize className="w-4 h-4" strokeWidth={1.75} />
                 )}
               </button>
 
-              {hasAuthChecked && (
-                auth.currentUser ? (
-                  <div className="flex items-center space-x-1 sm:space-x-1.5">
+              {hasAuthChecked &&
+                (auth.currentUser ? (
+                  <div className="flex items-center space-x-1.5 shrink-0">
                     {isAdmin ? (
-                      <button 
-                        onClick={() => setIsAdminModalOpen(true)} 
+                      <button
+                        onClick={() => setIsAdminModalOpen(true)}
                         title={`접속 계정: ${getDisplayUserEmail(auth.currentUser?.email || auth.currentUser?.providerData?.[0]?.email) || '관리자'}`}
-                        className="h-8 inline-flex items-center justify-center space-x-1.5 text-xs lg:text-sm font-bold text-secondary-fixed-dim bg-secondary/10 hover:bg-secondary/20 px-2.5 sm:px-3 rounded-full transition-colors duration-200 border border-secondary/20 cursor-pointer whitespace-nowrap"
+                        className="h-8 inline-flex items-center justify-center space-x-1.5 text-xs lg:text-sm font-semibold text-white bg-secondary hover:bg-secondary/90 px-2.5 sm:px-3 rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0"
                       >
-                        <Settings className="w-3.5 h-3.5 text-secondary shrink-0" />
+                        <Settings className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />
                         <span>관리자</span>
                       </button>
                     ) : (
-                      <span 
-                        title={getDisplayUserEmail(auth.currentUser?.email) || ''} 
-                        className="hidden sm:inline-flex items-center h-7 text-[11px] text-surface-dim font-mono max-w-[120px] truncate px-2.5 bg-white/5 rounded-full border border-white/5"
+                      <span
+                        title={getDisplayUserEmail(auth.currentUser?.email) || ''}
+                        className="hidden md:inline-flex items-center text-xs text-surface-dim font-mono max-w-[120px] truncate px-1.5"
                       >
                         {getDisplayUserEmail(auth.currentUser?.email) || '로그인됨'}
                       </span>
@@ -186,21 +195,24 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
                       type="button"
                       onClick={() => logout()}
                       title={`로그아웃 (${getDisplayUserEmail(auth.currentUser?.email) || ''})`}
-                      className="h-8 inline-flex items-center justify-center space-x-1 text-xs font-medium text-surface-dim hover:text-white bg-white/5 hover:bg-red-500/20 hover:border-red-500/30 px-2 sm:px-2.5 rounded-full transition-colors duration-200 border border-white/10 cursor-pointer"
+                      className="hidden md:inline-flex h-8 items-center justify-center space-x-1 text-xs font-medium text-surface-dim hover:text-rose-300 hover:bg-rose-500/10 px-2.5 rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0"
                     >
-                      <LogOut className="w-3.5 h-3.5 shrink-0" />
-                      <span className="hidden sm:inline text-[11px]">로그아웃</span>
+                      <LogOut className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />
+                      <span className="hidden lg:inline">로그아웃</span>
                     </button>
                   </div>
                 ) : (
-                  <button onClick={loginWithGoogle} className="h-8 inline-flex items-center justify-center space-x-1.5 text-xs lg:text-sm font-medium text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 px-2.5 sm:px-3 rounded-full transition-colors duration-200 cursor-pointer whitespace-nowrap">
+                  <button
+                    onClick={loginWithGoogle}
+                    className="h-8 inline-flex items-center justify-center text-xs lg:text-sm font-medium text-surface-dim hover:text-white hover:bg-white/[0.06] px-2.5 rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0"
+                  >
                     <span>로그인</span>
                   </button>
-                )
-              )}
+                ))}
+
               {/* Mobile Menu Toggle Button */}
-              <button 
-                className="md:hidden p-1.5 text-white/70 hover:text-white active:scale-95 transition-all cursor-pointer"
+              <button
+                className="md:hidden p-1.5 text-white/80 hover:text-white active:scale-95 transition-transform cursor-pointer shrink-0"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 aria-label={isMobileMenuOpen ? '메뉴 닫기' : '메뉴 열기'}
               >
@@ -238,25 +250,22 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
       {/* Mobile Navigation Dropdown */}
       <AnimatePresence>
         {isMobileMenuOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: -8, scaleY: 0.97 }}
             animate={{ opacity: 1, y: 0, scaleY: 1 }}
             exit={{ opacity: 0, y: -6, scaleY: 0.97 }}
             transition={{ duration: 0.18, ease: EASE_OUT_EXPO }}
-            className="md:hidden absolute top-14 sm:top-16 left-0 right-0 bg-[#0a1120]/95 backdrop-blur-md border-b border-white/10 shadow-2xl flex flex-col pt-2 pb-4 px-4 overflow-hidden z-50 origin-top"
+            className="md:hidden absolute top-14 sm:top-16 left-0 right-0 bg-[#0a1120]/98 backdrop-blur-md border-b border-white/10 shadow-2xl flex flex-col pt-2 pb-4 px-4 overflow-hidden z-50 origin-top"
           >
-            <nav className="flex flex-col space-y-2">
+            <nav className="flex flex-col space-y-1.5">
               {/* Mobile Tool Section */}
-              <div className="pb-2 border-b border-white/10">
-                <div className="flex items-center justify-between px-2 py-1 text-xs font-bold text-surface-dim">
-                  <span className="flex items-center space-x-1.5 text-secondary">
-                    <Wrench className="w-3.5 h-3.5" />
-                    <span>도구함 (Tool)</span>
-                  </span>
+              <div className="pb-2.5 mb-1 border-b border-white/[0.08]">
+                <div className="flex items-center justify-between px-2 py-1 text-xs font-medium text-surface-dim">
+                  <span>실무 도구</span>
                   <Link
                     to="/tool"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="text-[11px] text-surface-dim hover:text-white"
+                    className="text-xs text-surface-dim hover:text-white"
                   >
                     전체보기
                   </Link>
@@ -264,14 +273,14 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
                 <Link
                   to="/tool/pos"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center space-x-2.5 p-2.5 rounded-xl text-sm font-bold bg-white/5 hover:bg-white/10 text-white border border-white/10 transition-colors mt-1"
+                  className="flex items-center space-x-2.5 p-2.5 rounded-lg text-sm font-semibold bg-white/[0.04] hover:bg-white/[0.08] text-white border border-white/[0.08] transition-colors mt-1"
                 >
-                  <Store className="w-4 h-4 text-amber-400 shrink-0" />
+                  <Store className="w-4 h-4 text-secondary-container shrink-0" strokeWidth={1.75} />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2">
-                      <span className="truncate">매점 POS</span>
-                    </div>
-                    <p className="text-[11px] text-surface-dim font-normal mt-0.5 truncate">결제, 재고 관리 및 마감 정산</p>
+                    <span className="truncate block">매점 POS 터미널</span>
+                    <p className="text-xs text-surface-dim font-normal mt-0.5 truncate">
+                      결제, 재고 관리 및 마감 정산
+                    </p>
                   </div>
                 </Link>
               </div>
@@ -279,39 +288,62 @@ export function Navigation({ isAdmin, hasAuthChecked, setIsAdminModalOpen, login
               {navItems.map(item => {
                 const isActive = location.pathname === item.path;
                 return (
-                  <Link 
-                    key={item.path} 
-                    to={item.path} 
+                  <Link
+                    key={item.path}
+                    to={item.path}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center p-3 rounded-lg text-sm font-medium transition-colors duration-200 ${isActive ? 'bg-white/10 text-white font-semibold' : 'text-surface-dim hover:bg-white/5 hover:text-white'}`}
+                    className={`flex items-center px-3 py-2.5 rounded-lg text-sm transition-colors duration-150 ${
+                      isActive
+                        ? 'bg-white/[0.08] text-white font-semibold'
+                        : 'text-surface-dim hover:bg-white/[0.04] hover:text-white font-normal'
+                    }`}
                   >
                     <span>{item.name}</span>
                   </Link>
                 );
               })}
 
-              {/* Mobile Fullscreen Toggle Row */}
-              <div className="pt-2 border-t border-white/10">
+              {/* Mobile Fullscreen & Account Section */}
+              <div className="pt-2 mt-1 border-t border-white/[0.08] space-y-1.5">
                 <button
                   type="button"
                   onClick={() => {
                     toggleFullscreen();
                     setIsMobileMenuOpen(false);
                   }}
-                  className="w-full flex items-center justify-between p-3 rounded-lg text-sm font-medium bg-white/5 hover:bg-white/10 text-white transition-colors cursor-pointer"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium bg-white/[0.04] hover:bg-white/[0.08] text-white transition-colors cursor-pointer"
                 >
                   <span className="flex items-center space-x-2">
                     {isFullscreen ? (
-                      <Minimize className="w-4 h-4 text-secondary shrink-0" />
+                      <Minimize className="w-4 h-4 text-surface-dim shrink-0" />
                     ) : (
-                      <Maximize className="w-4 h-4 text-secondary shrink-0" />
+                      <Maximize className="w-4 h-4 text-surface-dim shrink-0" />
                     )}
-                    <span className="font-semibold">{isFullscreen ? '전체화면 종료' : '전체화면 모드'}</span>
+                    <span>{isFullscreen ? '전체화면 종료' : '전체화면 모드'}</span>
                   </span>
-                  <span className="text-[11px] text-surface-dim">
-                    {isFullscreen ? '창 모드로 복귀' : '전체화면 전환'}
+                  <span className="text-xs text-surface-dim">
+                    {isFullscreen ? '창 모드로 복귀' : '전환'}
                   </span>
                 </button>
+
+                {hasAuthChecked && auth.currentUser && (
+                  <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                    <span className="text-xs text-surface-dim font-mono truncate mr-3">
+                      {getDisplayUserEmail(auth.currentUser?.email || auth.currentUser?.providerData?.[0]?.email) || '로그인됨'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        logout();
+                      }}
+                      className="inline-flex items-center space-x-1 text-xs font-medium text-rose-300 hover:text-rose-200 shrink-0 cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />
+                      <span>로그아웃</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </nav>
           </motion.div>

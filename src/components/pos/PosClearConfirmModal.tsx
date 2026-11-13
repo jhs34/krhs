@@ -23,9 +23,9 @@ export function PosClearConfirmModal({ onConfirm, onClose, totalItems }: PosClea
         exit={{ scale: 0.96, opacity: 0, y: 6 }}
         transition={POS_MODAL_PANEL_TRANSITION}
         onClick={e => e.stopPropagation()}
-        className="bg-[#0a1120] border border-white/10 w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col relative"
+        className="bg-[#0a1120] border border-white/10 w-full max-w-sm rounded-2xl p-6 shadow-2xl flex flex-col relative"
       >
-        <h3 className="text-lg font-bold text-white mb-1.5">
+        <h3 className="text-base sm:text-lg font-bold text-white mb-1.5">
           장바구니를 모두 비우시겠습니까?
         </h3>
         <p className="text-xs text-surface-dim mb-6 leading-relaxed">
@@ -36,7 +36,7 @@ export function PosClearConfirmModal({ onConfirm, onClose, totalItems }: PosClea
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-3 rounded-xl font-semibold text-xs sm:text-sm bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+            className="flex-1 py-2.5 rounded-xl font-semibold text-xs sm:text-sm bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
           >
             취소
           </button>
@@ -46,7 +46,7 @@ export function PosClearConfirmModal({ onConfirm, onClose, totalItems }: PosClea
               onConfirm();
               onClose();
             }}
-            className="flex-1 py-3 rounded-xl font-bold text-xs sm:text-sm bg-red-600 hover:bg-red-500 active:scale-[0.98] text-white transition-all cursor-pointer"
+            className="flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white transition-[background-color,transform] cursor-pointer"
           >
             모두 비우기
           </button>

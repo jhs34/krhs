@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, AlertCircle, Check, Ban, TrendingUp, Plus } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { PosCategory, PosItem } from '../../types/pos';
 import { POS_MODAL_BACKDROP_TRANSITION, POS_MODAL_PANEL_TRANSITION, EASE_OUT_EXPO } from '../../utils/motion';
@@ -97,7 +97,9 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
               {isEdit ? '상품 정보 수정' : '신규 상품 등록'}
             </h3>
             <p className="text-[11px] text-surface-dim mt-0.5">
-              {isEdit ? `상품 ID: ${item?.id}` : '매점에 진열할 새 품목을 등록합니다.'}
+              {isEdit
+                ? `누적 판매 ${(item?.totalSold || 0).toLocaleString()}개`
+                : '매점에 진열할 새 품목을 등록합니다.'}
             </p>
           </div>
           <button
@@ -168,14 +170,16 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
               </label>
               <div className="relative">
                 <input
-                  type="number"
-                  min="0"
-                  step="50"
-                  value={price}
-                  onChange={e => setPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                  placeholder="1000"
-                  className="w-full bg-primary border border-white/10 rounded-xl pl-3.5 pr-8 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-secondary"
-                  required
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={price === 0 || price === '' ? '' : String(price)}
+                  onChange={e => {
+                    const digits = e.target.value.replace(/[^0-9]/g, '');
+                    setPrice(digits === '' ? 0 : Math.min(999999999, parseInt(digits, 10)));
+                  }}
+                  placeholder="0"
+                  className="w-full bg-primary border border-white/10 rounded-xl pl-3.5 pr-8 py-2.5 text-sm text-white font-mono tabular-nums placeholder:text-surface-dim/50 focus:outline-none focus:border-secondary"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-surface-dim font-bold">
                   원
@@ -184,116 +188,110 @@ export function PosItemFormModal({ item, categories, onSave, onClose }: PosItemF
             </div>
           </div>
 
-          {/* Status: In Stock (판매중) vs Sold Out (품절) */}
-          <div>
-            <label className="block text-xs font-semibold text-surface-dim mb-1.5">
-              판매 상태
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setIsSoldOut(false)}
-                className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
-                  !isSoldOut
-                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                    : 'bg-white/5 border-white/10 text-surface-dim hover:text-white'
-                }`}
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>판매중 (정상)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsSoldOut(true)}
-                className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
-                  isSoldOut
-                    ? 'bg-rose-500/15 border-rose-500/40 text-rose-300'
-                    : 'bg-white/5 border-white/10 text-surface-dim hover:text-white'
-                }`}
-              >
-                <Ban className="w-3.5 h-3.5" />
-                <span>품절</span>
-              </button>
+          {/* Status & Menu Display Segmented Controls */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label className="block text-xs font-semibold text-surface-dim mb-1.5">
+                판매 상태
+              </label>
+              <div className="grid grid-cols-2 gap-1 bg-primary p-1 rounded-xl border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setIsSoldOut(false)}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                    !isSoldOut
+                      ? 'bg-secondary text-white'
+                      : 'text-surface-dim hover:text-white'
+                  }`}
+                >
+                  판매중
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsSoldOut(true)}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                    isSoldOut
+                      ? 'bg-rose-600 text-white'
+                      : 'text-surface-dim hover:text-white'
+                  }`}
+                >
+                  품절
+                </button>
+              </div>
             </div>
-            {isEdit && (
-              <div className="mt-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-between text-xs text-surface-dim">
-                <span className="flex items-center space-x-1.5">
-                  <TrendingUp className="w-3.5 h-3.5 text-secondary-container" />
-                  <span>누적 판매량</span>
-                </span>
-                <span className="font-mono font-bold text-white tabular-nums">
-                  {(item?.totalSold || 0).toLocaleString()}개 판매됨
-                </span>
+
+            <div>
+              <label className="block text-xs font-semibold text-surface-dim mb-1.5">
+                메뉴판 노출
+              </label>
+              <div className="grid grid-cols-2 gap-1 bg-primary p-1 rounded-xl border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setIsActive(true)}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                    isActive
+                      ? 'bg-secondary text-white'
+                      : 'text-surface-dim hover:text-white'
+                  }`}
+                >
+                  진열
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsActive(false)}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                    !isActive
+                      ? 'bg-white/15 text-white'
+                      : 'text-surface-dim hover:text-white'
+                  }`}
+                >
+                  숨김
+                </button>
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Favorite & Active Toggles */}
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            <button
-              type="button"
-              onClick={() => setIsFavorite(prev => !prev)}
-              className={`p-3 rounded-xl border text-left flex items-center space-x-3 transition-all cursor-pointer ${
-                isFavorite
-                  ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
-                  : 'bg-white/5 border-white/10 text-surface-dim hover:text-white'
+          {/* Favorite Toggle Row */}
+          <button
+            type="button"
+            onClick={() => setIsFavorite(prev => !prev)}
+            role="switch"
+            aria-checked={isFavorite}
+            className="w-full py-2.5 px-3.5 rounded-xl bg-primary border border-white/10 hover:border-white/20 flex items-center justify-between transition-colors cursor-pointer"
+          >
+            <div className="text-left">
+              <div className="text-xs font-semibold text-white">인기 메뉴 상단 노출</div>
+              <div className="text-[11px] text-surface-dim mt-0.5">
+                즐겨찾기 탭 및 메뉴판 상단에 우선 배치합니다
+              </div>
+            </div>
+            <div
+              className={`w-9 h-5 rounded-full p-0.5 transition-colors shrink-0 ${
+                isFavorite ? 'bg-secondary' : 'bg-white/15'
               }`}
             >
               <div
-                className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${
-                  isFavorite ? 'bg-amber-500 text-black font-bold' : 'bg-white/10 text-surface-dim'
+                className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                  isFavorite ? 'translate-x-4' : 'translate-x-0'
                 }`}
-              >
-                ★
-              </div>
-              <div>
-                <div className="text-xs font-bold text-white">인기/즐겨찾기</div>
-                <div className="text-[10px] text-surface-dim">
-                  {isFavorite ? '상단 탭에 노출' : '일반 품목'}
-                </div>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsActive(prev => !prev)}
-              className={`p-3 rounded-xl border text-left flex items-center space-x-3 transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                  : 'bg-rose-500/15 border-rose-500/40 text-rose-300'
-              }`}
-            >
-              <div
-                className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
-                  isActive ? 'bg-emerald-500 text-black' : 'bg-rose-500 text-white'
-                }`}
-              >
-                {isActive ? '진열' : '숨김'}
-              </div>
-              <div>
-                <div className="text-xs font-bold text-white">진열 상태</div>
-                <div className="text-[10px] text-surface-dim">
-                  {isActive ? '메뉴판에 노출' : '메뉴판에서 숨김'}
-                </div>
-              </div>
-            </button>
-          </div>
+              />
+            </div>
+          </button>
 
           {/* Footer Submit Buttons */}
           <div className="pt-3 flex items-center justify-end space-x-2.5 border-t border-white/10">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white whitespace-nowrap transition-colors cursor-pointer"
             >
               취소
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-secondary text-white hover:bg-secondary/90 transition-all flex items-center space-x-1.5 cursor-pointer"
+              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-secondary text-white hover:bg-secondary/90 whitespace-nowrap transition-colors cursor-pointer"
             >
-              <Plus className="w-4 h-4" />
-              <span>{isEdit ? '변경사항 저장' : '새 상품 등록 완료'}</span>
+              {isEdit ? '저장' : '상품 등록'}
             </button>
           </div>
         </form>

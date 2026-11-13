@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { X, Delete, RotateCcw, Check } from 'lucide-react';
+import { X, Delete, RotateCcw } from 'lucide-react';
 import { POS_MODAL_BACKDROP_TRANSITION, POS_MODAL_PANEL_TRANSITION, POS_BUMP_TRANSITION } from '../../utils/motion';
 
 interface PosGifticonInputModalProps {
@@ -134,23 +134,23 @@ export const PosGifticonInputModal: React.FC<PosGifticonInputModalProps> = ({
               </div>
 
               <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-                <span className="text-xs font-bold text-purple-300">적용 금액</span>
+                <span className="text-xs font-bold text-amber-300">적용 금액</span>
                 <div className="flex items-center space-x-2">
                   <motion.span
                     key={inputValue}
                     initial={{ scale: 1.07 }}
                     animate={{ scale: 1 }}
                     transition={POS_BUMP_TRANSITION}
-                    className="text-xl font-black font-mono tabular-nums text-purple-300 tracking-tight inline-block origin-right"
+                    className="text-xl font-bold font-mono tabular-nums text-amber-300 tracking-tight inline-block origin-right"
                   >
                     {inputValue > 0 ? `-${inputValue.toLocaleString()}` : '0'}
-                    <span className="text-xs font-normal text-purple-300/70 ml-0.5">원</span>
+                    <span className="text-xs font-normal text-amber-300/70 ml-0.5">원</span>
                   </motion.span>
                   {inputValue > 0 && (
                     <button
                       type="button"
                       onClick={handleClear}
-                      className="p-1 rounded-md bg-white/5 hover:bg-white/10 active:scale-90 text-surface-dim hover:text-white transition-all cursor-pointer"
+                      className="p-1 rounded-md bg-white/5 hover:bg-white/10 active:scale-90 text-surface-dim hover:text-white transition-[background-color,color,transform] cursor-pointer"
                       title="초기화"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
@@ -166,7 +166,7 @@ export const PosGifticonInputModal: React.FC<PosGifticonInputModalProps> = ({
                   initial={{ scale: 1.05 }}
                   animate={{ scale: 1 }}
                   transition={POS_BUMP_TRANSITION}
-                  className="text-lg font-black font-mono tabular-nums text-secondary-container inline-block origin-right"
+                  className="text-lg font-bold font-mono tabular-nums text-secondary-container inline-block origin-right"
                 >
                   {finalPayableAmount.toLocaleString()}
                   <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
@@ -181,7 +181,7 @@ export const PosGifticonInputModal: React.FC<PosGifticonInputModalProps> = ({
                   key={digit}
                   type="button"
                   onClick={() => handleDigit(digit)}
-                  className="h-11 sm:h-12 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/15 active:scale-[0.98] border border-white/10 text-base sm:text-lg font-bold font-mono text-white transition-all cursor-pointer"
+                  className="h-11 sm:h-12 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/15 active:scale-[0.98] border border-white/10 text-base sm:text-lg font-bold font-mono text-white transition-[background-color,transform] cursor-pointer"
                 >
                   {digit}
                 </button>
@@ -189,21 +189,21 @@ export const PosGifticonInputModal: React.FC<PosGifticonInputModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleDigit('00')}
-                className="h-11 sm:h-12 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/15 active:scale-[0.98] border border-white/10 text-sm sm:text-base font-bold font-mono text-surface-dim hover:text-white transition-all cursor-pointer"
+                className="h-11 sm:h-12 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/15 active:scale-[0.98] border border-white/10 text-sm sm:text-base font-bold font-mono text-surface-dim hover:text-white transition-[background-color,color,transform] cursor-pointer"
               >
                 00
               </button>
               <button
                 type="button"
                 onClick={() => handleDigit('0')}
-                className="h-11 sm:h-12 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/15 active:scale-[0.98] border border-white/10 text-base sm:text-lg font-bold font-mono text-white transition-all cursor-pointer"
+                className="h-11 sm:h-12 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/15 active:scale-[0.98] border border-white/10 text-base sm:text-lg font-bold font-mono text-white transition-[background-color,transform] cursor-pointer"
               >
                 0
               </button>
               <button
                 type="button"
                 onClick={handleBackspace}
-                className="h-11 sm:h-12 rounded-xl bg-white/[0.04] hover:bg-rose-500/15 active:scale-[0.98] border border-white/10 text-surface-dim hover:text-rose-300 flex items-center justify-center transition-all cursor-pointer"
+                className="h-11 sm:h-12 rounded-xl bg-white/[0.04] hover:bg-rose-500/15 active:scale-[0.98] border border-white/10 text-surface-dim hover:text-rose-300 flex items-center justify-center transition-[background-color,color,transform] cursor-pointer"
                 aria-label="지우기"
               >
                 <Delete className="w-4 h-4" />
@@ -216,17 +216,16 @@ export const PosGifticonInputModal: React.FC<PosGifticonInputModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer"
+              className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs sm:text-sm font-bold whitespace-nowrap transition-colors cursor-pointer"
             >
               취소
             </button>
             <button
               type="button"
               onClick={handleConfirm}
-              className="py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 active:scale-[0.98] text-white text-xs sm:text-sm font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+              className="py-2.5 rounded-xl bg-secondary hover:bg-secondary/90 active:scale-[0.98] text-white text-xs sm:text-sm font-bold whitespace-nowrap flex items-center justify-center transition-[background-color,transform] cursor-pointer"
             >
-              <Check className="w-4 h-4" />
-              <span>적용</span>
+              적용
             </button>
           </div>
       </motion.div>

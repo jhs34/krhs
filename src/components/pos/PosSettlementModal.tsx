@@ -1,32 +1,17 @@
 import { useState, useMemo, useEffect } from 'react';
 import { 
-  Calculator, 
   X, 
   CheckCircle2, 
-  AlertTriangle, 
-  Coins, 
-  Banknote, 
   Copy, 
   Check, 
-  Lock, 
-  FileText, 
-  Calendar, 
-  Sparkles, 
-  History, 
   Info, 
   ChevronRight, 
   ArrowLeft, 
-  Clock, 
-  CheckCircle, 
   HelpCircle,
   Search,
   Edit2,
   Trash2,
-  ShieldCheck,
-  LogIn,
-  LogOut,
   RotateCcw,
-  Save,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -281,8 +266,14 @@ export function PosSettlementModal({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const parseCleanNonNegativeInt = (val: string, max = 999999999) => {
+    const digits = val.replace(/[^0-9]/g, '');
+    if (digits === '') return 0;
+    return Math.min(max, parseInt(digits, 10) || 0);
+  };
+
   const handleCountChange = (denom: number, val: string) => {
-    const n = Math.max(0, parseInt(val, 10) || 0);
+    const n = parseCleanNonNegativeInt(val, 99999);
     setCounts(prev => ({ ...prev, [denom]: n }));
   };
 
@@ -504,32 +495,27 @@ export function PosSettlementModal({
     const grossVal = typeof s.grossSales === 'number' ? s.grossSales : ((s.totalSales || 0) + discountVal);
 
     return [
-      '================================',
-      '      한국철도고등학교 매점      ',
-      '       [ 일일 영업 마감 보고서 ]  ',
-      '================================',
-      `정산일자: ${s.id}`,
-      `마감일시: ${timeStr}`,
-      `마감담당: ${s.closedBy || s.openedBy || currentUserName}`,
-      `마감상태: ${s.status === 'CLOSED' ? '마감 완료' : '진행 중'}`,
-      '--------------------------------',
-      `[매출 실적]`,
-      s.ordersCount ? `· 총 주문: ${s.ordersCount}건 (정상 ${s.activeCount || 0}건, 취소 ${s.cancelCount || 0}건)` : '',
-      `· 정가 총 매출:   ${grossVal.toLocaleString()}원`,
-      `· 할인 적용액:   ${discountVal > 0 ? `-${discountVal.toLocaleString()}원` : '0원'}`,
-      `· 계좌이체 매출: ${(s.transferSales || 0).toLocaleString()}원`,
-      `· 현금 매출:     ${(s.cashSales || 0).toLocaleString()}원`,
-      `· 실수납 합계:   ${(s.totalSales || 0).toLocaleString()}원`,
-      '--------------------------------',
-      `[금고 시재금 정산]`,
-      `· 시작 준비금:   ${(s.initialCash || 0).toLocaleString()}원`,
-      `· 장부상 현금:   ${expected.toLocaleString()}원`,
-      `· 실측된 현금:   ${(s.actualCashInput || 0).toLocaleString()}원`,
-      `· 시재 과부족:   ${diff === 0 ? '0원 (일치)' : `${diff > 0 ? '+' : ''}${diff.toLocaleString()}원 (${diff > 0 ? '과잉' : '부족'})`}`,
-      '================================',
-      s.note ? `특이사항: ${s.note}` : '특이사항 없음.',
-      '================================',
-    ].filter(Boolean).join('\n');
+      '한국철도고등학교 매점 · 마감 정산 명세서',
+      `정산 일자: ${s.id}`,
+      `마감 일시: ${timeStr}`,
+      `마감 담당: ${s.closedBy || s.openedBy || currentUserName}`,
+      `정산 상태: ${s.status === 'CLOSED' ? '마감 완료' : '영업 중'}`,
+      '',
+      '매출 실적',
+      s.ordersCount ? `- 주문 건수: 총 ${s.ordersCount}건 (정상 ${s.activeCount || 0}건, 취소 ${s.cancelCount || 0}건)` : '',
+      `- 정가 총 매출: ${grossVal.toLocaleString()}원`,
+      `- 할인 적용액: ${discountVal > 0 ? `-${discountVal.toLocaleString()}원` : '0원'}`,
+      `- 계좌이체 매출: ${(s.transferSales || 0).toLocaleString()}원`,
+      `- 현금 매출: ${(s.cashSales || 0).toLocaleString()}원`,
+      `- 실수납 합계: ${(s.totalSales || 0).toLocaleString()}원`,
+      '',
+      '금고 시재금 정산',
+      `- 시작 준비금: ${(s.initialCash || 0).toLocaleString()}원`,
+      `- 장부상 현금: ${expected.toLocaleString()}원`,
+      `- 실측 현금: ${(s.actualCashInput || 0).toLocaleString()}원`,
+      `- 시재 과부족: ${diff === 0 ? '0원 (일치)' : `${diff > 0 ? '+' : ''}${diff.toLocaleString()}원 (${diff > 0 ? '과잉' : '부족'})`}`,
+      s.note ? `\n특이사항: ${s.note}` : '',
+    ].filter(line => line !== undefined).join('\n').replace(/\n{3,}/g, '\n\n').trim();
   };
 
   // Copy Settlement Report
@@ -641,29 +627,27 @@ export function PosSettlementModal({
                   setActiveTab('today');
                   setSelectedHistoryItem(null);
                 }}
-                className={`flex-1 sm:flex-initial flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-md font-bold transition-colors cursor-pointer ${
+                className={`flex-1 sm:flex-initial flex items-center justify-center px-3 py-1.5 rounded-md font-bold whitespace-nowrap transition-colors cursor-pointer ${
                   activeTab === 'today'
                     ? 'bg-secondary text-white'
                     : 'text-surface-dim hover:text-white'
                 }`}
               >
-                <Calculator className="w-3.5 h-3.5" />
-                <span>당일 마감 정산</span>
+                당일 마감 정산
               </button>
               <button
                 type="button"
                 id="tab-settlement-history"
                 onClick={() => setActiveTab('history')}
-                className={`flex-1 sm:flex-initial flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-md font-bold transition-colors cursor-pointer ${
+                className={`flex-1 sm:flex-initial flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-md font-bold whitespace-nowrap transition-colors cursor-pointer ${
                   activeTab === 'history'
                     ? 'bg-secondary text-white'
                     : 'text-surface-dim hover:text-white'
                 }`}
               >
-                <History className="w-3.5 h-3.5" />
                 <span>역대 마감 내역</span>
                 {historyList.filter(s => s.status === 'CLOSED').length > 0 && (
-                  <span className="font-mono tabular-nums text-[11px] opacity-80 ml-0.5">
+                  <span className="font-mono tabular-nums text-[11px] opacity-80">
                     {historyList.filter(s => s.status === 'CLOSED').length}
                   </span>
                 )}
@@ -722,7 +706,7 @@ export function PosSettlementModal({
               {/* Section 1: Sales Performance Strip (Crisp 1px Grid Table) */}
               <div>
                 <div className="flex items-center justify-between pb-2.5">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-surface-dim">
+                  <h3 className="text-xs font-bold text-surface-dim">
                     당일 매출 실적
                   </h3>
                   <span className="text-[11px] font-mono tabular-nums text-surface-dim">
@@ -734,7 +718,7 @@ export function PosSettlementModal({
                   {/* Net Collected Revenue */}
                   <div className="bg-[#0a1120] p-3.5 col-span-2 sm:col-span-1">
                     <span className="text-[11px] text-surface-dim block">실수납 총 매출</span>
-                    <span className="text-lg sm:text-xl font-black text-secondary-container font-mono tabular-nums block mt-1">
+                    <span className="text-lg sm:text-xl font-bold text-secondary-container font-mono tabular-nums block mt-1">
                       {totalSales.toLocaleString()}
                       <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
                     </span>
@@ -746,7 +730,7 @@ export function PosSettlementModal({
                   {/* Discount Total */}
                   <div className="bg-[#0a1120] p-3.5">
                     <span className="text-[11px] text-surface-dim block">할인 적용</span>
-                    <span className={`text-lg sm:text-xl font-black font-mono tabular-nums block mt-1 ${
+                    <span className={`text-lg sm:text-xl font-bold font-mono tabular-nums block mt-1 ${
                       gifticonSales > 0 ? 'text-amber-300' : 'text-white'
                     }`}>
                       {gifticonSales > 0 ? `-${gifticonSales.toLocaleString()}` : '0'}
@@ -760,7 +744,7 @@ export function PosSettlementModal({
                   {/* Transfer Sales */}
                   <div className="bg-[#0a1120] p-3.5">
                     <span className="text-[11px] text-surface-dim block">계좌이체</span>
-                    <span className="text-lg sm:text-xl font-black text-white font-mono tabular-nums block mt-1">
+                    <span className="text-lg sm:text-xl font-bold text-white font-mono tabular-nums block mt-1">
                       {transferSales.toLocaleString()}
                       <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
                     </span>
@@ -772,7 +756,7 @@ export function PosSettlementModal({
                   {/* Cash Sales */}
                   <div className="bg-[#0a1120] p-3.5">
                     <span className="text-[11px] text-surface-dim block">현금</span>
-                    <span className="text-lg sm:text-xl font-black text-white font-mono tabular-nums block mt-1">
+                    <span className="text-lg sm:text-xl font-bold text-white font-mono tabular-nums block mt-1">
                       {cashSales.toLocaleString()}
                       <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
                     </span>
@@ -784,7 +768,7 @@ export function PosSettlementModal({
                   {/* Cancelled */}
                   <div className="bg-[#0a1120] p-3.5">
                     <span className="text-[11px] text-surface-dim block">취소/환불</span>
-                    <span className="text-lg sm:text-xl font-black text-rose-400 font-mono tabular-nums block mt-1">
+                    <span className="text-lg sm:text-xl font-bold text-rose-400 font-mono tabular-nums block mt-1">
                       {cancelledOrders.reduce((s, o) => s + o.totalAmount, 0).toLocaleString()}
                       <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
                     </span>
@@ -796,17 +780,17 @@ export function PosSettlementModal({
               </div>
 
               {/* Section 2: Cash Drawer Reconciliation (금고 시재금 대조) */}
-              <div className="bg-[#0a1120] border border-white/15 rounded-xl p-4 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+              <div className="space-y-3 pt-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center space-x-1.5">
-                    <h3 className="text-xs sm:text-sm font-bold text-white">금고 시재금 대조</h3>
+                    <h3 className="text-xs font-bold text-surface-dim">금고 시재금 대조</h3>
                     <button
                       type="button"
                       onClick={() => setShowGuide(!showGuide)}
                       className="text-surface-dim hover:text-white p-0.5 transition-colors cursor-pointer"
                       title="준비금 안내 보기"
                     >
-                      <HelpCircle className="w-3.5 h-3.5 text-secondary-container" />
+                      <HelpCircle className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
@@ -818,13 +802,13 @@ export function PosSettlementModal({
                     <div className="relative">
                       <input
                         id="input-initial-cash"
-                        type="number"
-                        min="0"
-                        step="1000"
-                        value={initialCash === 0 ? '' : initialCash}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={initialCash === 0 ? '' : String(initialCash)}
                         placeholder="0"
-                        onChange={e => setInitialCash(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                        className="w-24 bg-primary border border-white/15 rounded-lg pl-2.5 pr-6 py-1 text-xs text-right font-mono tabular-nums font-bold text-white outline-none focus:border-secondary-container"
+                        onChange={e => setInitialCash(parseCleanNonNegativeInt(e.target.value))}
+                        className="w-24 bg-[#0a1120] border border-white/15 rounded-lg pl-2.5 pr-6 py-1 text-xs text-right font-mono tabular-nums font-bold text-white placeholder:text-surface-dim/50 outline-none focus:border-secondary-container"
                       />
                       <span className="text-[10px] text-surface-dim absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
                         원
@@ -835,28 +819,27 @@ export function PosSettlementModal({
                       id="btn-save-initial-cash"
                       onClick={handleSaveInitialCashOnly}
                       title="시작 준비금만 즉시 저장"
-                      className="px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/90 text-white text-xs font-bold transition-all cursor-pointer flex items-center space-x-1 shrink-0"
+                      className="px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-white text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer shrink-0"
                     >
-                      <Save className="w-3 h-3" />
-                      <span>저장</span>
+                      저장
                     </button>
                   </div>
                 </div>
 
                 {/* Expected vs Actual Highlight (Crisp 1px Grid) */}
-                <div className="grid grid-cols-3 gap-px bg-white/15 border border-white/15 rounded-lg overflow-hidden">
+                <div className="grid grid-cols-3 gap-px bg-white/15 border border-white/15 rounded-xl overflow-hidden">
                   {/* Expected in Drawer */}
-                  <div className="bg-primary/80 p-3">
+                  <div className="bg-[#0a1120] p-3.5">
                     <span className="text-[11px] text-surface-dim block truncate">
                       장부상 금고 (준비금+현금)
                     </span>
-                    <div className="text-sm sm:text-lg font-black font-mono tabular-nums text-white mt-1 truncate">
+                    <div className="text-sm sm:text-lg font-bold font-mono tabular-nums text-white mt-1 truncate">
                       {expectedCashInDrawer.toLocaleString()}원
                     </div>
                   </div>
 
                   {/* Counted Cash in Drawer */}
-                  <div className="bg-primary/80 p-3">
+                  <div className="bg-[#0a1120] p-3.5">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] text-surface-dim truncate">
                         실측 금고 현금
@@ -865,23 +848,23 @@ export function PosSettlementModal({
                         type="button"
                         id="btn-toggle-input-mode"
                         onClick={() => setUseDirectInput(!useDirectInput)}
-                        className="text-[10px] text-secondary-container hover:underline cursor-pointer shrink-0 ml-1 font-bold"
+                        className="text-[11px] text-secondary-container hover:underline cursor-pointer shrink-0 ml-1 font-semibold whitespace-nowrap"
                       >
                         {useDirectInput ? '권종별' : '직접입력'}
                       </button>
                     </div>
-                    <div className="text-sm sm:text-lg font-black font-mono tabular-nums text-secondary-container mt-1 truncate">
+                    <div className="text-sm sm:text-lg font-bold font-mono tabular-nums text-white mt-1 truncate">
                       {countedCash.toLocaleString()}원
                     </div>
                   </div>
 
                   {/* Discrepancy (과부족) */}
-                  <div className="bg-primary/80 p-3">
+                  <div className="bg-[#0a1120] p-3.5">
                     <span className="text-[11px] text-surface-dim block truncate">
                       시재 과부족 ({discrepancy === 0 ? '정상 일치' : discrepancy > 0 ? '장부 초과' : '현금 부족'})
                     </span>
                     <div
-                      className={`text-sm sm:text-lg font-black font-mono tabular-nums mt-1 truncate ${
+                      className={`text-sm sm:text-lg font-bold font-mono tabular-nums mt-1 truncate ${
                         discrepancy === 0
                           ? 'text-emerald-400'
                           : discrepancy > 0
@@ -896,61 +879,57 @@ export function PosSettlementModal({
                   </div>
                 </div>
 
-                {/* Denomination Counter Grid */}
+                {/* Denomination Counter Grid (Flattened 1px Grid — Zero Cards-in-Cards) */}
                 {!useDirectInput ? (
-                  <div className="space-y-2">
-                    <div className="text-xs font-bold text-surface-dim">
-                      권종별 실측 수량
-                    </div>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-px bg-white/15 border border-white/15 rounded-xl overflow-hidden text-xs">
+                    {[
+                      { denom: 50000, label: '5만원' },
+                      { denom: 10000, label: '1만원' },
+                      { denom: 5000, label: '5천원' },
+                      { denom: 1000, label: '1천원' },
+                      { denom: 500, label: '500원' },
+                      { denom: 100, label: '100원' },
+                    ].map(({ denom, label }) => {
+                      const count = counts[denom] || 0;
+                      const subtotal = denom * count;
 
-                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-xs">
-                      {[
-                        { denom: 50000, label: '5만원' },
-                        { denom: 10000, label: '1만원' },
-                        { denom: 5000, label: '5천원' },
-                        { denom: 1000, label: '1천원' },
-                        { denom: 500, label: '500원' },
-                        { denom: 100, label: '100원' },
-                      ].map(({ denom, label }) => {
-                        const count = counts[denom] || 0;
-                        const subtotal = denom * count;
-
-                        return (
-                          <div key={denom} className="bg-primary border border-white/10 p-2 rounded-lg">
-                            <div className="font-bold text-white mb-1.5 flex justify-between items-baseline text-[11px]">
-                              <span>{label}</span>
-                              <span className="text-[10px] font-mono tabular-nums text-surface-dim">
-                                {subtotal > 0 ? `${(subtotal / 1000).toLocaleString()}k` : ''}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center space-x-1">
-                              <button
-                                type="button"
-                                onClick={() => handleQuickAdd(denom, -1)}
-                                className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 active:scale-95 text-white flex items-center justify-center font-bold text-xs cursor-pointer shrink-0"
-                              >
-                                -
-                              </button>
-                              <input
-                                type="number"
-                                min="0"
-                                value={count}
-                                onChange={e => handleCountChange(denom, e.target.value)}
-                                className="w-full bg-transparent border-b border-white/15 py-0.5 text-center text-xs font-mono tabular-nums font-bold text-white outline-none focus:border-secondary-container"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleQuickAdd(denom, 1)}
-                                className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 active:scale-95 text-white flex items-center justify-center font-bold text-xs cursor-pointer shrink-0"
-                              >
-                                +
-                              </button>
-                            </div>
+                      return (
+                        <div key={denom} className="bg-[#0a1120] p-2.5">
+                          <div className="font-semibold text-white mb-1.5 flex justify-between items-baseline text-[11px]">
+                            <span>{label}</span>
+                            <span className="text-[10px] font-mono tabular-nums text-surface-dim">
+                              {subtotal > 0 ? subtotal.toLocaleString() : ''}
+                            </span>
                           </div>
-                        );
-                      })}
-                    </div>
+
+                          <div className="flex items-center space-x-1">
+                            <button
+                              type="button"
+                              onClick={() => handleQuickAdd(denom, -1)}
+                              className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 active:scale-95 text-white flex items-center justify-center font-bold text-xs cursor-pointer shrink-0"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={count === 0 ? '' : String(count)}
+                              placeholder="0"
+                              onChange={e => handleCountChange(denom, e.target.value)}
+                              className="w-full bg-transparent border-b border-white/15 py-0.5 text-center text-xs font-mono tabular-nums font-bold text-white placeholder:text-surface-dim/50 outline-none focus:border-secondary-container"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleQuickAdd(denom, 1)}
+                              className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 active:scale-95 text-white flex items-center justify-center font-bold text-xs cursor-pointer shrink-0"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div>
@@ -959,11 +938,16 @@ export function PosSettlementModal({
                     </label>
                     <input
                       type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       id="input-direct-cash"
                       value={directCashInput}
-                      onChange={e => setDirectCashInput(e.target.value)}
+                      onChange={e => {
+                        const digits = e.target.value.replace(/[^0-9]/g, '');
+                        setDirectCashInput(digits === '' ? '' : String(parseInt(digits, 10)));
+                      }}
                       placeholder="예: 73000"
-                      className="w-full bg-primary border border-white/15 rounded-lg px-3 py-2 text-sm font-mono tabular-nums font-bold text-white outline-none focus:border-secondary-container"
+                      className="w-full bg-[#0a1120] border border-white/15 rounded-xl px-3.5 py-2.5 text-sm font-mono tabular-nums font-bold text-white outline-none focus:border-secondary-container"
                     />
                   </div>
                 )}
@@ -1046,10 +1030,9 @@ export function PosSettlementModal({
                   type="button"
                   id="btn-finalize-settlement"
                   onClick={handleFinalize}
-                  className="flex items-center justify-center space-x-2 py-2.5 px-5 rounded-xl bg-secondary hover:bg-secondary/90 text-white text-xs font-bold transition-all active:scale-[0.98] cursor-pointer"
+                  className="flex items-center justify-center py-2.5 px-5 rounded-xl bg-secondary hover:bg-secondary/90 text-white text-xs font-bold whitespace-nowrap transition-all active:scale-[0.98] cursor-pointer"
                 >
-                  <Lock className="w-3.5 h-3.5" />
-                  <span className="truncate">{isFinalized ? '마감 정산 수정' : '마감 정산 저장'}</span>
+                  {isFinalized ? '마감 정산 수정' : '마감 정산 저장'}
                 </button>
               </div>
             </div>
@@ -1136,12 +1119,12 @@ export function PosSettlementModal({
 
             {/* If detailed item is selected */}
             {selectedHistoryItem ? (
-              <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2.5">
                   <button
                     type="button"
                     onClick={() => setSelectedHistoryItem(null)}
-                    className="flex items-center space-x-1.5 text-xs text-secondary-container hover:underline cursor-pointer font-bold px-1 py-1 shrink-0"
+                    className="flex items-center space-x-1.5 text-xs text-surface-dim hover:text-white cursor-pointer font-semibold px-1 py-1 shrink-0 transition-colors"
                   >
                     <ArrowLeft className="w-4 h-4" />
                     <span>목록으로</span>
@@ -1154,15 +1137,15 @@ export function PosSettlementModal({
                         <button
                           type="button"
                           onClick={() => handleStartEdit(selectedHistoryItem)}
-                          className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-secondary-container border border-white/10 text-xs font-bold transition-all cursor-pointer shrink-0"
+                          className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-white border border-white/[0.08] text-xs font-semibold transition-colors cursor-pointer shrink-0"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          <Edit2 className="w-3.5 h-3.5 text-surface-dim" />
                           <span>수정</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => setSettlementToDelete(selectedHistoryItem)}
-                          className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold transition-all cursor-pointer shrink-0"
+                          className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-rose-500/15 text-rose-400 border border-white/[0.08] hover:border-rose-500/30 text-xs font-semibold transition-colors cursor-pointer shrink-0"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>삭제</span>
@@ -1173,7 +1156,7 @@ export function PosSettlementModal({
                     <button
                       type="button"
                       onClick={() => handleCopyHistoryReport(selectedHistoryItem)}
-                      className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-white border border-white/10 transition-colors cursor-pointer shrink-0"
+                      className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-white border border-white/[0.08] transition-colors cursor-pointer shrink-0"
                     >
                       {copiedHistoryReport ? (
                         <>
@@ -1190,48 +1173,46 @@ export function PosSettlementModal({
                   </div>
                 </div>
 
-                {/* Printable Terminal Style Report Card */}
-                <div className="bg-[#0a1120] border border-white/10 rounded-xl p-5 sm:p-6 max-w-2xl mx-auto font-mono text-xs space-y-4">
-                  <div className="text-center border-b border-white/10 pb-4">
-                    <div className="text-base font-black text-white font-sans tracking-wide">
-                      한국철도고등학교 매점
+                {/* Institutional Settlement Specification Sheet */}
+                <div className="bg-[#0f182b] border border-white/[0.08] rounded-xl p-5 sm:p-6 max-w-2xl mx-auto divide-y divide-white/[0.08] text-xs">
+                  <div className="pb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-white tracking-tight">
+                        마감 정산 명세서
+                      </h4>
+                      <p className="text-[11px] text-surface-dim mt-0.5">
+                        한국철도고등학교 매점 · <span className="font-mono tabular-nums">{selectedHistoryItem.id}</span>
+                      </p>
                     </div>
-                    <div className="text-secondary-container font-bold text-xs mt-0.5">
-                      일일 영업 마감 정산 보고서
-                    </div>
-                    <div className="text-surface-dim text-[11px] mt-1">
-                      정산 일자: {selectedHistoryItem.id}
-                    </div>
+                    <span className={`text-xs font-semibold shrink-0 ${
+                      selectedHistoryItem.status === 'CLOSED' ? 'text-surface-dim' : 'text-amber-300'
+                    }`}>
+                      {selectedHistoryItem.status === 'CLOSED' ? '마감 완료' : '영업 중'}
+                    </span>
                   </div>
 
-                  <div className="space-y-1.5 text-white/90">
+                  <div className="py-3.5 space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-surface-dim">마감 시각</span>
-                      <span>
+                      <span className="text-surface-dim">마감 일시</span>
+                      <span className="font-mono tabular-nums text-white">
                         {selectedHistoryItem.closedAt
-                          ? format(new Date(selectedHistoryItem.closedAt), 'yyyy-MM-dd HH:mm:ss')
+                          ? format(new Date(selectedHistoryItem.closedAt), 'yyyy.MM.dd HH:mm:ss')
                           : selectedHistoryItem.openedAt || '-'}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-surface-dim">마감 담당자</span>
-                      <span className="font-bold text-white">{selectedHistoryItem.closedBy || selectedHistoryItem.openedBy || '-'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-surface-dim">정산 상태</span>
-                      <span className={selectedHistoryItem.status === 'CLOSED' ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
-                        {selectedHistoryItem.status === 'CLOSED' ? '마감 완료 (CLOSED)' : '진행 중 (OPEN)'}
-                      </span>
+                      <span className="font-semibold text-white">{selectedHistoryItem.closedBy || selectedHistoryItem.openedBy || '-'}</span>
                     </div>
                   </div>
 
-                  <div className="border-t border-white/10 pt-3 space-y-2">
-                    <div className="text-xs font-bold text-secondary-container font-sans">
+                  <div className="py-3.5 space-y-2">
+                    <div className="text-[11px] font-semibold text-surface-dim pb-0.5">
                       매출 실적
                     </div>
                     <div className="flex justify-between">
                       <span className="text-surface-dim">정가 총 매출</span>
-                      <span className="text-white tabular-nums">
+                      <span className="text-white font-mono tabular-nums">
                         {(typeof selectedHistoryItem.grossSales === 'number'
                           ? selectedHistoryItem.grossSales
                           : ((selectedHistoryItem.totalSales || 0) + (selectedHistoryItem.gifticonSales || 0))
@@ -1240,7 +1221,7 @@ export function PosSettlementModal({
                     </div>
                     <div className="flex justify-between">
                       <span className="text-surface-dim">할인 적용액</span>
-                      <span className={`tabular-nums ${(selectedHistoryItem.gifticonSales || 0) > 0 ? 'text-amber-300 font-bold' : 'text-surface-dim'}`}>
+                      <span className={`font-mono tabular-nums ${(selectedHistoryItem.gifticonSales || 0) > 0 ? 'text-amber-300 font-semibold' : 'text-surface-dim'}`}>
                         {(selectedHistoryItem.gifticonSales || 0) > 0
                           ? `-${(selectedHistoryItem.gifticonSales || 0).toLocaleString()}원`
                           : '0원'}
@@ -1248,37 +1229,37 @@ export function PosSettlementModal({
                     </div>
                     <div className="flex justify-between">
                       <span className="text-surface-dim">계좌이체 매출</span>
-                      <span className="text-white tabular-nums">{(selectedHistoryItem.transferSales || 0).toLocaleString()}원</span>
+                      <span className="text-white font-mono tabular-nums">{(selectedHistoryItem.transferSales || 0).toLocaleString()}원</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-surface-dim">현금 매출</span>
-                      <span className="text-white tabular-nums">{(selectedHistoryItem.cashSales || 0).toLocaleString()}원</span>
+                      <span className="text-white font-mono tabular-nums">{(selectedHistoryItem.cashSales || 0).toLocaleString()}원</span>
                     </div>
-                    <div className="flex justify-between font-bold text-sm text-white pt-1 border-t border-white/10">
-                      <span>실수납 총 매출</span>
-                      <span className="text-secondary-container font-mono tabular-nums font-bold">{(selectedHistoryItem.totalSales || 0).toLocaleString()}원</span>
+                    <div className="flex justify-between items-baseline font-bold text-sm text-white pt-2 border-t border-white/[0.06]">
+                      <span className="text-xs text-surface-dim font-semibold">실수납 총 매출</span>
+                      <span className="text-base text-white font-mono tabular-nums font-bold">{(selectedHistoryItem.totalSales || 0).toLocaleString()}원</span>
                     </div>
                   </div>
 
-                  <div className="border-t border-white/10 pt-3 space-y-2">
-                    <div className="text-xs font-bold text-emerald-400 font-sans">
+                  <div className="py-3.5 space-y-2">
+                    <div className="text-[11px] font-semibold text-surface-dim pb-0.5">
                       금고 시재금 정산
                     </div>
                     <div className="flex justify-between">
                       <span className="text-surface-dim">시작 준비금</span>
-                      <span className="tabular-nums">{(selectedHistoryItem.initialCash || 0).toLocaleString()}원</span>
+                      <span className="text-white font-mono tabular-nums">{(selectedHistoryItem.initialCash || 0).toLocaleString()}원</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-surface-dim">장부상 현금 (준비금+현금매출)</span>
-                      <span className="tabular-nums">{((selectedHistoryItem.initialCash || 0) + (selectedHistoryItem.cashSales || 0)).toLocaleString()}원</span>
+                      <span className="text-white font-mono tabular-nums">{((selectedHistoryItem.initialCash || 0) + (selectedHistoryItem.cashSales || 0)).toLocaleString()}원</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-surface-dim">실측된 금고 현금</span>
-                      <span className="text-emerald-400 font-bold tabular-nums">{(selectedHistoryItem.actualCashInput || 0).toLocaleString()}원</span>
+                      <span className="text-surface-dim">실측 금고 현금</span>
+                      <span className="text-white font-semibold font-mono tabular-nums">{(selectedHistoryItem.actualCashInput || 0).toLocaleString()}원</span>
                     </div>
-                    <div className="flex justify-between font-bold text-sm pt-1 border-t border-white/10">
-                      <span>시재 과부족 (오차)</span>
-                      <span className={`tabular-nums ${
+                    <div className="flex justify-between items-baseline font-bold text-sm pt-2 border-t border-white/[0.06]">
+                      <span className="text-xs text-surface-dim font-semibold">시재 과부족</span>
+                      <span className={`font-mono tabular-nums ${
                         (selectedHistoryItem.discrepancy || 0) === 0
                           ? 'text-emerald-400'
                           : (selectedHistoryItem.discrepancy || 0) > 0
@@ -1286,16 +1267,16 @@ export function PosSettlementModal({
                           : 'text-rose-400'
                       }`}>
                         {(selectedHistoryItem.discrepancy || 0) === 0
-                          ? '0원 (정상 일치)'
+                          ? '0원 (일치)'
                           : `${(selectedHistoryItem.discrepancy || 0) > 0 ? '+' : ''}${(selectedHistoryItem.discrepancy || 0).toLocaleString()}원`}
                       </span>
                     </div>
                   </div>
 
                   {selectedHistoryItem.note && (
-                    <div className="border-t border-white/10 pt-3">
+                    <div className="pt-3.5">
                       <div className="text-[11px] text-surface-dim mb-1">특이사항 메모</div>
-                      <div className="text-white/90 text-xs">
+                      <div className="text-white/90 text-xs leading-relaxed">
                         {selectedHistoryItem.note}
                       </div>
                     </div>
@@ -1309,7 +1290,7 @@ export function PosSettlementModal({
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-px bg-white/15 border border-white/15 rounded-xl overflow-hidden">
                   <div className="bg-[#0a1120] p-3.5 col-span-2 sm:col-span-1">
                     <span className="text-[11px] text-surface-dim block mb-1">누적 실수납 매출</span>
-                    <span className="text-lg sm:text-xl font-black text-secondary-container font-mono tabular-nums block">
+                    <span className="text-lg sm:text-xl font-bold text-secondary-container font-mono tabular-nums block">
                       {historyStats.grandTotalSales.toLocaleString()}
                       <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
                     </span>
@@ -1319,7 +1300,7 @@ export function PosSettlementModal({
                   </div>
                   <div className="bg-[#0a1120] p-3.5">
                     <span className="text-[11px] text-surface-dim block mb-1">누적 할인 총액</span>
-                    <span className={`text-lg sm:text-xl font-black font-mono tabular-nums block ${
+                    <span className={`text-lg sm:text-xl font-bold font-mono tabular-nums block ${
                       historyStats.grandDiscountSales > 0 ? 'text-amber-300' : 'text-white'
                     }`}>
                       {historyStats.grandDiscountSales > 0
@@ -1330,21 +1311,21 @@ export function PosSettlementModal({
                   </div>
                   <div className="bg-[#0a1120] p-3.5">
                     <span className="text-[11px] text-surface-dim block mb-1">누적 현금 정산액</span>
-                    <span className="text-lg sm:text-xl font-black text-white font-mono tabular-nums block">
+                    <span className="text-lg sm:text-xl font-bold text-white font-mono tabular-nums block">
                       {historyStats.grandCashSales.toLocaleString()}
                       <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
                     </span>
                   </div>
                   <div className="bg-[#0a1120] p-3.5">
                     <span className="text-[11px] text-surface-dim block mb-1">누적 계좌이체액</span>
-                    <span className="text-lg sm:text-xl font-black text-white font-mono tabular-nums block">
+                    <span className="text-lg sm:text-xl font-bold text-white font-mono tabular-nums block">
                       {historyStats.grandTransferSales.toLocaleString()}
                       <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
                     </span>
                   </div>
                   <div className="bg-[#0a1120] p-3.5">
                     <span className="text-[11px] text-surface-dim block mb-1">누적 마감 일수</span>
-                    <span className="text-lg sm:text-xl font-black text-white font-mono tabular-nums block">
+                    <span className="text-lg sm:text-xl font-bold text-white font-mono tabular-nums block">
                       {historyStats.totalCount}
                       <span className="text-xs font-normal text-surface-dim ml-0.5">일</span>
                     </span>
@@ -1353,9 +1334,9 @@ export function PosSettlementModal({
 
                 {/* Settlements Hairline List */}
                 {filteredHistoryList.length === 0 ? (
-                  <div className="py-14 text-center space-y-1.5 text-surface-dim">
-                    <History className="w-8 h-8 text-surface-dim/30 mx-auto mb-2" />
-                    <h4 className="text-sm font-bold text-white">일치하는 마감 정산 내역이 없습니다</h4>
+                  <div className="py-14 text-center space-y-1 text-surface-dim">
+                    <h4 className="text-sm font-semibold text-white">일치하는 마감 정산 내역이 없습니다</h4>
+                    <p className="text-xs text-surface-dim/70">검색어나 필터 조건을 변경해 보세요.</p>
                   </div>
                 ) : (
                   <div className="border-t border-b border-white/10 divide-y divide-white/5">
@@ -1375,7 +1356,7 @@ export function PosSettlementModal({
                         >
                           <div className="min-w-0 flex-1 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap text-xs">
-                              <span className="text-sm font-black text-white font-mono tabular-nums group-hover:text-secondary-container transition-colors">
+                              <span className="text-sm font-bold text-white font-mono tabular-nums group-hover:text-secondary-container transition-colors">
                                 {item.id}
                               </span>
                               <span className="text-white/25">·</span>
@@ -1417,7 +1398,7 @@ export function PosSettlementModal({
                               <div className="text-[10px] text-surface-dim">
                                 실수납 매출{itemDiscount > 0 ? ` (정가 ${itemGross.toLocaleString()})` : ''}
                               </div>
-                              <div className="text-sm font-black text-white font-mono tabular-nums">
+                              <div className="text-sm font-bold text-white font-mono tabular-nums">
                                 {(item.totalSales || 0).toLocaleString()}원
                               </div>
                             </div>
@@ -1501,12 +1482,13 @@ export function PosSettlementModal({
                       시작 준비금 (원)
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      step="1000"
-                      value={editInitialCash}
-                      onChange={e => setEditInitialCash(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                      className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-white font-mono outline-none focus:border-secondary"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={editInitialCash === 0 ? '' : String(editInitialCash)}
+                      placeholder="0"
+                      onChange={e => setEditInitialCash(parseCleanNonNegativeInt(e.target.value))}
+                      className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-white font-mono tabular-nums placeholder:text-surface-dim/50 outline-none focus:border-secondary"
                     />
                   </div>
 
@@ -1515,12 +1497,13 @@ export function PosSettlementModal({
                       실측 금고 현금 (원)
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      step="1000"
-                      value={editActualCash}
-                      onChange={e => setEditActualCash(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                      className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-emerald-400 font-mono font-bold outline-none focus:border-secondary"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={editActualCash === 0 ? '' : String(editActualCash)}
+                      placeholder="0"
+                      onChange={e => setEditActualCash(parseCleanNonNegativeInt(e.target.value))}
+                      className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-white font-mono tabular-nums font-bold placeholder:text-surface-dim/50 outline-none focus:border-secondary"
                     />
                   </div>
 
@@ -1566,8 +1549,8 @@ export function PosSettlementModal({
                         onChange={e => setEditStatus(e.target.value as any)}
                         className="w-full bg-primary border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-secondary"
                       >
-                        <option value="CLOSED">CLOSED (마감 완료)</option>
-                        <option value="OPEN">OPEN (영업 중)</option>
+                        <option value="CLOSED" className="bg-[#0a1120] text-white">마감 완료</option>
+                        <option value="OPEN" className="bg-[#0a1120] text-white">영업 중</option>
                       </select>
                     </div>
                   </div>

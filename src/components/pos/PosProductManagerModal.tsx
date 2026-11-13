@@ -1087,7 +1087,7 @@ export function PosProductManagerModal({
                     onClick={() => setSelectedCategoryFilter('SOLDOUT')}
                     className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors shrink-0 cursor-pointer ${
                       selectedCategoryFilter === 'SOLDOUT'
-                        ? 'bg-rose-600 text-white font-bold'
+                        ? 'bg-secondary text-white font-bold'
                         : 'bg-white/5 text-surface-dim hover:text-white'
                     }`}
                   >
@@ -1220,10 +1220,10 @@ export function PosProductManagerModal({
                               <button
                                 type="button"
                                 onClick={() => handleToggleSoldOut(item.id)}
-                                className={`px-2 py-1 rounded text-[11px] font-bold border transition-colors cursor-pointer ${
+                                className={`px-2 py-1 rounded text-[11px] font-semibold border whitespace-nowrap transition-colors cursor-pointer ${
                                   isSoldOut
-                                    ? 'bg-rose-500/15 border-rose-500/30 text-rose-300'
-                                    : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+                                    ? 'bg-rose-500/15 border-rose-500/30 text-rose-300 font-bold'
+                                    : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-surface-dim hover:text-white'
                                 }`}
                               >
                                 {isSoldOut ? '품절' : '판매중'}
@@ -1325,10 +1325,10 @@ export function PosProductManagerModal({
                                 <button
                                   type="button"
                                   onClick={() => handleToggleSoldOut(item.id)}
-                                  className={`px-2 py-0.5 rounded text-[11px] font-bold border transition-colors cursor-pointer ${
+                                  className={`px-2 py-0.5 rounded text-[11px] font-semibold border whitespace-nowrap transition-colors cursor-pointer ${
                                     isSoldOut
-                                      ? 'bg-rose-500/15 border-rose-500/30 text-rose-300'
-                                      : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+                                      ? 'bg-rose-500/15 border-rose-500/30 text-rose-300 font-bold'
+                                      : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-surface-dim hover:text-white'
                                   }`}
                                 >
                                   {isSoldOut ? '품절' : '판매중'}
@@ -1431,10 +1431,10 @@ export function PosProductManagerModal({
                             <button
                               type="button"
                               onClick={() => handleToggleSoldOut(item.id)}
-                              className={`px-2 py-0.5 rounded text-[11px] font-bold border transition-colors cursor-pointer ${
+                              className={`px-2 py-0.5 rounded text-[11px] font-semibold border whitespace-nowrap transition-colors cursor-pointer ${
                                 isSoldOut
-                                  ? 'bg-rose-500/15 border-rose-500/30 text-rose-300'
-                                  : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+                                  ? 'bg-rose-500/15 border-rose-500/30 text-rose-300 font-bold'
+                                  : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-surface-dim hover:text-white'
                               }`}
                             >
                               {isSoldOut ? '품절' : '판매중'}
@@ -1929,7 +1929,7 @@ export function PosProductManagerModal({
                   <button
                     type="button"
                     onClick={handleExecuteClearAllFavorites}
-                    className="flex-1 py-2 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 active:scale-[0.98] text-white transition-all cursor-pointer"
+                    className="flex-1 py-2 rounded-lg text-xs font-bold bg-secondary hover:bg-secondary/90 active:scale-[0.98] text-white transition-all cursor-pointer"
                   >
                     해제
                   </button>

@@ -108,7 +108,7 @@ export function PosLoginModal({
           key={shakeKey}
           animate={shakeKey > 0 ? { x: [0, -8, 8, -5, 5, 0] } : undefined}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="bg-[#0a1120] border border-white/10 w-full max-h-[95vh] overflow-y-auto custom-scrollbar rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col relative"
+          className="bg-[#0a1120] border border-white/10 w-full max-h-[95vh] overflow-y-auto custom-scrollbar rounded-2xl p-6 sm:p-8 shadow-2xl flex flex-col relative"
         >
           {isSwitchMode && onClose && (
             <button
@@ -219,7 +219,7 @@ export function PosLoginModal({
             <button
               type="submit"
               disabled={isLoading || isGoogleLoading}
-              className="w-full py-3 rounded-xl font-bold text-xs sm:text-sm text-white bg-secondary hover:brightness-110 active:scale-[0.99] transition-all flex items-center justify-center space-x-1.5 disabled:opacity-50 cursor-pointer"
+              className="w-full py-3 rounded-xl font-bold text-xs sm:text-sm text-white bg-secondary hover:bg-secondary/90 active:scale-[0.99] transition-[background-color,transform] flex items-center justify-center space-x-1.5 disabled:opacity-50 cursor-pointer"
             >
               <span>
                 {isLoading

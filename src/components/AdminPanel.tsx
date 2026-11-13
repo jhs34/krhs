@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Notice, FirestoreEvent, SchoolDocument, addNotice, updateNotice, deleteNotice, addEvent, updateEvent, deleteEvent, addDocument, updateDocument, deleteDocument, subscribeToTimetableTemplates, saveTimetableTemplate } from '../services/firestore';
 import { auth, logout, refreshUserProfile, deleteCurrentAccount, loginWithGoogle, getDisplayUserEmail } from '../firebase';
 import { format } from 'date-fns';
-import { Edit2, Trash2, RefreshCw, LogOut, UserX, ArrowRightLeft, AlertTriangle, Plus, X, Link as LinkIcon, Paperclip } from 'lucide-react';
+import { Edit2, Trash2, RefreshCw, LogOut, UserX, ArrowRightLeft, Plus, X } from 'lucide-react';
 
 import { SiteInfo, updateSiteInfo } from '../services/firestore';
 import { DEPARTMENTS, GRADES, getDefaultTimetable } from '../data/timetableTemplates';
@@ -44,7 +44,6 @@ export function AdminPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: 'notices' | 'events' | 'documents'; title: string } | null>(null);
-
 
   const getDeleteTitle = (id: string, type: 'notices' | 'events' | 'documents') => {
     if (type === 'notices') {
@@ -98,7 +97,7 @@ export function AdminPanel({
       ? format(initialEventDate, 'yyyy-MM-dd') 
       : format(new Date(), 'yyyy-MM-dd')
   );
-  const [eventColor, setEventColor] = useState('#64ffda'); // A default cyan color matching the secondary theme
+  const [eventColor, setEventColor] = useState('#3b82f6');
   const [isHoliday, setIsHoliday] = useState(false);
   const [isArchived, setIsArchived] = useState(false);
   const [validUntil, setValidUntil] = useState('');
@@ -106,14 +105,14 @@ export function AdminPanel({
   const [attachedFiles, setAttachedFiles] = useState<Array<{ name: string; url: string }>>([]);
   
   const presetColors = [
+    '#3b82f6', // blue
+    '#0ea5e9', // sky
+    '#06b6d4', // cyan
+    '#10b981', // emerald
+    '#f59e0b', // amber
+    '#f97316', // orange
     '#ef4444', // red
-    '#f472b6', // pink
-    '#a78bfa', // purple
-    '#60a5fa', // blue
-    '#64ffda', // cyan
-    '#34d399', // green
-    '#fbbf24', // yellow
-    '#9ca3af', // gray
+    '#94a3b8', // slate
     '#ffffff', // white
   ];
   
@@ -131,7 +130,7 @@ export function AdminPanel({
     setContent('');
     setDate(initialEventDate ? format(initialEventDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
     setEndDate(initialEventDate ? format(initialEventDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
-    setEventColor('#64ffda');
+    setEventColor('#3b82f6');
     setIsHoliday(false);
     setIsArchived(false);
     setValidUntil('');
@@ -147,6 +146,9 @@ export function AdminPanel({
     const d = dString instanceof Date ? dString : new Date(dString);
     return isNaN(d.getTime()) ? format(new Date(), 'yyyy-MM-dd') : format(d, 'yyyy-MM-dd');
   };
+
+  const formatDotDate = (dString: string | Date | undefined | null) =>
+    safeParseDate(dString).replace(/-/g, '.');
 
   const dateInputToIso = (ymd: string) => {
     if (/^\d{4}-\d{2}-\d{2}$/.test(ymd.trim())) {
@@ -196,7 +198,7 @@ export function AdminPanel({
       setContent(item.description || '');
       setDate(safeParseDate(item.date));
       setEndDate(safeParseDate(item.endDate || item.date));
-      setEventColor(item.color || '#64ffda');
+      setEventColor(item.color || '#3b82f6');
       setIsHoliday(Boolean(item.isHoliday));
       setLinkUrl('');
       setAttachedFiles([]);
@@ -310,7 +312,6 @@ export function AdminPanel({
       setNotification({ message: '시간표 저장에 실패했습니다.', type: 'error' });
     }
   };
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -446,7 +447,7 @@ export function AdminPanel({
         exit={{ scale: 0.97, y: 8, opacity: 0 }}
         transition={MODAL_PANEL_TRANSITION}
         onClick={e => e.stopPropagation()}
-        className="bg-[#0a1120] border border-white/10 w-full max-w-4xl h-[88vh] max-h-[840px] min-h-[520px] rounded-2xl md:rounded-3xl overflow-hidden flex flex-col relative shadow-2xl"
+        className="bg-[#0a1120] border border-white/10 w-full max-w-4xl h-[88vh] max-h-[840px] min-h-[520px] rounded-2xl overflow-hidden flex flex-col relative shadow-2xl"
       >
         <AnimatePresence>
           {notification && (
@@ -456,23 +457,25 @@ export function AdminPanel({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.96 }}
               transition={{ duration: 0.18, ease: EASE_OUT_EXPO }}
-              className={`absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-xs md:text-sm font-bold shadow-lg z-50 flex items-center space-x-2 ${
-                notification.type === 'success' ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'
+              className={`absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold shadow-xl z-50 flex items-center space-x-2.5 border ${
+                notification.type === 'success'
+                  ? 'bg-[#0f182b] border-secondary/50 text-white'
+                  : 'bg-[#0f182b] border-rose-500/40 text-rose-200'
               }`}
             >
               <span>{notification.message}</span>
-              <button onClick={() => setNotification(null)} className="opacity-80 hover:opacity-100 ml-2 cursor-pointer">&times;</button>
+              <button onClick={() => setNotification(null)} className="text-surface-dim hover:text-white ml-1 cursor-pointer">
+                <X className="w-3.5 h-3.5" />
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
-        <div className="flex items-center justify-between p-4 md:p-6 border-b border-white/10 shrink-0">
+        <div className="flex items-center justify-between p-4 md:p-6 border-b border-white/[0.08] shrink-0">
           <div>
-            <div className="flex items-center space-x-2">
-              <h2 className="text-lg md:text-2xl font-bold text-white">관리자 패널</h2>
-            </div>
+            <h2 className="text-lg md:text-xl font-semibold text-white">관리자 패널</h2>
             {auth.currentUser && (
               <div className="flex items-center space-x-2 mt-1">
-                <p className="text-xs text-secondary/90 font-mono">
+                <p className="text-xs text-secondary-container font-mono">
                   접속 계정: {getDisplayUserEmail(auth.currentUser.email || auth.currentUser.providerData?.[0]?.email) || '로그인됨'}
                 </p>
                 <button
@@ -486,23 +489,23 @@ export function AdminPanel({
                       setNotification({ type: 'success', message: '계정 정보가 갱신되었습니다.' });
                     }
                   }}
-                  className="p-1 rounded bg-white/5 hover:bg-white/10 text-secondary hover:text-white transition-colors"
+                  className="p-1 rounded bg-white/[0.05] hover:bg-white/[0.12] text-secondary-container hover:text-white transition-colors cursor-pointer"
                 >
                   <RefreshCw className="w-3 h-3" />
                 </button>
               </div>
             )}
           </div>
-          <div className="flex space-x-2 md:space-x-4">
+          <div className="flex space-x-2 md:space-x-3">
             <button
               onClick={() => setShowLogoutConfirm(true)}
-              className="px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-white bg-red-600/80 hover:bg-red-600 rounded-lg transition-colors font-bold"
+              className="px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-red-300 hover:text-white bg-red-500/15 hover:bg-red-600 border border-red-500/30 rounded-lg transition-colors font-semibold cursor-pointer whitespace-nowrap"
             >
               로그아웃
             </button>
             <button
               onClick={onClose}
-              className="px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-surface-dim hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors font-bold"
+              className="px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm text-surface-dim hover:text-white bg-white/[0.05] hover:bg-white/[0.12] border border-white/10 rounded-lg transition-colors font-semibold cursor-pointer whitespace-nowrap"
             >
               닫기
             </button>
@@ -511,7 +514,7 @@ export function AdminPanel({
 
         <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-0">
           {/* Sidebar */}
-          <div className="w-full md:w-52 border-b md:border-b-0 md:border-r border-white/10 flex flex-row md:flex-col p-2 md:p-4 space-x-2 md:space-x-0 space-y-0 md:space-y-2 shrink-0 overflow-x-auto md:overflow-y-auto scrollbar-hide">
+          <div className="w-full md:w-52 border-b md:border-b-0 md:border-r border-white/[0.08] flex flex-row md:flex-col p-2 md:p-4 space-x-2 md:space-x-0 space-y-0 md:space-y-1.5 shrink-0 overflow-x-auto md:overflow-y-auto scrollbar-hide">
             {[
               { id: 'notices', label: '공지사항 관리' },
               { id: 'events', label: '학사일정 관리' },
@@ -528,14 +531,14 @@ export function AdminPanel({
                     setActiveTab(tab.id as any);
                     if (tab.onSelect) tab.onSelect();
                   }}
-                  className={`relative p-2 md:p-3 text-center md:text-left rounded-lg md:rounded-xl font-medium text-xs md:text-sm whitespace-nowrap shrink-0 flex-1 md:flex-none transition-colors duration-200 ${
-                    isActive ? 'text-white font-bold' : 'text-surface-dim hover:text-white hover:bg-white/5'
+                  className={`relative p-2 md:p-2.5 text-center md:text-left rounded-lg font-medium text-xs md:text-sm whitespace-nowrap shrink-0 flex-1 md:flex-none transition-colors duration-200 cursor-pointer ${
+                    isActive ? 'text-white font-semibold' : 'text-surface-dim hover:text-white hover:bg-white/[0.04]'
                   }`}
                 >
                   {isActive && (
                     <motion.div
                       layoutId="admin-active-tab-indicator"
-                      className="absolute inset-0 bg-white/15 rounded-lg md:rounded-xl border border-white/15 shadow-sm"
+                      className="absolute inset-0 bg-white/[0.12] rounded-lg border border-white/15"
                       transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                     />
                   )}
@@ -558,20 +561,20 @@ export function AdminPanel({
               >
             {activeTab === 'defaultTimetables' ? (
               <div className="flex flex-col space-y-6">
-                <div className="bg-white/5 border border-white/5 p-4 rounded-xl space-y-4">
-                  <h3 className="text-base md:text-lg font-bold text-white">학급별 기본 반복 시간표 관리</h3>
-                  <p className="text-xs text-surface-dim">
-                    학년, 학과, 반을 선택하여 학기 내내 반복될 기본 시간표를 입력하고 수정하십시오. 이 설정은 주간 메모가 등록되지 않은 기본 레이아웃으로 전체 학생 화면에 표시됩니다.
+                <div className="bg-white/[0.03] border border-white/[0.08] p-4 rounded-xl space-y-4">
+                  <h3 className="text-base md:text-lg font-semibold text-white">학급별 기본 반복 시간표 관리</h3>
+                  <p className="text-xs text-surface-dim leading-relaxed">
+                    학년, 학과, 반을 선택하여 학기 내내 반복될 기본 시간표를 입력하고 수정합니다. 주간 메모가 등록되지 않은 기본 레이아웃으로 전체 학생 화면에 표시됩니다.
                   </p>
                   
                   {/* Selectors */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="flex flex-col space-y-1.5">
-                      <label className="text-xs font-bold text-surface-dim pl-1">학년</label>
+                      <label className="text-xs font-semibold text-surface-dim pl-0.5">학년</label>
                       <select
                         value={templateGrade}
                         onChange={(e) => setTemplateGrade(Number(e.target.value))}
-                        className="bg-black/40 border border-white/10 rounded-lg p-2 text-white text-xs md:text-sm focus:border-secondary transition-colors"
+                        className="bg-[#0a1120] border border-white/10 rounded-lg p-2 text-white text-xs md:text-sm focus:border-secondary outline-none transition-colors"
                       >
                         {GRADES.map(g => (
                           <option key={g} value={g}>{g}학년</option>
@@ -580,11 +583,11 @@ export function AdminPanel({
                     </div>
 
                     <div className="flex flex-col space-y-1.5">
-                      <label className="text-xs font-bold text-surface-dim pl-1">학과</label>
+                      <label className="text-xs font-semibold text-surface-dim pl-0.5">학과</label>
                       <select
                         value={templateDept}
                         onChange={(e) => setTemplateDept(e.target.value)}
-                        className="bg-black/40 border border-white/10 rounded-lg p-2 text-white text-xs md:text-sm focus:border-secondary transition-colors"
+                        className="bg-[#0a1120] border border-white/10 rounded-lg p-2 text-white text-xs md:text-sm focus:border-secondary outline-none transition-colors"
                       >
                         {DEPARTMENTS.map(d => (
                           <option key={d.id} value={d.id}>{d.name}</option>
@@ -593,11 +596,11 @@ export function AdminPanel({
                     </div>
 
                     <div className="flex flex-col space-y-1.5">
-                      <label className="text-xs font-bold text-surface-dim pl-1">학급 반</label>
+                      <label className="text-xs font-semibold text-surface-dim pl-0.5">학급 반</label>
                       <select
                         value={templateClass}
                         onChange={(e) => setTemplateClass(Number(e.target.value))}
-                        className="bg-black/40 border border-white/10 rounded-lg p-2 text-white text-xs md:text-sm focus:border-secondary transition-colors"
+                        className="bg-[#0a1120] border border-white/10 rounded-lg p-2 text-white text-xs md:text-sm focus:border-secondary outline-none transition-colors"
                       >
                         {(() => {
                           const deptInfo = DEPARTMENTS.find(d => d.id === templateDept);
@@ -612,7 +615,7 @@ export function AdminPanel({
                 </div>
 
                 {/* Day navigation tabs */}
-                <div className="flex space-x-1.5 bg-white/5 p-1 rounded-xl border border-white/5 overflow-x-auto select-none shrink-0 scrollbar-hide">
+                <div className="flex space-x-1.5 bg-white/[0.04] p-1 rounded-xl border border-white/[0.08] overflow-x-auto select-none shrink-0 scrollbar-hide">
                   {['월요일', '화요일', '수요일', '목요일', '금요일'].map((dayName, idx) => {
                     const isDayActive = templateDay === idx;
                     return (
@@ -620,7 +623,7 @@ export function AdminPanel({
                         key={idx}
                         type="button"
                         onClick={() => setTemplateDay(idx)}
-                        className={`relative flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors text-center whitespace-nowrap px-2 cursor-pointer ${
+                        className={`relative flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors text-center whitespace-nowrap px-2 cursor-pointer ${
                           isDayActive ? 'text-white' : 'text-surface-dim hover:text-white'
                         }`}
                       >
@@ -628,7 +631,7 @@ export function AdminPanel({
                           <motion.div
                             layoutId="admin-timetable-day-pill"
                             transition={NAV_SPRING_TRANSITION}
-                            className="absolute inset-0 bg-white/15 rounded-lg shadow-sm border border-white/10"
+                            className="absolute inset-0 bg-white/[0.14] rounded-lg border border-white/10"
                           />
                         )}
                         <span className="relative z-10">{dayName}</span>
@@ -638,45 +641,45 @@ export function AdminPanel({
                 </div>
 
                 {/* Slot editor grid */}
-                <div className="bg-white/5 border border-white/5 p-4 rounded-xl space-y-4">
+                <div className="bg-white/[0.03] border border-white/[0.08] p-4 rounded-xl space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                    <span className="text-xs font-bold text-secondary-fixed">
+                    <span className="text-xs font-semibold text-secondary-container">
                       {['월', '화', '수', '목', '금'][templateDay]}요일 시간표 세부 설정
                     </span>
-                    <span className="text-[10px] text-surface-dim/70">
-                      * 금요일은 4교시까지만 등록되며, 일반 요일은 7교시까지 설정할 수 있습니다.
+                    <span className="text-xs text-surface-dim/75">
+                      금요일은 4교시까지, 월~목요일은 7교시까지 설정할 수 있습니다.
                     </span>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="divide-y divide-white/[0.06]">
                     {Array.from({ length: templateDay === 4 ? 4 : 7 }, (_, pIdx) => {
                       const periodNum = pIdx + 1;
                       const slotData = editedTimetable[templateDay]?.[periodNum] || { subject: '', teacher: '' };
 
                       return (
-                        <div key={periodNum} className="border-b border-white/5 pb-4 last:border-b-0 last:pb-0">
+                        <div key={periodNum} className="py-3 first:pt-0 last:pb-0">
                           <div className="grid grid-cols-12 gap-3 items-center">
-                            <div className="col-span-2 text-xs font-black text-white/70 pl-1">
+                            <div className="col-span-2 text-xs font-semibold font-mono tabular-nums text-white/75 pl-1">
                               {periodNum}교시
                             </div>
                             
-                            <div className="col-span-5 flex flex-col space-y-1">
+                            <div className="col-span-5 flex flex-col">
                               <input
                                 type="text"
                                 placeholder="과목명"
                                 value={slotData.subject}
                                 onChange={(e) => handleUpdateTemplateSlot(templateDay, periodNum, 'subject', e.target.value)}
-                                className="bg-black/40 border border-white/10 rounded-lg p-2 text-white text-xs md:text-sm focus:border-secondary outline-none transition-colors"
+                                className="bg-[#0a1120] border border-white/10 rounded-lg p-2 text-white text-xs md:text-sm focus:border-secondary outline-none transition-colors"
                               />
                             </div>
 
-                            <div className="col-span-5 flex flex-col space-y-1">
+                            <div className="col-span-5 flex flex-col">
                               <input
                                 type="text"
-                                placeholder="교사이름"
+                                placeholder="교사 이름"
                                 value={slotData.teacher}
                                 onChange={(e) => handleUpdateTemplateSlot(templateDay, periodNum, 'teacher', e.target.value)}
-                                className="bg-black/40 border border-white/10 rounded-lg p-2 text-white text-xs md:text-sm focus:border-secondary outline-none transition-colors"
+                                className="bg-[#0a1120] border border-white/10 rounded-lg p-2 text-white text-xs md:text-sm focus:border-secondary outline-none transition-colors"
                               />
                             </div>
                           </div>
@@ -685,13 +688,13 @@ export function AdminPanel({
                     })}
                   </div>
 
-                  <div className="pt-4 border-t border-white/5 flex justify-end">
+                  <div className="pt-4 border-t border-white/[0.08] flex justify-end">
                     <button
                       type="button"
                       onClick={handleSaveTemplate}
-                      className="px-6 py-2.5 rounded-lg font-bold text-xs md:text-sm text-white bg-secondary hover:bg-secondary/80 hover:scale-[1.01] transition-all shadow-md shadow-secondary/10"
+                      className="px-5 py-2.5 rounded-lg font-semibold text-xs md:text-sm text-white bg-secondary hover:bg-secondary/90 transition-colors cursor-pointer"
                     >
-                      {templateGrade}학년 {DEPARTMENTS.find(d => d.id === templateDept)?.name} {templateClass}반 기본 시간표 전체 저장
+                      {templateGrade}학년 {DEPARTMENTS.find(d => d.id === templateDept)?.name} {templateClass}반 기본 시간표 저장
                     </button>
                   </div>
                 </div>
@@ -700,14 +703,14 @@ export function AdminPanel({
             ) : (
               <>
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="mb-4 md:mb-8 p-3 md:p-6 bg-white/5 rounded-xl md:rounded-2xl border border-white/5 space-y-2 md:space-y-4 shrink-0">
+                <form onSubmit={handleSubmit} className="mb-4 md:mb-8 p-4 md:p-6 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-3 md:space-y-4 shrink-0">
 
-              <div className="flex items-center justify-between mb-3 md:mb-4">
-                <h3 className="text-base md:text-lg font-bold text-white">
+              <div className="flex items-center justify-between mb-2 md:mb-3">
+                <h3 className="text-base md:text-lg font-semibold text-white">
                   {activeTab === 'siteInfo' ? '기타 정보 수정' : editingId ? '수정하기' : '새로 추가하기'}
                 </h3>
                 {(editingId && activeTab !== 'siteInfo') && (
-                  <button type="button" onClick={resetForm} className="text-[10px] md:text-xs text-secondary-fixed-dim hover:underline">
+                  <button type="button" onClick={resetForm} className="text-xs text-secondary-container hover:underline cursor-pointer">
                     취소 (새로 추가로 돌아가기)
                   </button>
                 )}
@@ -715,11 +718,11 @@ export function AdminPanel({
               
               {activeTab === 'siteInfo' ? (
                 <div className="flex flex-col space-y-1">
-                  <label className="text-[10px] md:text-xs text-surface-dim">수정할 항목</label>
+                  <label className="text-xs text-surface-dim">수정할 항목</label>
                   <select
                     value={editingId || 'announcements'}
                     onChange={(e) => setEditingId(e.target.value)}
-                    className="bg-black/40 border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors"
+                    className="bg-[#0a1120] border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors"
                   >
                     <option value="announcements">공지사항</option>
                     <option value="updates">업데이트</option>
@@ -728,14 +731,14 @@ export function AdminPanel({
                 </div>
               ) : (
                 <div className="flex flex-col space-y-1">
-                  <label className="text-[10px] md:text-xs text-surface-dim">제목</label>
+                  <label className="text-xs text-surface-dim">제목</label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     maxLength={200}
                     required
-                    className="bg-black/40 border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors"
+                    className="bg-[#0a1120] border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors"
                   />
                 </div>
               )}
@@ -743,7 +746,7 @@ export function AdminPanel({
               {activeTab === 'events' ? (
                 <div className="grid grid-cols-2 gap-3 md:gap-4">
                   <div className="flex flex-col space-y-1">
-                    <label className="text-[10px] md:text-xs text-surface-dim">시작 날짜</label>
+                    <label className="text-xs text-surface-dim">시작 날짜</label>
                     <input
                       type="date"
                       value={date}
@@ -752,41 +755,41 @@ export function AdminPanel({
                         if (e.target.value > endDate) setEndDate(e.target.value);
                       }}
                       required
-                      className="bg-black/40 border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors [color-scheme:dark]"
+                      className="bg-[#0a1120] border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors [color-scheme:dark]"
                     />
                   </div>
                   <div className="flex flex-col space-y-1">
-                    <label className="text-[10px] md:text-xs text-surface-dim">종료 날짜</label>
+                    <label className="text-xs text-surface-dim">종료 날짜</label>
                     <input
                       type="date"
                       value={endDate}
                       min={date}
                       onChange={(e) => setEndDate(e.target.value)}
                       required
-                      className="bg-black/40 border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors [color-scheme:dark]"
+                      className="bg-[#0a1120] border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors [color-scheme:dark]"
                     />
                   </div>
-                  <div className="flex flex-col space-y-1 mt-1 md:mt-2 col-span-2">
-                    <label className="text-[10px] md:text-xs text-surface-dim">일정 색상</label>
-                    <div className="flex space-x-2 md:space-x-3">
+                  <div className="flex flex-col space-y-1.5 mt-1 col-span-2">
+                    <label className="text-xs text-surface-dim">일정 색상</label>
+                    <div className="flex flex-wrap gap-2.5">
                       {presetColors.map((c) => (
                         <button
                           key={c}
                           type="button"
                           onClick={() => setEventColor(c)}
-                          className={`w-6 h-6 md:w-8 md:h-8 rounded-full border-2 transition-transform ${eventColor === c ? 'border-white scale-110 shadow-lg' : 'border-transparent hover:scale-105'}`}
+                          className={`w-6 h-6 md:w-7 md:h-7 rounded-full border-2 transition-transform cursor-pointer ${eventColor === c ? 'border-white scale-110' : 'border-transparent hover:scale-105'}`}
                           style={{ backgroundColor: c }}
                         />
                       ))}
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2 mt-2 md:mt-3 col-span-2">
+                  <div className="flex items-center space-x-2 mt-2 col-span-2">
                     <input
                       type="checkbox"
                       id="isHoliday"
                       checked={isHoliday}
                       onChange={(e) => setIsHoliday(e.target.checked)}
-                      className="w-4 h-4 rounded border-white/10 bg-black/40 text-secondary focus:ring-secondary/30 focus:ring-offset-0 focus:ring-2 outline-none cursor-pointer"
+                      className="w-4 h-4 rounded border-white/10 bg-[#0a1120] text-secondary focus:ring-secondary/30 focus:ring-offset-0 focus:ring-2 outline-none cursor-pointer"
                     />
                     <label htmlFor="isHoliday" className="text-xs md:text-sm text-white font-medium cursor-pointer select-none">
                       공휴일로 지정 (달력에서 날짜를 빨간색으로 표시)
@@ -796,60 +799,59 @@ export function AdminPanel({
               ) : activeTab === 'notices' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   <div className="flex flex-col space-y-1">
-                    <label className="text-[10px] md:text-xs text-surface-dim">날짜</label>
+                    <label className="text-xs text-surface-dim">날짜</label>
                     <input
                       type="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
                       required
-                      className="bg-black/40 border border-white/10 rounded-md md:rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors w-full [color-scheme:dark]"
+                      className="bg-[#0a1120] border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors w-full [color-scheme:dark]"
                     />
                   </div>
                   <div className="flex flex-col space-y-1">
-                    <label className="text-[10px] md:text-xs text-surface-dim">유효 기간 (지나면 자동 보관함 이동 - 선택사항)</label>
+                    <label className="text-xs text-surface-dim">유효 기간 (지나면 자동 보관함 이동 · 선택)</label>
                     <input
                       type="date"
                       value={validUntil}
                       onChange={(e) => setValidUntil(e.target.value)}
-                      className="bg-black/40 border border-white/10 rounded-md md:rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors w-full [color-scheme:dark]"
+                      className="bg-[#0a1120] border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors w-full [color-scheme:dark]"
                     />
                   </div>
                 </div>
               ) : null}
               
               {activeTab !== 'siteInfo' && (
-                <div className="flex items-center space-x-2 p-3 bg-white/5 border border-white/5 rounded-lg">
+                <div className="flex items-center space-x-2 py-1">
                   <input
                     type="checkbox"
                     id="isArchived"
                     checked={isArchived}
                     onChange={(e) => setIsArchived(e.target.checked)}
-                    className="w-4 h-4 rounded border-white/10 bg-black/40 text-secondary focus:ring-secondary/30 focus:ring-offset-0 focus:ring-2 outline-none cursor-pointer"
+                    className="w-4 h-4 rounded border-white/10 bg-[#0a1120] text-secondary focus:ring-secondary/30 focus:ring-offset-0 focus:ring-2 outline-none cursor-pointer"
                   />
                   <label htmlFor="isArchived" className="text-xs md:text-sm text-white font-medium cursor-pointer select-none">
-                    보관함으로 이동 (체크 시 일반 검색 및 기존 목록에서 제외되며 보관함에 저장됨)
+                    보관함으로 이동 (체크 시 일반 목록 및 검색에서 제외)
                   </label>
                 </div>
               )}
               
               <div className="flex flex-col space-y-1">
-                <label className="text-[10px] md:text-xs text-surface-dim">내용 / 설명</label>
+                <label className="text-xs text-surface-dim">내용 / 설명</label>
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   maxLength={activeTab === 'events' ? 1000 : 10000}
                   rows={activeTab === 'siteInfo' ? 8 : 3}
-                  className="bg-black/40 border border-white/10 rounded-md md:rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors resize-none"
+                  className="bg-[#0a1120] border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors resize-none"
                 />
               </div>
 
               {(activeTab === 'notices' || activeTab === 'documents') && (
-                <div className="space-y-3 pt-1">
+                <div className="space-y-4 pt-3 border-t border-white/[0.08]">
                   {/* External Reference Link */}
                   <div className="flex flex-col space-y-1">
-                    <label className="text-[10px] md:text-xs text-surface-dim flex items-center gap-1.5">
-                      <LinkIcon className="w-3.5 h-3.5 text-secondary-fixed-dim" />
-                      <span>참고 링크 URL (선택사항)</span>
+                    <label className="text-xs text-surface-dim">
+                      참고 링크 URL (선택)
                     </label>
                     <input
                       type="url"
@@ -857,22 +859,21 @@ export function AdminPanel({
                       onChange={(e) => setLinkUrl(e.target.value)}
                       maxLength={2000}
                       placeholder="https://... (관련 안내 페이지, 설문 폼 등 외부 링크)"
-                      className="bg-black/40 border border-white/10 rounded-md md:rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors placeholder:text-surface-dim/40"
+                      className="bg-[#0a1120] border border-white/10 rounded-lg p-2 md:p-2.5 text-white text-xs md:text-sm focus:border-secondary-fixed-dim outline-none transition-colors placeholder:text-surface-dim/40"
                     />
                   </div>
 
                   {/* Multiple File Attachment Links */}
-                  <div className="p-3 bg-black/25 border border-white/10 rounded-xl space-y-2.5">
+                  <div className="space-y-2.5 pt-2 border-t border-white/[0.06]">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 text-[11px] md:text-xs text-white font-semibold">
-                        <Paperclip className="w-3.5 h-3.5 text-secondary-fixed-dim shrink-0" />
-                        <span>첨부파일 다운로드 링크 ({attachedFiles.length}/10)</span>
+                      <div className="text-xs text-white font-semibold">
+                        첨부파일 다운로드 링크 <span className="font-mono tabular-nums text-surface-dim">({attachedFiles.length}/10)</span>
                       </div>
                       <button
                         type="button"
                         onClick={handleAddAttachmentRow}
                         disabled={attachedFiles.length >= 10}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] md:text-xs font-bold bg-white/10 hover:bg-white/15 text-white transition-colors disabled:opacity-40 cursor-pointer whitespace-nowrap shrink-0"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/[0.08] hover:bg-white/[0.14] text-white transition-colors disabled:opacity-40 cursor-pointer whitespace-nowrap shrink-0"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>파일 링크 추가</span>
@@ -880,20 +881,20 @@ export function AdminPanel({
                     </div>
 
                     {attachedFiles.length === 0 ? (
-                      <p className="text-[11px] text-surface-dim/70 leading-relaxed">
-                        구글 드라이브, 한컴독스, 학교 홈페이지 등 다운로드/열람 가능한 파일 공유 URL을 최대 10개까지 등록할 수 있습니다.
+                      <p className="text-xs text-surface-dim/75 leading-relaxed">
+                        구글 드라이브, 한컴독스, 학교 홈페이지 등 열람 가능한 파일 공유 URL을 최대 10개까지 등록할 수 있습니다.
                       </p>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="divide-y divide-white/[0.06]">
                         {attachedFiles.map((fileRow, idx) => (
-                          <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-white/[0.03] p-2 rounded-lg border border-white/5">
+                          <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center py-2 first:pt-0 last:pb-0">
                             <input
                               type="text"
                               value={fileRow.name}
                               onChange={(e) => handleUpdateAttachmentRow(idx, 'name', e.target.value)}
                               maxLength={500}
                               placeholder={`표시 파일명 (예: 가정통신문_${idx + 1}.pdf)`}
-                              className="sm:col-span-5 bg-black/40 border border-white/10 rounded-md px-2.5 py-1.5 text-white text-xs focus:border-secondary-fixed-dim outline-none transition-colors placeholder:text-surface-dim/40"
+                              className="sm:col-span-5 bg-[#0a1120] border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-xs focus:border-secondary-fixed-dim outline-none transition-colors placeholder:text-surface-dim/40"
                             />
                             <div className="sm:col-span-7 flex items-center gap-1.5">
                               <input
@@ -902,13 +903,13 @@ export function AdminPanel({
                                 onChange={(e) => handleUpdateAttachmentRow(idx, 'url', e.target.value)}
                                 maxLength={2000}
                                 placeholder="https://drive.google.com/..."
-                                className="flex-1 min-w-0 bg-black/40 border border-white/10 rounded-md px-2.5 py-1.5 text-white text-xs focus:border-secondary-fixed-dim outline-none transition-colors placeholder:text-surface-dim/40"
+                                className="flex-1 min-w-0 bg-[#0a1120] border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-xs focus:border-secondary-fixed-dim outline-none transition-colors placeholder:text-surface-dim/40"
                               />
                               <button
                                 type="button"
                                 onClick={() => handleRemoveAttachmentRow(idx)}
                                 title="첨부 항목 제거"
-                                className="p-1.5 rounded-md bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors shrink-0 cursor-pointer"
+                                className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors shrink-0 cursor-pointer"
                               >
                                 <X className="w-3.5 h-3.5" />
                               </button>
@@ -924,7 +925,7 @@ export function AdminPanel({
               <div className="pt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-lg font-bold text-sm text-white transition-colors bg-secondary hover:bg-secondary/80 w-full sm:w-auto text-center cursor-pointer"
+                  className="px-5 py-2.5 rounded-lg font-semibold text-sm text-white transition-colors bg-secondary hover:bg-secondary/90 w-full sm:w-auto text-center cursor-pointer"
                 >
                   {activeTab === 'siteInfo' ? '저장하기' : editingId ? '수정 완료' : '추가하기'}
                 </button>
@@ -933,7 +934,7 @@ export function AdminPanel({
                   <button
                     type="button"
                     onClick={() => triggerDeleteConfirm(editingId, activeTab)}
-                    className="px-4 py-2.5 rounded-lg font-bold text-sm text-red-400 border border-red-500/30 hover:bg-red-500/10 hover:border-red-500/50 transition-colors flex items-center justify-center space-x-1.5 w-full sm:w-auto cursor-pointer"
+                    className="px-4 py-2.5 rounded-lg font-semibold text-sm text-red-400 border border-red-500/30 hover:bg-red-500/10 hover:border-red-500/50 transition-colors flex items-center justify-center space-x-1.5 w-full sm:w-auto cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                     <span>이 항목 삭제하기</span>
@@ -945,7 +946,7 @@ export function AdminPanel({
             {(activeTab !== 'siteInfo') && (
               <div className="shrink-0 pr-0 md:pr-2">
                 <div className="flex items-center justify-between mb-3 md:mb-4 gap-2">
-                  <h3 className="text-base md:text-lg font-bold text-white">
+                  <h3 className="text-base md:text-lg font-semibold text-white">
                     등록된 {activeTab === 'notices' ? '공지사항' : activeTab === 'events' ? '학사일정' : '자료실'} 목록
                   </h3>
                   <span className="text-xs font-mono text-surface-dim tabular-nums">
@@ -956,33 +957,33 @@ export function AdminPanel({
                     })()}
                   </span>
                 </div>
-                <ul className="space-y-3">
+                <ul className="space-y-2.5">
                 {activeTab === 'notices' && notices.map(notice => {
                   const fileCount = notice.files?.length ? notice.files.length : (notice.fileUrl ? 1 : 0);
                   return (
                     <li
                       key={notice.id}
-                      className={`border p-4 rounded-xl flex items-center justify-between transition-colors ${
+                      className={`border p-3.5 sm:p-4 rounded-xl flex items-center justify-between transition-colors ${
                         notice.isArchived
                           ? 'bg-white/[0.02] border-amber-500/20 opacity-80'
-                          : 'bg-white/5 border-white/5'
+                          : 'bg-white/[0.03] border-white/[0.08]'
                       }`}
                     >
                       <div className="flex-1 min-w-0 mr-4">
                         <div className="flex items-center gap-2 mb-1 min-w-0">
                           {notice.isArchived && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 whitespace-nowrap">
-                              보관됨
+                            <span className="text-xs font-semibold text-amber-400 shrink-0 whitespace-nowrap">
+                              [보관됨]
                             </span>
                           )}
-                          <span className="text-sm font-bold text-white truncate">{notice.title}</span>
+                          <span className="text-sm font-semibold text-white truncate">{notice.title}</span>
                         </div>
                         <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs text-surface-dim">
-                          <span className="tabular-nums">{safeParseDate(notice.date)}</span>
+                          <span className="font-mono tabular-nums">{formatDotDate(notice.date)}</span>
                           {notice.validUntil && (
                             <>
                               <span aria-hidden="true">·</span>
-                              <span className="tabular-nums">유효기한 {safeParseDate(notice.validUntil)}</span>
+                              <span className="font-mono tabular-nums">유효기한 {formatDotDate(notice.validUntil)}</span>
                             </>
                           )}
                           {fileCount > 0 && (
@@ -1000,10 +1001,10 @@ export function AdminPanel({
                         </div>
                       </div>
                       <div className="flex items-center space-x-2 shrink-0">
-                        <button onClick={() => handleEdit(notice, 'notice')} className="text-surface-dim hover:text-white p-2 bg-white/5 rounded-lg cursor-pointer" title="수정">
+                        <button onClick={() => handleEdit(notice, 'notice')} className="text-surface-dim hover:text-white p-2 bg-white/[0.05] hover:bg-white/[0.1] rounded-lg transition-colors cursor-pointer" title="수정">
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button onClick={() => triggerDeleteConfirm(notice.id, 'notices')} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg cursor-pointer" title="삭제">
+                        <button onClick={() => triggerDeleteConfirm(notice.id, 'notices')} className="text-red-400 hover:text-red-300 p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors cursor-pointer" title="삭제">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -1013,36 +1014,36 @@ export function AdminPanel({
                 {activeTab === 'events' && events.map(event => (
                   <li
                     key={event.id}
-                    className={`border p-4 rounded-xl flex items-center justify-between transition-colors ${
+                    className={`border p-3.5 sm:p-4 rounded-xl flex items-center justify-between transition-colors ${
                       event.isArchived
                         ? 'bg-white/[0.02] border-amber-500/20 opacity-80'
-                        : 'bg-white/5 border-white/5'
+                        : 'bg-white/[0.03] border-white/[0.08]'
                     }`}
                   >
-                    <div className="w-3 h-3 rounded-full mr-3 shrink-0" style={{ backgroundColor: event.color || '#64ffda' }} />
+                    <div className="w-2.5 h-2.5 rounded-full mr-3 shrink-0" style={{ backgroundColor: event.color || '#3b82f6' }} />
                     <div className="flex-1 min-w-0 mr-4">
                       <div className="flex items-center gap-2 mb-1 min-w-0">
                         {event.isArchived && (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 whitespace-nowrap">
-                            보관됨
+                          <span className="text-xs font-semibold text-amber-400 shrink-0 whitespace-nowrap">
+                            [보관됨]
                           </span>
                         )}
                         {event.isHoliday && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/15 text-red-300 border border-red-500/30 shrink-0 whitespace-nowrap">
-                            공휴일
+                          <span className="text-xs font-semibold text-red-400 shrink-0 whitespace-nowrap">
+                            [공휴일]
                           </span>
                         )}
-                        <span className="text-sm font-bold text-white truncate">{event.title}</span>
+                        <span className="text-sm font-semibold text-white truncate">{event.title}</span>
                       </div>
-                      <div className="text-xs text-surface-dim tabular-nums">
-                        {safeParseDate(event.date)} {event.endDate && safeParseDate(event.endDate) !== safeParseDate(event.date) ? `~ ${safeParseDate(event.endDate)}` : ''}
+                      <div className="text-xs text-surface-dim font-mono tabular-nums">
+                        {formatDotDate(event.date)} {event.endDate && safeParseDate(event.endDate) !== safeParseDate(event.date) ? `~ ${formatDotDate(event.endDate)}` : ''}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2 shrink-0">
-                      <button onClick={() => handleEdit(event, 'event')} className="text-surface-dim hover:text-white p-2 bg-white/5 rounded-lg cursor-pointer" title="수정">
+                      <button onClick={() => handleEdit(event, 'event')} className="text-surface-dim hover:text-white p-2 bg-white/[0.05] hover:bg-white/[0.1] rounded-lg transition-colors cursor-pointer" title="수정">
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => triggerDeleteConfirm(event.id, 'events')} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg cursor-pointer" title="삭제">
+                      <button onClick={() => triggerDeleteConfirm(event.id, 'events')} className="text-red-400 hover:text-red-300 p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors cursor-pointer" title="삭제">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -1056,20 +1057,20 @@ export function AdminPanel({
                   return (
                     <li
                       key={doc.id}
-                      className={`border p-4 rounded-xl flex items-center justify-between transition-colors ${
+                      className={`border p-3.5 sm:p-4 rounded-xl flex items-center justify-between transition-colors ${
                         doc.isArchived
                           ? 'bg-white/[0.02] border-amber-500/20 opacity-80'
-                          : 'bg-white/5 border-white/5'
+                          : 'bg-white/[0.03] border-white/[0.08]'
                       }`}
                     >
                       <div className="flex-1 min-w-0 mr-4">
                         <div className="flex items-center gap-2 mb-1 min-w-0">
                           {doc.isArchived && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 whitespace-nowrap">
-                              보관됨
+                            <span className="text-xs font-semibold text-amber-400 shrink-0 whitespace-nowrap">
+                              [보관됨]
                             </span>
                           )}
-                          <span className="text-sm font-bold text-white truncate">{doc.title}</span>
+                          <span className="text-sm font-semibold text-white truncate">{doc.title}</span>
                         </div>
                         <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs text-surface-dim truncate">
                           {displayFileName ? (
@@ -1086,10 +1087,10 @@ export function AdminPanel({
                         </div>
                       </div>
                       <div className="flex items-center space-x-2 shrink-0">
-                        <button onClick={() => handleEdit(doc, 'document')} className="text-surface-dim hover:text-white p-2 bg-white/5 rounded-lg cursor-pointer" title="수정">
+                        <button onClick={() => handleEdit(doc, 'document')} className="text-surface-dim hover:text-white p-2 bg-white/[0.05] hover:bg-white/[0.1] rounded-lg transition-colors cursor-pointer" title="수정">
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button onClick={() => triggerDeleteConfirm(doc.id, 'documents')} className="text-red-400 hover:text-red-300 p-2 bg-red-400/10 rounded-lg cursor-pointer" title="삭제">
+                        <button onClick={() => triggerDeleteConfirm(doc.id, 'documents')} className="text-red-400 hover:text-red-300 p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors cursor-pointer" title="삭제">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -1116,7 +1117,7 @@ export function AdminPanel({
               exit={{ opacity: 0 }}
               transition={MODAL_BACKDROP_TRANSITION}
               onClick={() => setShowLogoutConfirm(false)}
-              className="absolute inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md rounded-3xl"
+              className="absolute inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md rounded-2xl"
             >
               <motion.div
                 initial={{ scale: 0.95, y: 8, opacity: 0 }}
@@ -1124,60 +1125,58 @@ export function AdminPanel({
                 exit={{ scale: 0.95, y: 6, opacity: 0 }}
                 transition={MODAL_PANEL_TRANSITION}
                 onClick={e => e.stopPropagation()}
-                className="bg-[#0a1120] border border-white/20 w-full max-w-md p-6 rounded-2xl flex flex-col items-center shadow-2xl relative"
+                className="bg-[#0a1120] border border-white/15 w-full max-w-md p-6 rounded-2xl flex flex-col shadow-2xl relative"
               >
-                <div className="w-12 h-12 rounded-2xl bg-secondary/15 border border-secondary/30 flex items-center justify-center mb-3 text-secondary">
-                  <LogOut className="w-6 h-6" />
+                <div className="pb-4 mb-4 border-b border-white/[0.08]">
+                  <h3 className="text-base md:text-lg font-semibold text-white">계정 관리 및 로그아웃</h3>
+                  <p className="text-xs text-surface-dim mt-1">
+                    현재 접속: <span className="text-secondary-container font-semibold font-mono">{getDisplayUserEmail(auth.currentUser?.email) || '알 수 없음'}</span>
+                  </p>
                 </div>
-                <h3 className="text-lg md:text-xl font-black text-white mb-1 text-center">계정 관리 및 로그아웃</h3>
-                <p className="text-xs text-surface-dim mb-4 text-center">
-                  현재 접속: <span className="text-secondary font-bold font-mono">{getDisplayUserEmail(auth.currentUser?.email) || '알 수 없음'}</span>
-                </p>
 
                 <div className="w-full flex flex-col space-y-2.5 mb-4">
                   {/* Switch Google Account */}
                   <button
                     type="button"
                     onClick={handleSwitchAccount}
-                    className="w-full py-3 px-4 rounded-xl text-xs md:text-sm font-bold bg-secondary hover:bg-secondary/90 active:scale-[0.99] text-white flex items-center justify-between transition-all shadow-md shadow-secondary/20 cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold bg-secondary hover:bg-secondary/90 text-white flex items-center justify-between transition-colors cursor-pointer"
                   >
                     <div className="flex items-center space-x-2">
                       <ArrowRightLeft className="w-4 h-4" />
-                      <span>다른 구글 계정으로 전환 (추천)</span>
+                      <span>다른 구글 계정으로 전환</span>
                     </div>
-                    <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded-full font-normal">계정 선택창 열기</span>
+                    <span className="text-xs text-white/80 font-normal">계정 선택</span>
                   </button>
 
                   {/* Normal Logout */}
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-bold bg-white/10 hover:bg-white/15 active:scale-[0.99] text-white flex items-center justify-between transition-all cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-xl text-xs md:text-sm font-semibold bg-white/[0.08] hover:bg-white/[0.14] text-white flex items-center justify-between transition-colors cursor-pointer"
                   >
                     <div className="flex items-center space-x-2">
                       <LogOut className="w-4 h-4 text-surface-dim" />
                       <span>단순 로그아웃</span>
                     </div>
-                    <span className="text-[10px] text-surface-dim font-normal">세션 종료</span>
+                    <span className="text-xs text-surface-dim font-normal">세션 종료</span>
                   </button>
 
                   {/* Permanent Firebase Account Delete */}
-                  <div className="pt-2 border-t border-white/10 flex flex-col space-y-1.5">
-                    <div className="flex items-center space-x-1.5 text-[11px] text-red-400 font-bold">
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      <span>파이어베이스 계정 완전 삭제</span>
+                  <div className="pt-3.5 mt-1 border-t border-white/10 flex flex-col space-y-1.5">
+                    <div className="text-xs text-red-400 font-semibold">
+                      파이어베이스 계정 영구 삭제
                     </div>
-                    <p className="text-[10px] text-surface-dim leading-relaxed">
-                      현재 구글 계정 정보를 Firebase 인증 시스템에서 완전히 삭제합니다. 삭제 후 새 계정으로 언제든지 다시 로그인할 수 있습니다.
+                    <p className="text-xs text-surface-dim leading-relaxed">
+                      현재 구글 계정 정보를 인증 시스템에서 완전히 삭제합니다. 삭제 후 새 계정으로 다시 로그인할 수 있습니다.
                     </p>
                     <button
                       type="button"
                       disabled={isDeletingAccount}
                       onClick={handleDeleteCurrentAccount}
-                      className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 hover:text-red-200 flex items-center justify-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                      className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 hover:text-red-200 flex items-center justify-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-50"
                     >
                       <UserX className="w-3.5 h-3.5" />
-                      <span>{isDeletingAccount ? '삭제 진행 중...' : '현재 계정 Firebase에서 영구 삭제'}</span>
+                      <span>{isDeletingAccount ? '삭제 진행 중...' : '현재 계정 영구 삭제'}</span>
                     </button>
                   </div>
                 </div>
@@ -1185,7 +1184,7 @@ export function AdminPanel({
                 <button 
                   type="button"
                   onClick={() => setShowLogoutConfirm(false)}
-                  className="w-full py-2.5 rounded-xl font-bold text-xs bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white transition-colors cursor-pointer"
+                  className="w-full py-2.5 rounded-xl font-semibold text-xs bg-white/[0.05] hover:bg-white/[0.1] text-surface-dim hover:text-white transition-colors cursor-pointer"
                 >
                   취소하고 돌아가기
                 </button>
@@ -1204,7 +1203,7 @@ export function AdminPanel({
               exit={{ opacity: 0 }}
               transition={MODAL_BACKDROP_TRANSITION}
               onClick={() => setDeleteTarget(null)}
-              className="absolute inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md rounded-2xl md:rounded-3xl"
+              className="absolute inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md rounded-2xl"
             >
               <motion.div
                 initial={{ scale: 0.95, y: 8, opacity: 0 }}
@@ -1212,31 +1211,28 @@ export function AdminPanel({
                 exit={{ scale: 0.95, y: 6, opacity: 0 }}
                 transition={MODAL_PANEL_TRANSITION}
                 onClick={e => e.stopPropagation()}
-                className="bg-[#0a1120] border border-white/20 w-full max-w-md p-6 rounded-2xl flex flex-col items-center shadow-2xl relative"
+                className="bg-[#0a1120] border border-white/15 w-full max-w-sm p-6 rounded-2xl flex flex-col shadow-2xl relative"
               >
-                <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4 text-red-500">
-                  <Trash2 className="w-6 h-6" />
-                </div>
-                <h3 className="text-lg md:text-xl font-bold text-white mb-2 text-center">정말 삭제하시겠습니까?</h3>
-                <div className="w-full bg-white/5 border border-white/5 rounded-xl p-3 mb-4 text-center">
-                  <p className="text-xs text-surface-dim mb-0.5">삭제 대상 이름</p>
-                  <p className="text-sm text-white font-bold truncate">{deleteTarget.title}</p>
-                </div>
-                <p className="text-xs md:text-sm text-surface-dim mb-6 text-center">
-                  이 작업은 되돌릴 수 없으며, 해당 데이터가 데이터베이스에서 영구적으로 완전히 삭제됩니다.
+                <h3 className="text-base md:text-lg font-semibold text-white mb-1.5">항목을 삭제하시겠습니까?</h3>
+                <p className="text-xs text-surface-dim leading-relaxed mb-4">
+                  삭제된 데이터는 복구할 수 없으며 데이터베이스에서 영구 삭제됩니다.
                 </p>
-                <div className="flex w-full space-x-3">
+                <div className="py-3 mb-5 border-y border-white/[0.08] flex items-center justify-between gap-3 text-xs">
+                  <span className="text-surface-dim shrink-0">삭제 대상</span>
+                  <span className="text-white font-semibold truncate">{deleteTarget.title}</span>
+                </div>
+                <div className="flex w-full space-x-2.5">
                   <button 
                     type="button"
                     onClick={() => setDeleteTarget(null)}
-                    className="flex-1 py-2.5 md:py-3 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                    className="flex-1 py-2.5 rounded-xl font-semibold text-xs md:text-sm bg-white/[0.06] hover:bg-white/[0.12] text-surface-dim hover:text-white transition-colors cursor-pointer"
                   >
                     취소
                   </button>
                   <button 
                     type="button"
                     onClick={executeDelete}
-                    className="flex-1 py-2.5 md:py-3 rounded-xl font-bold text-sm bg-red-600/90 hover:bg-red-600 active:scale-[0.98] text-white transition-all shadow-lg shadow-red-900/20 cursor-pointer"
+                    className="flex-1 py-2.5 rounded-xl font-semibold text-xs md:text-sm bg-red-600 hover:bg-red-500 text-white transition-colors cursor-pointer"
                   >
                     삭제하기
                   </button>

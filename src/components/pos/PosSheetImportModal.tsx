@@ -12,7 +12,6 @@ import {
   X,
   Layers,
   HelpCircle,
-  Sparkles,
   RefreshCw,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';

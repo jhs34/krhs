@@ -3,38 +3,39 @@
 @theme {
   --font-sans: "Google Sans Flex", "Noto Sans KR", ui-sans-serif, system-ui, sans-serif;
   --font-space: "Google Sans Flex", "Noto Sans KR", ui-sans-serif, system-ui, sans-serif;
-  
-  /* Brand Palette from Design System */
-  --color-primary: #000613;
-  --color-primary-dark: #00040d;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Unified Institutional Navy-Slate Ramp */
+  --color-primary: #040812;
+  --color-primary-dark: #03060e;
   --color-on-primary: #ffffff;
-  --color-primary-container: #001f3f;
-  --color-on-primary-container: #6f88ad;
+  --color-primary-container: #0a1120;
+  --color-on-primary-container: #94a3b8;
   --color-inverse-primary: #afc8f0;
-  
+
   --color-secondary: #065db7;
   --color-on-secondary: #ffffff;
   --color-secondary-container: #65a1ff;
   --color-on-secondary-container: #003671;
   --color-secondary-fixed: #d3e4ff;
   --color-secondary-fixed-dim: #65a1ff;
-  
-  --color-tertiary: #00070a;
+
+  --color-tertiary: #0a1120;
   --color-on-tertiary: #ffffff;
-  --color-tertiary-container: #002328;
-  --color-on-tertiary-container: #0094a6;
-  --color-tertiary-fixed-dim: #00daf3;
-  
-  --color-background: #f7f9fb;
-  --color-on-background: #191c1e;
-  --color-surface: #f7f9fb;
-  --color-surface-dim: #d8dadc;
-  --color-surface-container: #eceef0;
-  
-  --color-on-surface: #191c1e;
-  --color-on-surface-variant: #43474e;
-  --color-outline: #74777f;
-  --color-outline-variant: #c4c6cf;
+  --color-tertiary-container: #0f182b;
+  --color-on-tertiary-container: #65a1ff;
+  --color-tertiary-fixed-dim: #65a1ff;
+
+  --color-background: #040812;
+  --color-on-background: #f1f5f9;
+  --color-surface: #0a1120;
+  --color-surface-dim: #94a3b8;
+  --color-surface-container: #0f182b;
+
+  --color-on-surface: #f1f5f9;
+  --color-on-surface-variant: #94a3b8;
+  --color-outline: #64748b;
+  --color-outline-variant: #334155;
 }
 
 html {
@@ -44,76 +45,62 @@ html {
 
 @media (max-width: 1024px) {
   html {
-    font-size: 14.5px; /* ~90% scale */
+    font-size: 15.5px;
   }
 }
 
 @media (max-width: 768px) {
   html {
-    font-size: 13.5px; /* ~84% scale */
+    font-size: 15px;
   }
 }
 
 @media (max-width: 480px) {
   html {
-    font-size: 12.8px; /* ~80% scale on mobile */
+    font-size: 14.5px;
   }
 }
 
 body {
-  @apply bg-background text-on-surface font-sans antialiased;
-  /* Subtle technical background pattern */
-  background-image: 
-    radial-gradient(circle at 15% 50%, rgba(0, 31, 63, 0.03), transparent 25%),
-    radial-gradient(circle at 85% 30%, rgba(6, 93, 183, 0.04), transparent 25%),
-    linear-gradient(rgba(247, 249, 251, 0.8), rgba(247, 249, 251, 0.8)),
-    repeating-linear-gradient(0deg, transparent, transparent 49px, rgba(116, 119, 127, 0.05) 50px),
-    repeating-linear-gradient(90deg, transparent, transparent 49px, rgba(116, 119, 127, 0.05) 50px);
-  background-attachment: fixed;
+  @apply bg-primary text-on-surface font-sans antialiased;
 }
 
-/* Glassmorphism Classes */
+/* Surface Panels */
 .glass-panel-dark {
-  @apply bg-primary-container/85 backdrop-blur-2xl border-b border-white/10;
+  @apply bg-[#040812]/90 backdrop-blur-xl border-b border-white/[0.08];
 }
 
 .glass-card {
-  @apply bg-white/70 backdrop-blur-2xl border border-white/60 shadow-[0_4px_24px_rgba(0,31,63,0.04)] rounded-xl transition-all duration-300;
+  @apply bg-[#0a1120] border border-white/[0.08] rounded-2xl transition-colors duration-200;
 }
 
 .glass-card:hover {
-  @apply bg-white/90 shadow-[0_8px_32px_rgba(0,31,63,0.08)] border-white transform -translate-y-0.5;
+  @apply bg-[#0f182b] border-white/[0.14];
 }
 
-/* Specific component styles */
 .btn-primary {
-  @apply bg-gradient-to-br from-secondary to-[#044080] text-white px-5 py-2.5 rounded shadow-sm hover:shadow-[0_0_16px_rgba(6,93,183,0.4)] hover:brightness-110 flex items-center justify-center font-medium transition-all duration-300 border border-white/10;
-}
-
-.status-chip {
-  @apply px-2.5 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase inline-flex items-center;
+  @apply bg-secondary hover:bg-secondary/90 text-white px-4 py-2.5 rounded-lg flex items-center justify-center font-semibold transition-colors duration-150;
 }
 
 /* Subtle Custom Scrollbar applied globally site-wide */
 ::-webkit-scrollbar {
-  width: 4px; /* very thin vertical */
-  height: 4px; /* very thin horizontal */
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent; /* invisible track */
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.15); /* very subtle gray */
+  background: rgba(148, 163, 184, 0.2);
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.35); /* slightly clearer on hover */
+  background: rgba(148, 163, 184, 0.4);
 }
 
-/* Firefox support */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(156, 163, 175, 0.15) transparent;
+  scrollbar-color: rgba(148, 163, 184, 0.2) transparent;
 }
 
 @keyframes marquee-pingpong {

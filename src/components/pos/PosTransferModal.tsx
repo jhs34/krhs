@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Building2, Check, Ticket, X, User } from 'lucide-react';
+import { X } from 'lucide-react';
 import { POS_MODAL_BACKDROP_TRANSITION, POS_MODAL_PANEL_TRANSITION } from '../../utils/motion';
 
 interface PosTransferModalProps {
@@ -48,23 +48,19 @@ export const PosTransferModal: React.FC<PosTransferModalProps> = ({
         onClick={e => e.stopPropagation()}
         className="bg-[#0a1120] border border-white/10 w-full max-w-sm rounded-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
       >
-        <div className="flex items-center justify-between pb-3 border-b border-white/10">
-          <div className="flex items-center space-x-2.5">
-            <Building2 className="w-5 h-5 text-secondary-container shrink-0" />
-            <div>
-              <h3 className="text-base font-bold text-white">계좌이체 결제 확인</h3>
-              <p className="text-xs text-surface-dim">송금 내역 확인 후 결제 완료를 눌러주세요</p>
-            </div>
+        <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/10">
+          <div>
+            <h3 className="text-base font-bold text-white">계좌이체 결제 확인</h3>
+            <p className="text-xs text-surface-dim mt-0.5">송금 내역 확인 후 결제 완료를 눌러주세요</p>
           </div>
 
           {onOpenDiscountModal && (
             <button
               type="button"
               onClick={onOpenDiscountModal}
-              className="px-2.5 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 text-xs font-bold flex items-center space-x-1 transition-all cursor-pointer shrink-0"
+              className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-surface-dim hover:text-white text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer shrink-0"
             >
-              <Ticket className="w-3.5 h-3.5" />
-              <span>{discountAmount > 0 ? '할인 수정' : '할인 입력'}</span>
+              {discountAmount > 0 ? '할인 수정' : '할인 입력'}
             </button>
           )}
         </div>
@@ -79,9 +75,9 @@ export const PosTransferModal: React.FC<PosTransferModalProps> = ({
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-purple-300 font-bold">할인 적용 금액</span>
+                <span className="text-amber-300 font-bold">할인 적용 금액</span>
                 <div className="flex items-center space-x-1.5">
-                  <span className="font-mono tabular-nums text-purple-300 font-bold">
+                  <span className="font-mono tabular-nums text-amber-300 font-bold">
                     -{discountAmount.toLocaleString()}원
                   </span>
                   {onClearDiscount && (
@@ -100,7 +96,7 @@ export const PosTransferModal: React.FC<PosTransferModalProps> = ({
           )}
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-surface-dim">이체 확인할 금액</span>
-            <span className="text-xl font-black font-mono tabular-nums text-secondary-container">
+            <span className="text-xl font-bold font-mono tabular-nums text-secondary-container">
               {totalAmount.toLocaleString()}원
             </span>
           </div>
@@ -112,16 +108,13 @@ export const PosTransferModal: React.FC<PosTransferModalProps> = ({
             <label className="block text-[11px] font-semibold text-surface-dim mb-1.5">
               입금자 / 주문자 이름 (선택)
             </label>
-            <div className="relative">
-              <User className="w-3.5 h-3.5 text-surface-dim absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={buyerName}
-                onChange={e => setBuyerName(e.target.value)}
-                placeholder="입금자명 입력 (생략 가능)"
-                className="w-full pl-8 pr-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 focus:border-secondary focus:outline-none text-xs sm:text-sm text-white placeholder:text-surface-dim/50"
-              />
-            </div>
+            <input
+              type="text"
+              value={buyerName}
+              onChange={e => setBuyerName(e.target.value)}
+              placeholder="입금자명 입력 (생략 가능)"
+              className="w-full px-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 focus:border-secondary focus:outline-none text-xs sm:text-sm text-white placeholder:text-surface-dim/50"
+            />
           </div>
 
           <div>
@@ -142,16 +135,15 @@ export const PosTransferModal: React.FC<PosTransferModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer"
+            className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-surface-dim hover:text-white text-xs sm:text-sm font-bold whitespace-nowrap transition-colors cursor-pointer"
           >
             취소
           </button>
           <button
             type="submit"
-            className="py-2.5 rounded-xl bg-secondary hover:bg-secondary/90 active:scale-[0.98] text-white text-xs sm:text-sm font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+            className="py-2.5 rounded-xl bg-secondary hover:bg-secondary/90 active:scale-[0.98] text-white text-xs sm:text-sm font-bold whitespace-nowrap flex items-center justify-center transition-[background-color,transform] cursor-pointer"
           >
-            <Check className="w-4 h-4" />
-            <span>이체 확인 완료</span>
+            이체 확인 완료
           </button>
         </div>
       </motion.form>

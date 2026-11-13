@@ -1,14 +1,10 @@
 import React from 'react';
 import {
-  Trash2,
   Plus,
   Minus,
-  Banknote,
-  Building2,
   ShoppingCart,
   Loader2,
   X,
-  Ticket,
 } from 'lucide-react';
 import { CartItem } from '../../types/pos';
 import { motion, AnimatePresence } from 'motion/react';
@@ -55,7 +51,6 @@ export const PosCart: React.FC<PosCartProps> = ({
       {/* Cart Header (h-12 matching PosMenuGrid category strip) */}
       <div className="h-12 px-4 border-b border-white/10 flex items-center justify-between bg-[#0a1120]/60 shrink-0">
         <div className="flex items-center space-x-2">
-          <ShoppingCart className="w-4 h-4 text-secondary-container shrink-0" />
           <h2 className="text-sm font-bold text-white tracking-tight">주문 내역</h2>
           <AnimatePresence initial={false}>
             {totalItems > 0 && (
@@ -83,10 +78,9 @@ export const PosCart: React.FC<PosCartProps> = ({
               transition={{ duration: 0.12, ease: EASE_OUT_EXPO }}
               onClick={onRequestClear}
               disabled={isProcessing}
-              className="inline-flex items-center justify-center space-x-1 text-xs font-semibold text-rose-400 hover:text-rose-300 active:scale-95 bg-rose-500/10 hover:bg-rose-500/20 px-2.5 h-7 rounded-lg transition-all cursor-pointer"
+              className="inline-flex items-center justify-center text-xs font-semibold text-surface-dim hover:text-rose-300 active:scale-95 bg-white/[0.04] hover:bg-rose-500/15 border border-white/[0.08] hover:border-rose-500/30 px-2.5 h-7 rounded-lg whitespace-nowrap transition-[background-color,border-color,color,transform] cursor-pointer"
             >
-              <Trash2 className="w-3.5 h-3.5 shrink-0" />
-              <span>비우기</span>
+              비우기
             </motion.button>
           )}
         </AnimatePresence>
@@ -130,7 +124,7 @@ export const PosCart: React.FC<PosCartProps> = ({
                     type="button"
                     onClick={() => onRemoveItem(item.id)}
                     disabled={isProcessing}
-                    className="p-1 rounded-md text-surface-dim/50 hover:text-rose-400 hover:bg-rose-500/10 active:scale-90 transition-all cursor-pointer"
+                    className="p-1 rounded-md text-surface-dim/50 hover:text-rose-400 hover:bg-rose-500/10 active:scale-90 transition-[background-color,color,transform] cursor-pointer"
                     title="항목 삭제"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -144,7 +138,7 @@ export const PosCart: React.FC<PosCartProps> = ({
                       type="button"
                       onClick={() => onUpdateCount(item.id, -1)}
                       disabled={isProcessing}
-                      className="w-7 h-7 rounded-md bg-white/5 hover:bg-white/10 active:bg-white/20 active:scale-90 flex items-center justify-center text-white transition-all cursor-pointer"
+                      className="w-7 h-7 rounded-md bg-white/5 hover:bg-white/10 active:bg-white/20 active:scale-90 flex items-center justify-center text-white transition-[background-color,transform] cursor-pointer"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
@@ -171,7 +165,7 @@ export const PosCart: React.FC<PosCartProps> = ({
                       type="button"
                       onClick={() => onUpdateCount(item.id, 1)}
                       disabled={isProcessing}
-                      className="w-7 h-7 rounded-md bg-white/5 hover:bg-white/10 active:bg-white/20 active:scale-90 flex items-center justify-center text-white transition-all cursor-pointer"
+                      className="w-7 h-7 rounded-md bg-white/5 hover:bg-white/10 active:bg-white/20 active:scale-90 flex items-center justify-center text-white transition-[background-color,transform] cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -218,21 +212,25 @@ export const PosCart: React.FC<PosCartProps> = ({
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <button
-                      type="button"
-                      onClick={onOpenDiscountModal}
-                      className="flex items-center space-x-1.5 text-purple-300 hover:text-purple-200 font-bold cursor-pointer"
-                    >
-                      <Ticket className="w-3.5 h-3.5" />
-                      <span>할인 금액 수정</span>
-                    </button>
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-surface-dim">할인 적용</span>
+                      {onOpenDiscountModal && (
+                        <button
+                          type="button"
+                          onClick={onOpenDiscountModal}
+                          className="text-[11px] text-secondary-container hover:underline font-semibold transition-colors cursor-pointer"
+                        >
+                          수정
+                        </button>
+                      )}
+                    </div>
                     <div className="flex items-center space-x-1.5">
                       <motion.span
                         key={effectiveDiscount}
                         initial={{ scale: 1.08 }}
                         animate={{ scale: 1 }}
                         transition={POS_BUMP_TRANSITION}
-                        className="font-mono tabular-nums font-bold text-purple-300 inline-block"
+                        className="font-mono tabular-nums font-bold text-amber-300 inline-block"
                       >
                         -{effectiveDiscount.toLocaleString()}원
                       </motion.span>
@@ -255,13 +253,10 @@ export const PosCart: React.FC<PosCartProps> = ({
                     type="button"
                     onClick={onOpenDiscountModal}
                     disabled={isProcessing}
-                    className="w-full py-2 px-3 rounded-xl bg-purple-500/10 hover:bg-purple-500/15 active:scale-[0.99] border border-purple-500/25 flex items-center justify-between text-xs text-purple-200 font-bold transition-all cursor-pointer"
+                    className="w-full py-2 px-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:scale-[0.99] border border-white/[0.08] flex items-center justify-between text-xs text-surface-dim hover:text-white font-semibold transition-[background-color,color,transform] cursor-pointer"
                   >
-                    <span className="flex items-center space-x-1.5">
-                      <Ticket className="w-3.5 h-3.5 text-purple-400" />
-                      <span>할인 금액 입력</span>
-                    </span>
-                    <span className="text-[11px] text-purple-300/80 font-mono">+ 할인 적용</span>
+                    <span>할인 적용</span>
+                    <span className="text-[11px] text-surface-dim/80">금액 입력</span>
                   </button>
                 )
               )}
@@ -280,7 +275,7 @@ export const PosCart: React.FC<PosCartProps> = ({
               initial={{ scale: 1.06 }}
               animate={{ scale: 1 }}
               transition={POS_BUMP_TRANSITION}
-              className="text-xl sm:text-2xl font-black font-mono tabular-nums text-white tracking-tight inline-block origin-right"
+              className="text-xl sm:text-2xl font-bold font-mono tabular-nums text-white tracking-tight inline-block origin-right"
             >
               {payableAmount.toLocaleString()}
             </motion.span>
@@ -294,14 +289,10 @@ export const PosCart: React.FC<PosCartProps> = ({
             type="button"
             disabled={!canCheckout}
             onClick={onRequestCashPayment}
-            className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-white font-bold transition-all cursor-pointer"
+            className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-secondary hover:bg-secondary/90 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-white font-bold whitespace-nowrap transition-[background-color,transform] cursor-pointer"
           >
-            {isProcessing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Ticket className="w-4 h-4" />
-            )}
-            <span className="text-xs sm:text-sm">전액 할인 결제 완료 (0원)</span>
+            {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
+            <span className="text-xs sm:text-sm">전액 할인 결제 (0원)</span>
           </button>
         ) : (
           <div className="grid grid-cols-2 gap-2.5">
@@ -309,13 +300,9 @@ export const PosCart: React.FC<PosCartProps> = ({
               type="button"
               disabled={!canCheckout}
               onClick={onRequestCashPayment}
-              className="flex items-center justify-center space-x-2 py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-white font-bold transition-all cursor-pointer"
+              className="flex items-center justify-center space-x-1.5 py-3 px-3 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] active:scale-[0.98] border border-white/[0.12] disabled:opacity-40 disabled:pointer-events-none text-white font-bold whitespace-nowrap transition-[background-color,transform] cursor-pointer"
             >
-              {isProcessing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Banknote className="w-4 h-4" />
-              )}
+              {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
               <span className="text-xs sm:text-sm">현금 결제</span>
             </button>
 
@@ -323,13 +310,9 @@ export const PosCart: React.FC<PosCartProps> = ({
               type="button"
               disabled={!canCheckout}
               onClick={onRequestTransferPayment}
-              className="flex items-center justify-center space-x-2 py-3 px-3 rounded-xl bg-secondary hover:bg-secondary/90 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-white font-bold transition-all cursor-pointer"
+              className="flex items-center justify-center space-x-1.5 py-3 px-3 rounded-xl bg-secondary hover:bg-secondary/90 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-white font-bold whitespace-nowrap transition-[background-color,transform] cursor-pointer"
             >
-              {isProcessing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Building2 className="w-4 h-4" />
-              )}
+              {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
               <span className="text-xs sm:text-sm">계좌이체</span>
             </button>
           </div>

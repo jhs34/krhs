@@ -1,10 +1,10 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
+import type { ViteDevServer } from "vite";
 
-async function startServer() {
+function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Middleware to parse JSON request bodies
   app.use(express.json());
@@ -19,13 +19,28 @@ async function startServer() {
     res.status(404).json({ error: "API endpoint not found" });
   });
 
-  // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true, hmr: false },
-      appType: "spa",
+    let viteServer: ViteDevServer | null = null;
+    const vitePromise = import("vite")
+      .then(({ createServer }) =>
+        createServer({
+          server: { middlewareMode: true, hmr: false },
+          appType: "spa",
+        })
+      )
+      .then((server) => {
+        viteServer = server;
+        return server;
+      });
+
+    app.use(async (req, res, next) => {
+      try {
+        const vite = viteServer ?? (await vitePromise);
+        vite.middlewares(req, res, next);
+      } catch (err) {
+        next(err);
+      }
     });
-    app.use(vite.middlewares);
   } else {
     // Serve static files in production at both '/krhs' (Vite base) and '/'
     const distPath = path.join(process.cwd(), "dist");
@@ -36,6 +51,7 @@ async function startServer() {
     });
   }
 
+  // Bind port 3000 immediately so cold-start health checks succeed without waiting on Vite pre-bundling
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });

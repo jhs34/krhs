@@ -128,26 +128,25 @@ export function PosHubHome({
 
       {/* Main Content matching Dashboard.tsx */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-5 sm:px-10 md:px-16 lg:px-24 py-8 sm:py-12 md:py-16 flex flex-col space-y-10 sm:space-y-12">
-        {/* Section 1: Editorial Header */}
+        {/* Section 1: Operational Header */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22, ease: EASE_OUT_EXPO }}
-          className="border-b border-white/10 pb-7 sm:pb-9"
+          className="border-b border-white/[0.08] pb-6 sm:pb-8"
         >
-          <div className="space-y-3">
-            <h1 className="font-sans font-bold text-2xl sm:text-3xl md:text-5xl text-white tracking-tighter leading-[1.2] md:leading-[1.15]">
-              한국철도고등학교,<br />
-              <span className="text-surface-dim">매점 통합 운영 터미널</span>
+          <div className="space-y-2">
+            <h1 className="font-sans font-semibold text-2xl sm:text-3xl md:text-4xl text-white tracking-tight leading-tight">
+              매점 운영 허브
             </h1>
-            <p className="text-surface-dim font-medium text-xs sm:text-sm md:text-base max-w-xl leading-relaxed break-keep">
-              안녕하세요, <span className="text-white font-semibold">{user.name}</span> 담당자님. 실시간 결제와 재고 관리, 일일 정산이 하나의 포털에서 연결됩니다.
+            <p className="text-surface-dim text-xs sm:text-sm max-w-xl leading-relaxed break-keep">
+              담당: <span className="text-white font-semibold">{user.name}</span> · 판매 화면 진입, 상품·재고 관리 및 일일 마감 정산을 진행합니다.
             </p>
           </div>
         </motion.div>
 
-        {/* Section 2: Dominant Focal Anchor (Sales Terminal Launch) + Editorial Module List */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        {/* Section 2: Dominant Focal Anchor (Sales Terminal Launch) + Operations List */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-stretch">
           {/* Left 7 Cols: Primary Sales Register Launch Panel */}
           <motion.button
             type="button"
@@ -156,12 +155,12 @@ export function PosHubHome({
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.24, delay: 0.03, ease: EASE_OUT_EXPO }}
-            className="lg:col-span-7 text-left bg-[#0a1120] hover:bg-[#0d1629] border border-white/10 hover:border-secondary/60 rounded-3xl p-6 sm:p-8 md:p-10 flex flex-col justify-between transition-colors duration-200 group cursor-pointer"
+            className="lg:col-span-7 text-left bg-[#0a1120] hover:bg-[#0f182b] border border-white/[0.08] hover:border-secondary/50 rounded-2xl p-6 sm:p-8 md:p-10 flex flex-col justify-between transition-colors duration-150 group cursor-pointer"
           >
             <div>
               <div className="flex items-center justify-between mb-6 sm:mb-8">
-                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-secondary/15 border border-secondary/30 flex items-center justify-center text-white">
-                  <Store className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={1.5} />
+                <div className="w-11 h-11 rounded-xl bg-secondary/15 border border-secondary/30 flex items-center justify-center text-white">
+                  <Store className="w-5 h-5" strokeWidth={1.5} />
                 </div>
                 {hasActiveCart && (
                   <span className="text-xs text-secondary-container font-semibold">
@@ -170,40 +169,40 @@ export function PosHubHome({
                 )}
               </div>
 
-              <h2 className="font-sans font-bold text-xl sm:text-2xl md:text-3xl text-white tracking-tight mb-2.5 group-hover:text-secondary-container transition-colors">
+              <h2 className="font-sans font-semibold text-xl sm:text-2xl md:text-3xl text-white tracking-tight mb-2.5 group-hover:text-secondary-container transition-colors">
                 포스기 판매 화면 시작
               </h2>
               <p className="text-xs sm:text-sm text-surface-dim leading-relaxed max-w-lg break-keep">
-                매점 상품 터치 주문, 현금 거스름돈 자동 계산, 계좌이체 확인 및 직접 할인 적용을 즉시 처리합니다.
+                매점 상품 터치 주문, 현금 거스름돈 계산, 계좌이체 확인 및 할인 적용을 처리합니다.
               </p>
             </div>
 
-            <div className="pt-6 mt-8 border-t border-white/5 flex items-center justify-between">
+            <div className="pt-6 mt-8 border-t border-white/[0.06] flex items-center justify-between">
               <div className="text-xs text-surface-dim font-mono tabular-nums">
                 판매 가능 {inStockCount}종 · 오늘 결제 {todayOrdersCount}건
               </div>
-              <div className="inline-flex items-center space-x-2 text-sm font-bold text-white group-hover:translate-x-1 transition-transform">
+              <div className="inline-flex items-center space-x-2 text-sm font-semibold text-white group-hover:translate-x-1 transition-transform">
                 <span>{hasActiveCart ? '판매 화면으로 복귀' : '영업 시작하기'}</span>
                 <ArrowRight className="w-4 h-4 text-secondary-container" />
               </div>
             </div>
           </motion.button>
 
-          {/* Right 5 Cols: Clean Hairline-Divided Operations List (Unboxed individual items) */}
+          {/* Right 5 Cols: Clean Hairline-Divided Operations List */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.24, delay: 0.06, ease: EASE_OUT_EXPO }}
-            className="lg:col-span-5 bg-[#0a1120] border border-white/5 rounded-3xl p-6 sm:p-8 flex flex-col justify-between"
+            className="lg:col-span-5 bg-[#0a1120] border border-white/[0.08] rounded-2xl p-6 sm:p-8 flex flex-col justify-between"
           >
             <div>
-              <div className="flex items-center justify-between pb-4 mb-2 border-b border-white/10">
-                <h3 className="font-sans font-bold text-base sm:text-lg text-white tracking-tight">
+              <div className="flex items-center justify-between pb-4 mb-2 border-b border-white/[0.08]">
+                <h3 className="font-sans font-semibold text-base sm:text-lg text-white tracking-tight">
                   운영 및 정산 관리
                 </h3>
               </div>
 
-              <div className="divide-y divide-white/5">
+              <div className="divide-y divide-white/[0.06]">
                 {/* Item 1: Product Manager */}
                 <button
                   type="button"
@@ -213,7 +212,7 @@ export function PosHubHome({
                   <div className="flex items-start space-x-3.5 min-w-0 pr-3">
                     <Boxes className="w-5 h-5 text-surface-dim group-hover:text-white mt-0.5 shrink-0 transition-colors" strokeWidth={1.5} />
                     <div className="min-w-0">
-                      <div className="text-sm sm:text-base font-bold text-white group-hover:text-secondary-container transition-colors">
+                      <div className="text-sm sm:text-base font-semibold text-white group-hover:text-secondary-container transition-colors">
                         상품 및 재고 관리
                       </div>
                       <p className="text-xs text-surface-dim mt-0.5 truncate">
@@ -221,7 +220,7 @@ export function PosHubHome({
                       </p>
                     </div>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-surface-dim group-hover:text-white group-hover:translate-x-1 transition-all shrink-0" />
+                  <ArrowRight className="w-4 h-4 text-surface-dim group-hover:text-white group-hover:translate-x-1 transition-[color,transform] shrink-0" />
                 </button>
 
                 {/* Item 2: Sales History */}
@@ -233,7 +232,7 @@ export function PosHubHome({
                   <div className="flex items-start space-x-3.5 min-w-0 pr-3">
                     <ReceiptText className="w-5 h-5 text-surface-dim group-hover:text-white mt-0.5 shrink-0 transition-colors" strokeWidth={1.5} />
                     <div className="min-w-0">
-                      <div className="text-sm sm:text-base font-bold text-white group-hover:text-secondary-container transition-colors">
+                      <div className="text-sm sm:text-base font-semibold text-white group-hover:text-secondary-container transition-colors">
                         매출 내역 및 영수증
                       </div>
                       <p className="text-xs text-surface-dim mt-0.5 truncate">
@@ -241,7 +240,7 @@ export function PosHubHome({
                       </p>
                     </div>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-surface-dim group-hover:text-white group-hover:translate-x-1 transition-all shrink-0" />
+                  <ArrowRight className="w-4 h-4 text-surface-dim group-hover:text-white group-hover:translate-x-1 transition-[color,transform] shrink-0" />
                 </button>
 
                 {/* Item 3: Shift Settlement */}
@@ -253,7 +252,7 @@ export function PosHubHome({
                   <div className="flex items-start space-x-3.5 min-w-0 pr-3">
                     <Calculator className="w-5 h-5 text-surface-dim group-hover:text-white mt-0.5 shrink-0 transition-colors" strokeWidth={1.5} />
                     <div className="min-w-0">
-                      <div className="text-sm sm:text-base font-bold text-white group-hover:text-secondary-container transition-colors">
+                      <div className="text-sm sm:text-base font-semibold text-white group-hover:text-secondary-container transition-colors">
                         일일 마감 정산 및 시재
                       </div>
                       <p className="text-xs text-surface-dim mt-0.5 truncate">
@@ -261,19 +260,19 @@ export function PosHubHome({
                       </p>
                     </div>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-surface-dim group-hover:text-white group-hover:translate-x-1 transition-all shrink-0" />
+                  <ArrowRight className="w-4 h-4 text-surface-dim group-hover:text-white group-hover:translate-x-1 transition-[color,transform] shrink-0" />
                 </button>
               </div>
             </div>
           </motion.div>
         </div>
 
-        {/* Section 3: Bottom Unboxed Live Telemetry Strip */}
+        {/* Section 3: Bottom Unboxed Live Summary Strip */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.24, delay: 0.09, ease: EASE_OUT_EXPO }}
-          className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8 pt-8 border-t border-white/10"
+          className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8 pt-8 border-t border-white/[0.08]"
         >
           <div className="space-y-1">
             <span className="text-[11px] text-surface-dim block">당일 매출 ({todayOrdersCount}건)</span>
@@ -286,7 +285,7 @@ export function PosHubHome({
             </div>
           </div>
 
-          <div className="space-y-1 sm:border-l sm:border-white/10 sm:pl-6">
+          <div className="space-y-1 sm:border-l sm:border-white/[0.08] sm:pl-6">
             <span className="text-[11px] text-surface-dim block">당일 판매 수량</span>
             <div className="text-lg sm:text-2xl font-bold text-white font-mono tabular-nums tracking-tight">
               {todayTotalSoldCount.toLocaleString()}
@@ -297,7 +296,7 @@ export function PosHubHome({
             </div>
           </div>
 
-          <div className="space-y-1 sm:border-l sm:border-white/10 sm:pl-6">
+          <div className="space-y-1 sm:border-l sm:border-white/[0.08] sm:pl-6">
             <span className="text-[11px] text-surface-dim block">정상 판매 품목</span>
             <div className="text-lg sm:text-2xl font-bold text-white font-mono tabular-nums tracking-tight">
               {inStockCount}
@@ -308,10 +307,10 @@ export function PosHubHome({
             </div>
           </div>
 
-          <div className="space-y-1 sm:border-l sm:border-white/10 sm:pl-6">
+          <div className="space-y-1 sm:border-l sm:border-white/[0.08] sm:pl-6">
             <span className="text-[11px] text-surface-dim block">당일 할인 적용</span>
-            <div className="text-lg sm:text-2xl font-bold text-white font-mono tabular-nums tracking-tight">
-              {todayDiscountTotal.toLocaleString()}
+            <div className={`text-lg sm:text-2xl font-bold font-mono tabular-nums tracking-tight ${todayDiscountTotal > 0 ? 'text-amber-300' : 'text-white'}`}>
+              {todayDiscountTotal > 0 ? `-${todayDiscountTotal.toLocaleString()}` : '0'}
               <span className="text-xs font-normal text-surface-dim ml-0.5">원</span>
             </div>
             <div className="text-[11px] text-surface-dim/70">

@@ -1379,7 +1379,7 @@ export function PosPage() {
           {/* Bottom Cart Mode (스마트폰 및 탭/태블릿 세로 모드): Floating Bottom Cart Bar */}
           {!isSplitLayout && (
             <div
-              className={`fixed bottom-0 inset-x-0 z-40 bg-[#0a1120]/95 backdrop-blur-xl border-t border-white/10 px-4 sm:px-6 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4 shadow-2xl transition-all select-none ${
+              className={`fixed bottom-0 inset-x-0 z-40 bg-[#0a1120]/95 backdrop-blur-xl border-t border-white/10 px-4 sm:px-6 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4 shadow-2xl transition-[opacity,transform] duration-200 select-none ${
                 isMobileCartOpen ? 'pointer-events-none opacity-0 translate-y-full' : 'opacity-100 translate-y-0'
               }`}
             >
@@ -1421,7 +1421,7 @@ export function PosPage() {
                             : `선택 품목 ${totalCartCount}개`
                           : '장바구니가 비어 있습니다'}
                       </div>
-                      <div className="text-base sm:text-lg font-black text-white font-mono tabular-nums tracking-tight">
+                      <div className="text-base sm:text-lg font-bold text-white font-mono tabular-nums tracking-tight">
                         <motion.span
                           key={payableCartAmount}
                           initial={totalCartCount > 0 ? { scale: 1.06 } : false}
@@ -1441,7 +1441,7 @@ export function PosPage() {
                     type="button"
                     id="btn-open-mobile-cart"
                     onClick={() => setIsMobileCartOpen(true)}
-                    className={`flex items-center justify-center space-x-1.5 sm:space-x-2 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 ${
+                    className={`flex items-center justify-center space-x-1.5 sm:space-x-2 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-[background-color,color,transform] cursor-pointer shrink-0 ${
                       totalCartCount > 0
                         ? 'bg-secondary hover:bg-secondary/90 active:scale-[0.98] text-white'
                         : 'bg-white/5 hover:bg-white/10 active:scale-[0.98] text-surface-dim border border-white/10'
@@ -1500,7 +1500,7 @@ export function PosPage() {
                           type="button"
                           id="btn-close-mobile-cart-sheet"
                           onClick={() => setIsMobileCartOpen(false)}
-                          className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 text-surface-dim hover:text-white text-xs font-bold transition-all border border-white/10 cursor-pointer"
+                          className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 text-surface-dim hover:text-white text-xs font-bold transition-[background-color,color,transform] border border-white/10 cursor-pointer"
                         >
                           <ChevronDown className="w-4 h-4" />
                           <span>접기</span>
@@ -1580,7 +1580,7 @@ export function PosPage() {
                 <button
                   type="button"
                   onClick={handleConfirmEndShift}
-                  className="py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition-all active:scale-[0.98] cursor-pointer"
+                  className="py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition-[background-color,transform] active:scale-[0.98] cursor-pointer"
                 >
                   영업 종료
                 </button>
